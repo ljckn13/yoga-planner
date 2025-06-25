@@ -21,7 +21,6 @@ import {
 import 'tldraw/tldraw.css';
 import { YogaPoseShapeUtil, YogaPoseTool, YogaPoseSvgShapeUtil } from '../shapes';
 import { YogaPosePanel } from './YogaPosePanel';
-import { AccountMenu } from './AccountMenu';
 import { getPoseState } from '../utils/pose-state';
 import { yogaCategories } from '../assets/yoga-flows';
 import { useCloudSync } from '../hooks/useCloudSync';
@@ -729,12 +728,6 @@ export const FlowPlanner: React.FC = () => {
 
   return (
     <CanvasContext.Provider value={canvasContextValue}>
-      {/* Account Menu Modal */}
-      <AccountMenu 
-        isOpen={isAccountMenuOpen} 
-        onClose={() => setIsAccountMenuOpen(false)} 
-      />
-
       <div 
         className="tldraw__editor h-screen w-screen"
         style={{
@@ -813,9 +806,9 @@ export const FlowPlanner: React.FC = () => {
                   padding: '6px 12px',
                   backgroundColor: currentCanvasId === canvas.id 
                     ? 'hsl(0 0% 94%)'
-                    : 'transparent',
+                    : 'hsl(0 0% 98%)',
                   color: 'var(--color-text)',
-                  border: 'none',
+                  border: '1px solid var(--color-panel-contrast)',
                   borderRadius: '8px',
                   fontSize: '12px',
                   fontWeight: '500',
@@ -836,7 +829,7 @@ export const FlowPlanner: React.FC = () => {
                 }}
                 onMouseLeave={(e) => {
                   if (currentCanvasId !== canvas.id) {
-                    e.currentTarget.style.backgroundColor = 'transparent';
+                    e.currentTarget.style.backgroundColor = 'hsl(0 0% 98%)';
                   }
                 }}
                 title={canvas.title}
@@ -846,42 +839,220 @@ export const FlowPlanner: React.FC = () => {
             ))}
           </div>
 
-          {/* Profile Button - At bottom */}
+          {/* Account Settings Button - Expandable */}
           {_user && (
-            <button
-              onClick={() => {
-                console.log('Profile button clicked')
-                setIsAccountMenuOpen(true)
-              }}
-              style={{
-                width: '100%',
-                padding: '6px 12px',
-                backgroundColor: 'hsl(0 0% 98%)',
-                color: 'var(--color-text)',
-                border: '1px solid var(--color-panel-contrast)',
-                borderRadius: '8px',
-                fontSize: '12px',
-                fontWeight: '500',
-                textAlign: 'left',
-                cursor: 'pointer',
-                transition: 'all 0.1s ease',
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                height: '40px',
-                display: 'flex',
-                alignItems: 'center'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = 'hsl(0 0% 96.1%)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = 'hsl(0 0% 98%)';
-              }}
-              title="User Profile"
-            >
-              👤 Profile
-            </button>
+            <div style={{ 
+              width: '100%'
+            }}>
+              <button
+                onClick={() => {
+                  console.log('Account Settings button clicked')
+                  setIsAccountMenuOpen(!isAccountMenuOpen)
+                }}
+                style={{
+                  width: '100%',
+                  padding: '6px 12px',
+                  backgroundColor: 'hsl(0 0% 98%)',
+                  color: 'var(--color-text)',
+                  border: '1px solid var(--color-panel-contrast)',
+                  borderRadius: isAccountMenuOpen ? '8px 8px 0 0' : '8px',
+                  fontSize: '12px',
+                  fontWeight: '500',
+                  textAlign: 'left',
+                  cursor: 'pointer',
+                  transition: 'all 0.1s ease',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  height: '40px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between'
+                }}
+                onMouseEnter={(e) => {
+                  if (!isAccountMenuOpen) {
+                    e.currentTarget.style.backgroundColor = 'hsl(0 0% 96.1%)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!isAccountMenuOpen) {
+                    e.currentTarget.style.backgroundColor = 'hsl(0 0% 98%)';
+                  }
+                }}
+                title="Account Settings"
+              >
+                <span>⚙️ Account Settings</span>
+                <svg 
+                  width="12" 
+                  height="12" 
+                  viewBox="0 0 24 24" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  strokeWidth="2" 
+                  strokeLinecap="round" 
+                  strokeLinejoin="round"
+                  style={{
+                    transform: isAccountMenuOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                    transition: 'transform 0.2s ease'
+                  }}
+                >
+                  <polyline points="6,9 12,15 18,9"></polyline>
+                </svg>
+              </button>
+              
+              {/* Expandable Account Settings Content */}
+              <div
+                style={{
+                  width: '100%',
+                  maxHeight: isAccountMenuOpen ? '400px' : '0px',
+                  overflow: 'hidden',
+                  transition: 'max-height 0.3s ease, opacity 0.3s ease',
+                  opacity: isAccountMenuOpen ? 1 : 0,
+                  backgroundColor: 'hsl(0 0% 98%)',
+                  border: '1px solid var(--color-panel-contrast)',
+                  borderTop: 'none',
+                  borderRadius: '0 0 8px 8px'
+                }}
+              >
+                <div style={{ padding: '16px' }}>
+                  {/* Email (read-only) */}
+                  <div style={{ marginBottom: '12px' }}>
+                    <label 
+                      style={{
+                        display: 'block',
+                        fontSize: '10px',
+                        fontWeight: '500',
+                        color: 'var(--color-text-3)',
+                        marginBottom: '4px'
+                      }}
+                    >
+                      Email
+                    </label>
+                    <input
+                      type="email"
+                      value={_user.email || ''}
+                      disabled
+                      style={{
+                        width: '100%',
+                        padding: '6px 10px',
+                        fontSize: '11px',
+                        backgroundColor: 'hsl(0 0% 96.1%)',
+                        color: '#9ca3af',
+                        border: '1px solid var(--color-divider)',
+                        borderRadius: '6px',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                  </div>
+
+                  {/* Display Name */}
+                  <div style={{ marginBottom: '16px' }}>
+                    <label 
+                      style={{
+                        display: 'block',
+                        fontSize: '10px',
+                        fontWeight: '500',
+                        color: 'var(--color-text-3)',
+                        marginBottom: '4px'
+                      }}
+                    >
+                      Display Name
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Enter display name"
+                      style={{
+                        width: '100%',
+                        padding: '6px 10px',
+                        fontSize: '11px',
+                        backgroundColor: '#ffffff',
+                        color: 'var(--color-text)',
+                        border: '1px solid var(--color-divider)',
+                        borderRadius: '6px',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                  </div>
+
+                  {/* Account Actions */}
+                  <div 
+                    style={{
+                      borderTop: '1px solid var(--color-divider)',
+                      paddingTop: '12px'
+                    }}
+                  >
+                    <button
+                      onClick={async () => {
+                        const result = await signOut();
+                        if (result.error) {
+                          console.error('Sign out error:', result.error);
+                        }
+                        setIsAccountMenuOpen(false);
+                      }}
+                      style={{
+                        width: '100%',
+                        padding: '6px 12px',
+                        fontSize: '11px',
+                        fontWeight: '500',
+                        backgroundColor: 'transparent',
+                        color: 'var(--color-text)',
+                        border: 'none',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        transition: 'all 0.1s ease',
+                        marginBottom: '6px',
+                        height: '32px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = 'hsl(0 0% 96.1%)'
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = 'transparent'
+                      }}
+                    >
+                      Sign Out
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        if (confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
+                          // TODO: Implement account deletion
+                          console.log('Account deletion not implemented yet');
+                          setIsAccountMenuOpen(false);
+                        }
+                      }}
+                      style={{
+                        width: '100%',
+                        padding: '6px 12px',
+                        fontSize: '11px',
+                        fontWeight: '500',
+                        backgroundColor: 'transparent',
+                        color: '#dc2626',
+                        border: 'none',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        transition: 'all 0.1s ease',
+                        height: '32px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = '#fef2f2'
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = 'transparent'
+                      }}
+                    >
+                      Delete Account
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
           )}
         </div>
 
