@@ -37,6 +37,7 @@ export function useAutoSave(
   const [error, setError] = useState<string | null>(null);
   
   const autoSaveTimeoutRef = useRef<number | null>(null);
+  const isOperatingRef = useRef(false); // Flag to prevent infinite loops
   const storageKey = `${STORAGE_KEY_PREFIX}${canvasId}`;
 
   const clearAutoSaveTimeout = useCallback(() => {
@@ -47,7 +48,9 @@ export function useAutoSave(
   }, []);
 
   const saveToStorage = useCallback(async () => {
-    if (!editor) return;
+    if (!editor || isOperatingRef.current) return;
+    
+    isOperatingRef.current = true;
     try {
       setSaveStatus('saving');
       setError(null);
@@ -63,11 +66,15 @@ export function useAutoSave(
       const errorMessage = err instanceof Error ? err.message : 'Save failed';
       setError(errorMessage);
       setSaveStatus('error');
+    } finally {
+      isOperatingRef.current = false;
     }
   }, [editor, serializeCanvas, storageKey]);
 
   const loadFromStorage = useCallback(async () => {
-    if (!editor) return;
+    if (!editor || isOperatingRef.current) return;
+    
+    isOperatingRef.current = true;
     try {
       const savedData = localStorage.getItem(storageKey);
       if (!savedData) return;
@@ -88,6 +95,8 @@ export function useAutoSave(
       setError(errorMessage);
       setSaveStatus('error');
       localStorage.removeItem(storageKey);
+    } finally {
+      isOperatingRef.current = false;
     }
   }, [editor, deserializeCanvas, storageKey]);
 
@@ -106,7 +115,11 @@ export function useAutoSave(
 
   useEffect(() => {
     if (!editor || !enableAutoSave) return;
+    
     const handleCanvasChange = () => {
+      // Don't trigger auto-save if we're in the middle of a save/load operation
+      if (isOperatingRef.current) return;
+      
       setHasUnsavedChanges(true);
       setSaveStatus('unsaved');
       clearAutoSaveTimeout();
@@ -114,20 +127,29 @@ export function useAutoSave(
         saveToStorage();
       }, autoSaveDelay);
     };
+    
     const unsubscribe = editor.store.listen(() => {
       handleCanvasChange();
     });
+    
     return () => {
       unsubscribe();
       clearAutoSaveTimeout();
     };
-  }, [editor, enableAutoSave, autoSaveDelay, clearAutoSaveTimeout, saveToStorage]);
+  }, [editor, enableAutoSave, autoSaveDelay, clearAutoSaveTimeout]);
 
   useEffect(() => {
     if (editor) {
       loadFromStorage();
     }
-  }, [editor, loadFromStorage]);
+  }, [editor]);
+
+  // Load canvas state when canvasId changes
+  useEffect(() => {
+    if (editor && canvasId) {
+      loadFromStorage();
+    }
+  }, [editor, canvasId, loadFromStorage]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {

@@ -28,3 +28,28 @@
 [data-testid="tool-lock"] {
   display: none !important;
 }
+
+/* Ensure page menu title uses system font */
+.tlui-page-menu__header__title {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+}
+
+/* Ensure tldraw native UI elements use system font */
+.tlui-navigation-panel,
+.tlui-navigation-panel *,
+.tlui-panel,
+.tlui-panel *,
+.tlui-menu,
+.tlui-menu *,
+.tlui-button,
+.tlui-button *,
+.tlui-text,
+.tlui-label,
+.tlui-input,
+.tlui-select,
+.tlui-checkbox,
+.tlui-radio {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+}

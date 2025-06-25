@@ -1,4 +1,4 @@
-import React, { useLayoutEffect, useRef } from 'react';
+import React, { useLayoutEffect, useRef, useMemo, useCallback, createContext, useContext } from 'react';
 import {
   Tldraw,
   TldrawUiMenuItem,
@@ -22,9 +22,30 @@ import 'tldraw/tldraw.css';
 import { YogaPoseShapeUtil, YogaPoseTool, YogaPoseSvgShapeUtil } from '../shapes';
 import { YogaPosePanel } from './YogaPosePanel';
 import { getPoseState } from '../utils/pose-state';
-import { useAutoSave } from '../hooks/useAutoSave';
 import { useCanvasManager } from '../hooks/useCanvasManager';
 import { yogaCategories } from '../assets/yoga-flows';
+import { YogaPosePanelOverlay } from './YogaPosePanelOverlay';
+import { CategoryMenu } from './CategoryMenu';
+import { useAutoSave } from '../hooks/useAutoSave';
+
+// Canvas context to share state between components
+interface CanvasContextType {
+  canvases: Array<{id: string, title: string}>;
+  currentCanvasId: string;
+  setCanvases: React.Dispatch<React.SetStateAction<Array<{id: string, title: string}>>>;
+  setCurrentCanvasId: React.Dispatch<React.SetStateAction<string>>;
+}
+
+const CanvasContext = createContext<CanvasContextType | null>(null);
+
+// Hook to use canvas context
+function useCanvasContext() {
+  const context = useContext(CanvasContext);
+  if (!context) {
+    throw new Error('useCanvasContext must be used within a CanvasProvider');
+  }
+  return context;
+}
 
 // Custom grid component with subtle dots
 const CustomGrid = ({ size, ...camera }: any) => {
@@ -82,6 +103,7 @@ const CustomGrid = ({ size, ...camera }: any) => {
 // Custom hook to track current canvas title
 function useCurrentCanvasTitle(editor: Editor | null) {
   const [canvasTitle, setCanvasTitle] = React.useState('Untitled Canvas');
+  const { currentCanvasId } = useCanvasContext();
   
   React.useEffect(() => {
     if (!editor) return;
@@ -91,16 +113,11 @@ function useCurrentCanvasTitle(editor: Editor | null) {
         const canvasList = localStorage.getItem('yoga_flow_canvas_list');
         if (canvasList) {
           const canvases = JSON.parse(canvasList);
-          // Find the current canvas by checking which one has the most recent lastModified
-          const currentCanvas = canvases.reduce((latest: any, current: any) => {
-            if (!latest) return current;
-            const latestDate = new Date(latest.metadata.lastModified);
-            const currentDate = new Date(current.metadata.lastModified);
-            return currentDate > latestDate ? current : latest;
-          }, null);
+          // Find the current canvas by currentCanvasId
+          const currentCanvas = canvases.find((canvas: any) => canvas.id === currentCanvasId);
           
-          if (currentCanvas?.metadata?.title) {
-            setCanvasTitle(currentCanvas.metadata.title);
+          if (currentCanvas?.title) {
+            setCanvasTitle(currentCanvas.title);
           } else {
             setCanvasTitle('Untitled Canvas');
           }
@@ -130,7 +147,7 @@ function useCurrentCanvasTitle(editor: Editor | null) {
       clearInterval(interval);
       window.removeEventListener('storage', handleStorageChange);
     };
-  }, [editor]);
+  }, [editor, currentCanvasId]); // Add currentCanvasId to dependencies
   
   return canvasTitle;
 }
@@ -144,7 +161,16 @@ function CustomPageMenu() {
   return (
     <div className="tlui-page-menu">
       <div className="tlui-page-menu__header">
-        <div className="tlui-page-menu__header__title">
+        <div 
+          className="tlui-page-menu__header__title tlui-text"
+          style={{
+            width: '200px',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            fontFamily: 'inherit'
+          }}
+        >
           {canvasTitle}
         </div>
       </div>
@@ -155,64 +181,63 @@ function CustomPageMenu() {
 // Custom main menu with canvas management
 function CustomMainMenu() {
   const editor = useEditor();
-  const {
-    canvases,
-    currentCanvas,
-    createCanvas,
-    updateCanvas,
-    deleteCanvas,
-    switchCanvas,
-  } = useCanvasManager(editor, {
-    defaultCanvasTitle: 'Yoga Flow',
-    autoCreateDefault: true,
-  });
+  const { canvases, currentCanvasId, setCanvases, setCurrentCanvasId } = useCanvasContext();
 
   const handleCreateCanvas = async () => {
-    const title = prompt('Enter canvas title:') || undefined;
-    if (title) {
-      try {
-        await createCanvas(title);
-      } catch (err) {
-        console.error('Failed to create canvas:', err);
-      }
-    }
+    const title = prompt('Enter canvas title:') || 'Untitled Canvas';
+    const newCanvas = {
+      id: `canvas_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      title: title.trim()
+    };
+    console.log('Creating new canvas:', newCanvas);
+    setCanvases(prev => {
+      const updated = [...prev, newCanvas];
+      console.log('Updated canvases after create:', updated);
+      return updated;
+    });
+    setCurrentCanvasId(newCanvas.id);
   };
 
   const handleRenameCanvas = async () => {
+    const currentCanvas = canvases.find(c => c.id === currentCanvasId);
     if (!currentCanvas) return;
-    const newTitle = prompt('Enter new title:', currentCanvas.metadata.title);
-    if (newTitle && newTitle.trim() && newTitle !== currentCanvas.metadata.title) {
-      try {
-        await updateCanvas(currentCanvas.metadata.id, { title: newTitle.trim() });
-      } catch (err) {
-        console.error('Failed to rename canvas:', err);
-      }
+    
+    const newTitle = prompt('Enter new title:', currentCanvas.title);
+    if (newTitle && newTitle.trim() && newTitle !== currentCanvas.title) {
+      console.log('Renaming canvas from', currentCanvas.title, 'to', newTitle.trim());
+      setCanvases(prev => {
+        const updated = prev.map(c => 
+          c.id === currentCanvasId 
+            ? { ...c, title: newTitle.trim() }
+            : c
+        );
+        console.log('Updated canvases after rename:', updated);
+        return updated;
+      });
     }
   };
 
   const handleDeleteCanvas = async () => {
-    if (!currentCanvas || canvases.length <= 1) {
+    if (canvases.length <= 1) {
       alert('Cannot delete the last canvas. Create a new one first.');
       return;
     }
     
-    if (confirm(`Are you sure you want to delete "${currentCanvas.metadata.title}"?`)) {
-      try {
-        await deleteCanvas(currentCanvas.metadata.id);
-      } catch (err) {
-        console.error('Failed to delete canvas:', err);
-      }
+    const currentCanvas = canvases.find(c => c.id === currentCanvasId);
+    if (!currentCanvas) return;
+    
+    if (confirm(`Are you sure you want to delete "${currentCanvas.title}"?`)) {
+      console.log('Deleting canvas:', currentCanvas);
+      const newCanvases = canvases.filter(c => c.id !== currentCanvasId);
+      console.log('Updated canvases after delete:', newCanvases);
+      setCanvases(newCanvases);
+      setCurrentCanvasId(newCanvases[0].id);
     }
   };
 
   const handleSwitchCanvas = async (canvasId: string) => {
-    if (currentCanvas?.metadata.id === canvasId) return;
-    
-    try {
-      await switchCanvas(canvasId);
-    } catch (err) {
-      console.error('Failed to switch canvas:', err);
-    }
+    console.log('Switching to canvas:', canvasId);
+    setCurrentCanvasId(canvasId);
   };
 
   return (
@@ -232,16 +257,16 @@ function CustomMainMenu() {
           >
             {canvases.map((canvas) => (
               <TldrawUiMenuItem
-                key={canvas.metadata.id}
-                id={`switch-to-${canvas.metadata.id}`}
-                label={canvas.metadata.title}
-                icon={currentCanvas?.metadata.id === canvas.metadata.id ? "check" : "blank"}
-                onSelect={() => handleSwitchCanvas(canvas.metadata.id)}
+                key={canvas.id}
+                id={`switch-to-${canvas.id}`}
+                label={canvas.title}
+                icon={currentCanvasId === canvas.id ? "check" : "blank"}
+                onSelect={() => handleSwitchCanvas(canvas.id)}
               />
             ))}
           </TldrawUiMenuSubmenu>
         )}
-        {currentCanvas && (
+        {canvases.length > 0 && (
           <>
             <TldrawUiMenuItem
               id="rename-canvas"
@@ -273,14 +298,14 @@ const uiOverrides: TLUiOverrides = {
       select: tools.select,
       text: tools.text,
       yogaPose: {
-        id: 'yoga-pose-tool',
-        icon: 'yoga-icon',
-        label: 'Yoga Pose',
-        kbd: 'y',
-        onSelect: () => {
-          editor.setCurrentTool('yoga-pose-tool')
-        },
-      }
+      id: 'yoga-pose-tool',
+      icon: 'yoga-icon',
+      label: 'Yoga Pose',
+      kbd: 'y',
+      onSelect: () => {
+        editor.setCurrentTool('yoga-pose-tool')
+      },
+    }
     }
     
     // Add other tools only if they exist
@@ -324,10 +349,7 @@ const createComponents = (): TLComponents => ({
               zIndex: 9999,
               maxHeight: '300px',
               overflow: 'hidden',
-              pointerEvents: 'auto',
-              boxShadow: '0px 0px 2px hsl(0, 0%, 0%, 16%), 0px 2px 3px hsl(0, 0%, 0%, 24%), 0px 2px 6px hsl(0, 0%, 0%, 0.1), inset 0px 0px 0px 1px hsl(0, 0%, 100%)',
-              borderRadius: '11px',
-              padding: '2px'
+              pointerEvents: 'auto'
             }}
             onMouseDown={(e) => {
               e.preventDefault();
@@ -346,11 +368,11 @@ const createComponents = (): TLComponents => ({
               e.stopPropagation();
             }}
           >
-            <YogaPosePanel 
-              onPoseSelect={(pose) => {
-                getPoseState().setSelectedPose(pose);
-              }}
-              selectedPose={getPoseState().selectedPose}
+          <YogaPosePanel 
+            onPoseSelect={(pose) => {
+              getPoseState().setSelectedPose(pose);
+            }}
+            selectedPose={getPoseState().selectedPose}
               activeCategory={activeCategory}
               onCategoryChange={setActiveCategory}
             />
@@ -361,7 +383,7 @@ const createComponents = (): TLComponents => ({
           width: '440px',
           '--tlui-toolbar-width': '440px',
           position: 'fixed',
-          bottom: '0px', // No gap from bottom
+          bottom: '8px', // 8px gap from bottom
           left: '50%',
           transform: 'translateX(-50%)',
           zIndex: 1000
@@ -536,59 +558,142 @@ const customTools = [YogaPoseTool]
 const customShapeUtils = [YogaPoseShapeUtil, YogaPoseSvgShapeUtil]
 
 export const FlowPlanner: React.FC = () => {
-  const components = createComponents();
-  
-  // Add auto-save functionality
-  const AutoSaveIndicator = () => {
+  // Simple state for canvas list - shared between menu and left panel
+  const [canvases, setCanvases] = React.useState<Array<{id: string, title: string}>>([]);
+  const [currentCanvasId, setCurrentCanvasId] = React.useState<string>('');
+  const [isInitialized, setIsInitialized] = React.useState(false);
+
+  // Load canvases from localStorage on mount
+  React.useEffect(() => {
+    console.log('Loading canvases from localStorage...');
+    const savedCanvases = localStorage.getItem('yoga_flow_canvas_list');
+    console.log('Saved canvases:', savedCanvases);
+    
+    if (savedCanvases) {
+      try {
+        const parsed = JSON.parse(savedCanvases);
+        console.log('Parsed canvases:', parsed);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setCanvases(parsed);
+          // Set current canvas to the first one, or the last one that was active
+          const lastActiveCanvas = localStorage.getItem('yoga_flow_current_canvas');
+          console.log('Last active canvas:', lastActiveCanvas);
+          if (lastActiveCanvas && parsed.find(c => c.id === lastActiveCanvas)) {
+            setCurrentCanvasId(lastActiveCanvas);
+          } else {
+            setCurrentCanvasId(parsed[0].id);
+          }
+        } else {
+          // No valid saved canvases, create default
+          const defaultCanvases = [{ id: 'default', title: 'Yoga Flow' }];
+          setCanvases(defaultCanvases);
+          setCurrentCanvasId('default');
+        }
+      } catch (err) {
+        console.error('Error loading canvases:', err);
+        // Error loading, create default
+        const defaultCanvases = [{ id: 'default', title: 'Yoga Flow' }];
+        setCanvases(defaultCanvases);
+        setCurrentCanvasId('default');
+      }
+    } else {
+      // No saved data, create default
+      const defaultCanvases = [{ id: 'default', title: 'Yoga Flow' }];
+      setCanvases(defaultCanvases);
+      setCurrentCanvasId('default');
+    }
+    
+    setIsInitialized(true);
+  }, []);
+
+  // Save canvases to localStorage whenever they change (but only after initialization)
+  React.useEffect(() => {
+    if (isInitialized) {
+      console.log('Saving canvases to localStorage:', canvases);
+      localStorage.setItem('yoga_flow_canvas_list', JSON.stringify(canvases));
+    }
+  }, [canvases, isInitialized]);
+
+  // Save current canvas ID whenever it changes (but only after initialization)
+  React.useEffect(() => {
+    if (isInitialized) {
+      console.log('Saving current canvas ID:', currentCanvasId);
+      localStorage.setItem('yoga_flow_current_canvas', currentCanvasId);
+    }
+  }, [currentCanvasId, isInitialized]);
+
+  // Simple canvas manager without complex hooks
+  const SimpleCanvasManager = () => {
     const editor = useEditor();
-    const { saveStatus, lastSaved, manualSave, clearSavedState } = useAutoSave(editor, {
-      canvasId: 'main-canvas',
-      autoSaveDelay: 0, // Instant save (was 2000ms)
+    
+    // Simple auto-save without complex state management
+    const { saveStatus, lastSaved, manualSave } = useAutoSave(editor, {
+      canvasId: currentCanvasId,
+      autoSaveDelay: 200, // Reduced from 1000ms to 200ms for faster saving
       enableAutoSave: true,
     });
 
-    const getStatusColor = () => {
-      switch (saveStatus) {
-        case 'saved': return 'text-green-600';
-        case 'saving': return 'text-blue-600';
-        case 'error': return 'text-red-600';
-        case 'unsaved': return 'text-yellow-600';
-        default: return 'text-gray-600';
+    // Function to switch canvas and load its state
+    const switchCanvas = React.useCallback(async (canvasId: string) => {
+      if (canvasId === currentCanvasId) return;
+      
+      try {
+        // Save current canvas state before switching
+        await manualSave();
+        
+        // Switch to new canvas
+        setCurrentCanvasId(canvasId);
+        
+        // The auto-save system will automatically load the new canvas state
+        // because it uses the canvasId in its configuration
+      } catch (err) {
+        console.error('Error switching canvas:', err);
       }
-    };
+    }, [currentCanvasId, manualSave]);
 
-    const getStatusText = () => {
-      switch (saveStatus) {
-        case 'saved': return 'Saved';
-        case 'saving': return 'Saving...';
-        case 'error': return 'Error';
-        case 'unsaved': return 'Unsaved';
-        default: return 'Unknown';
-      }
-    };
+    // Auto-save indicator
+    const AutoSaveIndicator = () => {
+      const getStatusColor = () => {
+        switch (saveStatus) {
+          case 'saved': return 'text-green-600';
+          case 'saving': return 'text-blue-600';
+          case 'error': return 'text-red-600';
+          case 'unsaved': return 'text-yellow-600';
+          default: return 'text-gray-600';
+        }
+      };
 
-    return (
-      <div className="fixed top-4 left-4 bg-white border border-gray-200 rounded-lg shadow-lg p-3 z-50">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <div className={`w-2 h-2 rounded-full ${
-              saveStatus === 'saved' ? 'bg-green-500' :
-              saveStatus === 'saving' ? 'bg-blue-500' :
-              saveStatus === 'error' ? 'bg-red-500' :
-              'bg-yellow-500'
-            }`} />
-            <span className={`text-sm font-medium ${getStatusColor()}`}>
-              {getStatusText()}
-            </span>
-          </div>
-          
-          {lastSaved && (
-            <span className="text-xs text-gray-500">
-              {lastSaved.toLocaleTimeString()}
-            </span>
-          )}
-          
-          <div className="flex gap-1">
+      const getStatusText = () => {
+        switch (saveStatus) {
+          case 'saved': return 'Saved';
+          case 'saving': return 'Saving...';
+          case 'error': return 'Error';
+          case 'unsaved': return 'Unsaved';
+          default: return 'Unknown';
+        }
+      };
+
+      return (
+        <div className="fixed top-4 left-4 bg-white border border-gray-200 rounded-lg shadow-lg p-3 z-50">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <div className={`w-2 h-2 rounded-full ${
+                saveStatus === 'saved' ? 'bg-green-500' :
+                saveStatus === 'saving' ? 'bg-blue-500' :
+                saveStatus === 'error' ? 'bg-red-500' :
+                'bg-yellow-500'
+              }`} />
+              <span className={`text-sm font-medium ${getStatusColor()}`}>
+                {getStatusText()}
+              </span>
+            </div>
+            
+            {lastSaved && (
+              <span className="text-xs text-gray-500">
+                {lastSaved.toLocaleTimeString()}
+              </span>
+            )}
+            
             <button
               onClick={manualSave}
               disabled={saveStatus === 'saving'}
@@ -597,259 +702,146 @@ export const FlowPlanner: React.FC = () => {
             >
               Save
             </button>
-            <button
-              onClick={clearSavedState}
-              className="px-2 py-1 text-xs bg-gray-500 text-white rounded hover:bg-gray-600"
-              title="Clear saved state"
-            >
-              Clear
-            </button>
           </div>
         </div>
-      </div>
-    );
+      );
+    };
+
+    return <AutoSaveIndicator />;
+  };
+
+  const handleMount = (mountedEditor: Editor) => {
+    mountedEditor.updateInstanceState({ isGridMode: true });
+    
+    // Ensure only one page per canvas - remove extra pages
+    const pages = mountedEditor.getPages();
+    if (pages.length > 1) {
+      const currentPageId = mountedEditor.getCurrentPageId();
+      pages.forEach(page => {
+        if (page.id !== currentPageId) {
+          mountedEditor.deletePage(page.id);
+        }
+      });
+    }
+  };
+
+  const components = createComponents();
+
+  // Canvas context value
+  const canvasContextValue: CanvasContextType = {
+    canvases,
+    currentCanvasId,
+    setCanvases,
+    setCurrentCanvasId,
   };
 
   return (
-    <div className="tldraw__editor h-screen w-screen">
-      <Tldraw
-        // Pass in the array of custom tool classes
-        tools={customTools}
-        // Pass in custom shape utilities
-        shapeUtils={customShapeUtils}
-        // Pass in our ui overrides
-        overrides={uiOverrides}
-        // Pass in our custom components
-        components={{
-          ...components,
-          // You can add a custom UI slot here if needed
-        }}
-        // Pass in our custom asset urls
-        assetUrls={customAssetUrls}
-        // Enable built-in grid
-        onMount={(editor) => {
-          editor.updateInstanceState({ isGridMode: true });
-          
-          // Ensure only one page per canvas - remove extra pages
-          const pages = editor.getPages();
-          if (pages.length > 1) {
-            const currentPageId = editor.getCurrentPageId();
-            pages.forEach(page => {
-              if (page.id !== currentPageId) {
-                editor.deletePage(page.id);
-              }
-            });
-          }
+    <CanvasContext.Provider value={canvasContextValue}>
+      <div 
+        className="tldraw__editor h-screen w-screen"
+        style={{
+          display: 'flex',
+          width: '100vw',
+          height: '100vh',
+          padding: '40px 40px 40px 8px',
+          backgroundColor: 'var(--color-panel)',
+          gap: '8px',
+          boxSizing: 'border-box'
         }}
       >
-        {/* Place AutoSaveIndicator here so it has access to the editor context */}
-        <AutoSaveIndicator />
-      </Tldraw>
-      <style>
-        {`
-          /* System font override for UI elements only, not text shapes */
-          .tldraw__editor .tlui-panel,
-          .tldraw__editor .tlui-toolbar,
-          .tldraw__editor .tlui-menu,
-          .tldraw__editor .tlui-dialog,
-          .tldraw__editor .tlui-button,
-          .tldraw__editor .tlui-input {
-            font-family: system-ui !important;
-          }
-          
-          /* Completely remove font overrides for text shapes - let tldraw handle fonts naturally */
-          
-          /* Alternative: Use a specific font like Inter */
-          /* .tldraw__editor,
-          .tldraw__editor * {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
-          } */
-          
-          /* Alternative: Use a more modern font stack */
-          /* .tldraw__editor,
-          .tldraw__editor * {
-            font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif !important;
-          } */
+        {/* Canvas Title Menu - Left Side */}
+        <div 
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'flex-start',
+            alignItems: 'flex-start',
+            minWidth: '200px',
+            maxWidth: '200px',
+            padding: '0',
+            backgroundColor: 'transparent',
+            border: 'none',
+            gap: '8px'
+          }}
+        >
+          {canvases.map((canvas) => (
+            <button
+              key={canvas.id}
+              onClick={() => {
+                // Use the switchCanvas function from SimpleCanvasManager
+                // For now, just set the current canvas ID and let auto-save handle the rest
+                setCurrentCanvasId(canvas.id);
+              }}
+              style={{
+                width: '100%',
+                padding: '6px 12px',
+                backgroundColor: currentCanvasId === canvas.id 
+                  ? 'hsl(0 0% 94%)' // Same as toolbar active state
+                  : 'transparent', // Same as toolbar default state
+                color: 'var(--color-text)', // Same as toolbar
+                border: 'none',
+                borderRadius: '8px', // Same as toolbar
+                fontSize: '12px', // Same as toolbar
+                fontWeight: '500',
+                textAlign: 'left',
+                cursor: 'pointer',
+                transition: 'all 0.1s ease', // Same as toolbar
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                height: '40px', // Same as toolbar
+                display: 'flex',
+                alignItems: 'center'
+              }}
+              onMouseEnter={(e) => {
+                if (currentCanvasId !== canvas.id) {
+                  e.currentTarget.style.backgroundColor = 'hsl(0 0% 96.1%)'; // Same as toolbar hover
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (currentCanvasId !== canvas.id) {
+                  e.currentTarget.style.backgroundColor = 'transparent'; // Same as toolbar default
+                }
+              }}
+              title={canvas.title}
+            >
+              {canvas.title}
+            </button>
+          ))}
+        </div>
 
-          /* Hide stroke on transparent geo shapes */
-          .tldraw__editor [data-shape-type="geo"][data-fill="none"] {
-            stroke: none !important;
-            stroke-width: 0 !important;
-          }
-          
-          /* Hide Fill, Dash, and Size options in style panel */
-          .tlui-style-panel [data-section="fill"],
-          .tlui-style-panel .tlui-style-panel__section[data-section="fill"],
-          .tlui-style-panel .tlui-style-panel__section:has([data-section="fill"]),
-          .tlui-style-panel [data-testid="style.fill"],
-          .tlui-style-panel [data-testid="style.fill.none"],
-          .tlui-style-panel [data-testid="style.fill.solid"],
-          .tlui-style-panel [data-testid="style.fill.pattern"],
-          .tlui-style-panel [data-testid="style.fill.semi"],
-          
-          .tlui-style-panel [data-section="dash"],
-          .tlui-style-panel .tlui-style-panel__section[data-section="dash"],
-          .tlui-style-panel .tlui-style-panel__section:has([data-section="dash"]),
-          .tlui-style-panel [data-testid="style.dash"],
-          .tlui-style-panel [data-testid="style.dash.draw"],
-          .tlui-style-panel [data-testid="style.dash.solid"],
-          .tlui-style-panel [data-testid="style.dash.dashed"],
-          .tlui-style-panel [data-testid="style.dash.dotted"],
-          
-          .tlui-style-panel [data-section="size"],
-          .tlui-style-panel .tlui-style-panel__section[data-section="size"],
-          .tlui-style-panel .tlui-style-panel__section:has([data-section="size"]),
-          .tlui-style-panel [data-testid="style.size"],
-          .tlui-style-panel [data-testid="style.size.s"],
-          .tlui-style-panel [data-testid="style.size.m"],
-          .tlui-style-panel [data-testid="style.size.l"],
-          .tlui-style-panel [data-testid="style.size.xl"] {
-            display: none !important;
-          }
-          
-          /* Alternative selectors for Fill, Dash, Size sections */
-          .tlui-style-panel .tlui-style-panel__section:nth-child(1),
-          .tlui-style-panel .tlui-style-panel__section:nth-child(2),
-          .tlui-style-panel .tlui-style-panel__section:nth-child(3) {
-            display: none !important;
-          }
-          
-          /* Hide divider lines in style panel */
-          .tlui-style-panel .tlui-style-panel__divider,
-          .tlui-style-panel hr,
-          .tlui-style-panel .tlui-divider,
-          .tlui-style-panel [data-testid="style.divider"],
-          .tlui-style-panel .tlui-style-panel__section:has(hr),
-          .tlui-style-panel .tlui-style-panel__section:has(.tlui-divider),
-          .tlui-style-panel .tlui-style-panel__section_common {
-            display: none !important;
-          }
-          
-          /* Global button styling for all tldraw UI - Light mode only */
-          .tlui-button[data-state="selected"]::after,
-          .tlui-button[aria-pressed="true"]::after,
-          .tlui-button.tlui-button__selected::after {
-            background-color: hsl(0 0% 94%) !important;
-          }
-          
-          .tlui-button[data-state="selected"],
-          .tlui-button[aria-pressed="true"],
-          .tlui-button.tlui-button__selected {
-            color: var(--color-text) !important;
-          }
-          
-          /* Hover states to match category buttons */
-          .tlui-button:hover::after {
-            background-color: hsl(0 0% 96.1%) !important;
-          }
-          
-          /* Style panel and other UI buttons */
-          .tlui-style-panel .tlui-button[data-state="selected"]::after,
-          .tlui-style-panel .tlui-button[aria-pressed="true"]::after,
-          .tlui-style-panel .tlui-button.tlui-button__selected::after {
-            background-color: hsl(0 0% 94%) !important;
-          }
-          
-          .tlui-style-panel .tlui-button[data-state="selected"],
-          .tlui-style-panel .tlui-button[aria-pressed="true"],
-          .tlui-style-panel .tlui-button.tlui-button__selected {
-            color: var(--color-text) !important;
-          }
-          
-          .tlui-style-panel .tlui-button:hover::after {
-            background-color: hsl(0 0% 96.1%) !important;
-          }
-          
-          /* Menu items and other UI elements */
-          .tlui-menu .tlui-button[data-state="selected"]::after,
-          .tlui-menu .tlui-button[aria-pressed="true"]::after,
-          .tlui-menu .tlui-button.tlui-button__selected::after {
-            background-color: hsl(0 0% 94%) !important;
-          }
-          
-          .tlui-menu .tlui-button[data-state="selected"],
-          .tlui-menu .tlui-button[aria-pressed="true"],
-          .tlui-menu .tlui-button.tlui-button__selected {
-            color: var(--color-text) !important;
-          }
-          
-          .tlui-menu .tlui-button:hover::after {
-            background-color: hsl(0 0% 96.1%) !important;
-          }
-          
-          /* Any other tldraw UI components */
-          .tlui-panel .tlui-button[data-state="selected"]::after,
-          .tlui-panel .tlui-button[aria-pressed="true"]::after,
-          .tlui-panel .tlui-button.tlui-button__selected::after {
-            background-color: hsl(0 0% 94%) !important;
-          }
-          
-          .tlui-panel .tlui-button[data-state="selected"],
-          .tlui-panel .tlui-button[aria-pressed="true"],
-          .tlui-panel .tlui-button.tlui-button__selected {
-            color: var(--color-text) !important;
-          }
-          
-          .tlui-panel .tlui-button:hover::after {
-            background-color: hsl(0 0% 96.1%) !important;
-          }
-          
-          /* Fix zoom menu positioning */
-          .tlui-zoom-menu {
-            bottom: 8px !important;
-            left: 8px !important;
-          }
-
-          /* Hide page-related UI elements */
-          .tlui-page-menu__header__title {
-            font-weight: 600 !important;
-            color: var(--color-text) !important;
-            font-family: system-ui !important;
-            font-size: 14px !important;
-            line-height: 1.2 !important;
-            max-width: 200px !important;
-            width: fit-content !important;
-            overflow: hidden !important;
-            text-overflow: ellipsis !important;
-            white-space: nowrap !important;
-            display: block !important;
-          }
-          
-          /* Hide any page creation/management UI */
-          .tlui-page-menu__header__actions,
-          .tlui-page-menu__header button[data-testid="page-menu.new-page"],
-          .tlui-page-menu__header button[data-testid="page-menu.duplicate-page"],
-          .tlui-page-menu__header button[data-testid="page-menu.delete-page"] {
-            display: none !important;
-          }
-          
-          /* Hide page list if it appears */
-          .tlui-page-menu__list,
-          .tlui-page-menu__pages {
-            display: none !important;
-          }
-
-          /* Dark mode - completely override all custom styles */
-          .tldraw[data-theme="dark"] .tlui-button[data-state="selected"]::after,
-          .tldraw[data-theme="dark"] .tlui-button[aria-pressed="true"]::after,
-          .tldraw[data-theme="dark"] .tlui-button.tlui-button__selected::after,
-          .tldraw[data-theme="dark"] .tlui-button:hover::after,
-          .tldraw[data-theme="dark"] .tlui-style-panel .tlui-button[data-state="selected"]::after,
-          .tldraw[data-theme="dark"] .tlui-style-panel .tlui-button[aria-pressed="true"]::after,
-          .tldraw[data-theme="dark"] .tlui-style-panel .tlui-button.tlui-button__selected::after,
-          .tldraw[data-theme="dark"] .tlui-style-panel .tlui-button:hover::after,
-          .tldraw[data-theme="dark"] .tlui-menu .tlui-button[data-state="selected"]::after,
-          .tldraw[data-theme="dark"] .tlui-menu .tlui-button[aria-pressed="true"]::after,
-          .tldraw[data-theme="dark"] .tlui-menu .tlui-button.tlui-button__selected::after,
-          .tldraw[data-theme="dark"] .tlui-menu .tlui-button:hover::after,
-          .tldraw[data-theme="dark"] .tlui-panel .tlui-button[data-state="selected"]::after,
-          .tldraw[data-theme="dark"] .tlui-panel .tlui-button[aria-pressed="true"]::after,
-          .tldraw[data-theme="dark"] .tlui-panel .tlui-button.tlui-button__selected::after,
-          .tldraw[data-theme="dark"] .tlui-panel .tlui-button:hover::after {
-            background-color: initial !important;
-          }
-        `}
-      </style>
-    </div>
+        {/* Canvas - Right Side */}
+        <div 
+          style={{
+            flex: '1',
+            backgroundColor: 'var(--color-background)',
+            borderRadius: '12px',
+            overflow: 'hidden',
+            border: '1px solid var(--color-divider)'
+          }}
+        >
+          <Tldraw
+            // Pass in the array of custom tool classes
+            tools={customTools}
+            // Pass in custom shape utilities
+            shapeUtils={customShapeUtils}
+            // Pass in our ui overrides
+            overrides={uiOverrides}
+            // Pass in our custom components
+            components={{
+              ...components,
+              // You can add a custom UI slot here if needed
+            }}
+            // Pass in our custom asset urls
+            assetUrls={customAssetUrls}
+            // Enable built-in grid
+            onMount={handleMount}
+          >
+            {/* Place SimpleCanvasManager here so it has access to the editor context */}
+            <SimpleCanvasManager />
+          </Tldraw>
+        </div>
+      </div>
+    </CanvasContext.Provider>
   );
 };

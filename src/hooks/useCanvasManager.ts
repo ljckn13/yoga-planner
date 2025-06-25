@@ -1,6 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { type Editor, loadSnapshot, getSnapshot } from 'tldraw';
-import { useAutoSave } from './useAutoSave';
 
 export interface CanvasMetadata {
   id: string;
@@ -56,11 +55,6 @@ export function useCanvasManager(
   const [isInitialized, setIsInitialized] = useState(false);
   const defaultCanvasCreatedRef = useRef(false);
 
-  const { saveStatus, hasUnsavedChanges } = useAutoSave(editor, {
-    canvasId: currentCanvasId || 'default',
-    enableAutoSave: !!currentCanvasId,
-  });
-
   const clearError = useCallback(() => {
     setError(null);
   }, []);
@@ -113,27 +107,28 @@ export function useCanvasManager(
     }
   }, [currentCanvasId]);
 
-  // Save canvas list to localStorage
-  const saveCanvasList = useCallback((newCanvases: CanvasListItem[]) => {
-    try {
-      localStorage.setItem(CANVAS_LIST_KEY, JSON.stringify(newCanvases));
-    } catch (err) {
-      console.error('Error saving canvas list:', err);
-      setError('Failed to save canvas list');
-    }
-  }, []);
-
   // Load canvas state from localStorage
   const loadCanvasState = useCallback(async (canvasId: string): Promise<boolean> => {
-    if (!editor) return false;
+    console.log('loadCanvasState called with canvasId:', canvasId);
+    console.log('Editor available:', !!editor);
+    
+    if (!editor) {
+      console.error('No editor available');
+      return false;
+    }
     
     try {
       const storageKey = `${STORAGE_KEY_PREFIX}${canvasId}`;
+      console.log('Looking for storage key:', storageKey);
       const savedData = localStorage.getItem(storageKey);
+      console.log('Saved data found:', !!savedData);
       
       if (savedData) {
         const canvasState = JSON.parse(savedData);
+        console.log('Canvas state parsed, has snapshot:', !!canvasState.snapshot);
+        
         if (canvasState.snapshot) {
+          console.log('Loading snapshot into editor...');
           loadSnapshot(editor.store, canvasState.snapshot);
           editor.updateInstanceState({});
           
@@ -148,10 +143,12 @@ export function useCanvasManager(
             });
           }
           
+          console.log('Canvas state loaded successfully');
           return true;
         }
       }
       
+      console.log('No saved state found, creating blank canvas');
       // If no saved state, create a blank canvas
       const blankState = createBlankCanvasState();
       if (blankState) {
@@ -169,12 +166,14 @@ export function useCanvasManager(
           });
         }
         
+        console.log('Blank canvas state created successfully');
         return true;
       }
       
+      console.error('Failed to create blank canvas state');
       return false;
     } catch (err) {
-      console.error('Error loading canvas state:', err);
+      console.error('Error in loadCanvasState:', err);
       return false;
     }
   }, [editor, createBlankCanvasState]);
@@ -216,13 +215,6 @@ export function useCanvasManager(
         saveStatus: 'saved',
       };
 
-      // Create blank canvas state for the new canvas
-      const blankState = createBlankCanvasState();
-      if (blankState) {
-        const storageKey = `${STORAGE_KEY_PREFIX}${id}`;
-        localStorage.setItem(storageKey, JSON.stringify(blankState));
-      }
-
       const updatedCanvases = [...canvases, newCanvas];
       setCanvases(updatedCanvases);
       
@@ -237,7 +229,7 @@ export function useCanvasManager(
     } finally {
       setIsLoading(false);
     }
-  }, [canvases, defaultCanvasTitle, version, generateThumbnail, createBlankCanvasState]);
+  }, [canvases, defaultCanvasTitle, version, generateThumbnail]);
 
   // Update canvas metadata
   const updateCanvas = useCallback(async (
@@ -279,10 +271,6 @@ export function useCanvasManager(
     setError(null);
 
     try {
-      // Remove canvas data from localStorage
-      const canvasKey = `${STORAGE_KEY_PREFIX}${id}`;
-      localStorage.removeItem(canvasKey);
-
       // Remove from canvas list
       const updatedCanvases = canvases.filter(canvas => canvas.metadata.id !== id);
       setCanvases(updatedCanvases);
@@ -311,15 +299,21 @@ export function useCanvasManager(
 
   // Switch to a different canvas
   const switchCanvas = useCallback(async (id: string): Promise<boolean> => {
+    console.log('switchCanvas called with id:', id);
+    console.log('Current currentCanvasId:', currentCanvasId);
+    console.log('Available canvases:', canvases.map(c => c.metadata.id));
+    
     setIsLoading(true);
     setError(null);
 
     try {
       const targetCanvas = canvases.find(canvas => canvas.metadata.id === id);
       if (!targetCanvas) {
+        console.error('Canvas not found:', id);
         throw new Error('Canvas not found');
       }
 
+      console.log('Setting currentCanvasId to:', id);
       setCurrentCanvasId(id);
       
       // Update the lastModified timestamp of the canvas being switched to
@@ -338,31 +332,24 @@ export function useCanvasManager(
       setCanvases(updatedCanvases);
       
       // Load the canvas state
+      console.log('Loading canvas state for:', id);
       const success = await loadCanvasState(id);
       if (!success) {
+        console.error('Failed to load canvas state for:', id);
         throw new Error('Failed to load canvas state');
       }
       
+      console.log('Canvas switch completed successfully');
       return true;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to switch canvas';
+      console.error('Error in switchCanvas:', errorMessage);
       setError(errorMessage);
       return false;
     } finally {
       setIsLoading(false);
     }
   }, [canvases, loadCanvasState]);
-
-  // Update canvas list with current save status
-  useEffect(() => {
-    if (currentCanvasId) {
-      setCanvases(prev => prev.map(canvas => 
-        canvas.metadata.id === currentCanvasId
-          ? { ...canvas, hasUnsavedChanges, saveStatus }
-          : canvas
-      ));
-    }
-  }, [currentCanvasId, hasUnsavedChanges, saveStatus]);
 
   // Load canvas list on mount (only once)
   useEffect(() => {
@@ -371,13 +358,6 @@ export function useCanvasManager(
       setIsInitialized(true);
     }
   }, [isInitialized, loadCanvasList]);
-
-  // Persist canvas list to localStorage whenever it changes (but only if initialized)
-  useEffect(() => {
-    if (isInitialized && canvases.length > 0) {
-      saveCanvasList(canvases);
-    }
-  }, [canvases, isInitialized, saveCanvasList]);
 
   // Create default canvas if none exist and autoCreateDefault is true (only once)
   useEffect(() => {
