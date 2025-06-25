@@ -1,7 +1,7 @@
 import { useSync } from '@tldraw/sync'
 import { useMemo } from 'react'
 import { assetStore } from '../services/assetStore'
-import { YogaPoseShapeUtil } from '../shapes'
+import { YogaPoseShapeUtil, YogaPoseSvgShapeUtil } from '../shapes'
 import { defaultShapeUtils, defaultBindingUtils } from 'tldraw'
 
 interface UseCloudSyncOptions {
@@ -14,7 +14,7 @@ export function useCloudSync({ roomId, userId }: UseCloudSyncOptions) {
   const syncResult = useSync({
     uri: `${import.meta.env.VITE_TLDRAW_WORKER_URL || 'https://tldraw-worker.le-jckn.workers.dev'}/connect/${roomId}`,
     assets: assetStore,
-    shapeUtils: useMemo(() => [YogaPoseShapeUtil, ...defaultShapeUtils], []),
+    shapeUtils: useMemo(() => [YogaPoseShapeUtil, YogaPoseSvgShapeUtil, ...defaultShapeUtils], []),
     bindingUtils: useMemo(() => defaultBindingUtils, []),
   })
 

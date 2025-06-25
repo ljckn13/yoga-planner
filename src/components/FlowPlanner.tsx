@@ -752,30 +752,28 @@ export const FlowPlanner: React.FC = () => {
           style={{
             display: 'flex',
             flexDirection: 'column',
-            justifyContent: 'flex-start',
+            justifyContent: 'space-between',
             alignItems: 'flex-start',
             minWidth: '200px',
             maxWidth: '200px',
+            height: '100%',
             padding: '0',
             backgroundColor: 'transparent',
             border: 'none',
             gap: '8px'
           }}
         >
-          {canvases.map((canvas) => (
+          {/* Canvas List and Create Button Container */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
+            {/* Create New Canvas Button - At top */}
             <button
-              key={canvas.id}
-              onClick={() => {
-                setCurrentCanvasId(canvas.id);
-              }}
+              onClick={handleCreateCanvas}
               style={{
                 width: '100%',
                 padding: '6px 12px',
-                backgroundColor: currentCanvasId === canvas.id 
-                  ? 'hsl(0 0% 94%)'
-                  : 'transparent',
+                backgroundColor: 'hsl(0 0% 98%)',
                 color: 'var(--color-text)',
-                border: 'none',
+                border: '1px solid var(--color-panel-contrast)',
                 borderRadius: '8px',
                 fontSize: '12px',
                 fontWeight: '500',
@@ -787,121 +785,37 @@ export const FlowPlanner: React.FC = () => {
                 textOverflow: 'ellipsis',
                 height: '40px',
                 display: 'flex',
-                alignItems: 'center'
+                alignItems: 'center',
+                marginBottom: '8px'
               }}
               onMouseEnter={(e) => {
-                if (currentCanvasId !== canvas.id) {
-                  e.currentTarget.style.backgroundColor = 'hsl(0 0% 96.1%)';
-                }
+                e.currentTarget.style.backgroundColor = 'hsl(0 0% 96.1%)';
               }}
               onMouseLeave={(e) => {
-                if (currentCanvasId !== canvas.id) {
-                  e.currentTarget.style.backgroundColor = 'transparent';
-                }
+                e.currentTarget.style.backgroundColor = 'hsl(0 0% 98%)';
               }}
-              title={canvas.title}
+              title="Create New Canvas"
             >
-              {canvas.title}
+              + Create New Canvas
             </button>
-          ))}
-          
-          {/* Create New Canvas Button */}
-          <button
-            onClick={handleCreateCanvas}
-            style={{
-              width: '100%',
-              padding: '6px 12px',
-              backgroundColor: 'hsl(0 0% 98%)',
-              color: 'var(--color-text)',
-              border: '1px solid var(--color-panel-contrast)',
-              borderRadius: '8px',
-              fontSize: '12px',
-              fontWeight: '500',
-              textAlign: 'left',
-              cursor: 'pointer',
-              transition: 'all 0.1s ease',
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              height: '40px',
-              display: 'flex',
-              alignItems: 'center',
-              marginTop: '8px'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = 'hsl(0 0% 96.1%)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = 'hsl(0 0% 98%)';
-            }}
-            title="Create New Canvas"
-          >
-            + Create New Canvas
-          </button>
 
-          {/* User Info and Sign Out */}
-          {_user && (
-            <div style={{ marginTop: '16px', width: '100%' }}>
-              <div style={{
-                padding: '8px 12px',
-                fontSize: '11px',
-                color: 'var(--color-text-3)',
-                borderBottom: '1px solid var(--color-divider)',
-                marginBottom: '8px'
-              }}>
-                Signed in as: {_user.email}
-              </div>
-              
-              {/* Profile Button */}
+            {/* Canvas List - Sorted alphabetically */}
+            {canvases
+              .sort((a, b) => a.title.localeCompare(b.title))
+              .map((canvas) => (
               <button
+                key={canvas.id}
                 onClick={() => {
-                  console.log('Profile button clicked')
-                  setIsAccountMenuOpen(true)
+                  setCurrentCanvasId(canvas.id);
                 }}
                 style={{
                   width: '100%',
                   padding: '6px 12px',
-                  backgroundColor: 'hsl(0 0% 98%)',
+                  backgroundColor: currentCanvasId === canvas.id 
+                    ? 'hsl(0 0% 94%)'
+                    : 'transparent',
                   color: 'var(--color-text)',
-                  border: '1px solid var(--color-panel-contrast)',
-                  borderRadius: '8px',
-                  fontSize: '12px',
-                  fontWeight: '500',
-                  textAlign: 'left',
-                  cursor: 'pointer',
-                  transition: 'all 0.1s ease',
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  height: '40px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  marginBottom: '8px'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = 'hsl(0 0% 96.1%)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = 'hsl(0 0% 98%)';
-                }}
-                title="User Profile"
-              >
-                👤 Profile
-              </button>
-              
-              <button
-                onClick={async () => {
-                  const result = await signOut();
-                  if (result.error) {
-                    console.error('Sign out error:', result.error);
-                  }
-                }}
-                style={{
-                  width: '100%',
-                  padding: '6px 12px',
-                  backgroundColor: 'hsl(0 0% 98%)',
-                  color: 'var(--color-text)',
-                  border: '1px solid var(--color-panel-contrast)',
+                  border: 'none',
                   borderRadius: '8px',
                   fontSize: '12px',
                   fontWeight: '500',
@@ -916,16 +830,58 @@ export const FlowPlanner: React.FC = () => {
                   alignItems: 'center'
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = 'hsl(0 0% 96.1%)';
+                  if (currentCanvasId !== canvas.id) {
+                    e.currentTarget.style.backgroundColor = 'hsl(0 0% 96.1%)';
+                  }
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = 'hsl(0 0% 98%)';
+                  if (currentCanvasId !== canvas.id) {
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                  }
                 }}
-                title="Sign Out"
+                title={canvas.title}
               >
-                Sign Out
+                {canvas.title}
               </button>
-            </div>
+            ))}
+          </div>
+
+          {/* Profile Button - At bottom */}
+          {_user && (
+            <button
+              onClick={() => {
+                console.log('Profile button clicked')
+                setIsAccountMenuOpen(true)
+              }}
+              style={{
+                width: '100%',
+                padding: '6px 12px',
+                backgroundColor: 'hsl(0 0% 98%)',
+                color: 'var(--color-text)',
+                border: '1px solid var(--color-panel-contrast)',
+                borderRadius: '8px',
+                fontSize: '12px',
+                fontWeight: '500',
+                textAlign: 'left',
+                cursor: 'pointer',
+                transition: 'all 0.1s ease',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                height: '40px',
+                display: 'flex',
+                alignItems: 'center'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = 'hsl(0 0% 96.1%)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'hsl(0 0% 98%)';
+              }}
+              title="User Profile"
+            >
+              👤 Profile
+            </button>
           )}
         </div>
 
