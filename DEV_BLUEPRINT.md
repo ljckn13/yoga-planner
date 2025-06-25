@@ -1,8 +1,8 @@
 # Yoga Planner - Development Blueprint
 
-> **Status**: 🟢 Phase 2 - Multi-Canvas UI  
+> **Status**: 🟢 Phase 3 - Authentication & Backend  
 > **Last Updated**: 2024-12-19  
-> **Current Task**: UI-001
+> **Current Task**: SYNC-001
 
 ## 📋 Project Overview
 
@@ -13,6 +13,7 @@ Building a yoga flow planner with multi-canvas support, auto-save, and user auth
 - ✅ Canvas state serialization/deserialization
 - ✅ localStorage persistence and auto-save  
 - ✅ Multi-canvas management (create, rename, delete, switch)
+- ✅ Workspace layout with sidebar and canvas area
 - ⭕ User authentication (magic link)
 - ⭕ Cloud sync with Supabase
 
@@ -34,29 +35,29 @@ Building a yoga flow planner with multi-canvas support, auto-save, and user auth
 - [x] **CANVAS-003**: Create canvas state management hooks
 - [⏸️] **CANVAS-004**: Add error handling for state operations *(deferred to Phase 4)*
 
-### Phase 2: Multi-Canvas UI 🔄
+### Phase 2: Multi-Canvas UI ✅
 **Goal**: Build sidebar with canvas management
 
-- [ ] **UI-001**: Create workspace layout (sidebar + canvas area)
-- [ ] **UI-002**: Build canvas list sidebar component
-- [ ] **UI-003**: Implement canvas CRUD operations
-- [ ] **UI-004**: Add canvas switching with proper state management
-- [ ] **UI-005**: Create loading states and error boundaries
+- [x] **UI-001**: Create workspace layout (sidebar + canvas area)
+- [x] **UI-002**: Build canvas list sidebar component *(integrated into UI-001)*
+- [x] **UI-003**: Implement canvas CRUD operations *(integrated into UI-001)*
+- [x] **UI-004**: Add canvas switching with proper state management *(integrated into UI-001)*
+- [⏸️] **UI-005**: Create loading states and error boundaries *(deferred to Phase 4)*
 
-### Phase 3: Authentication & Backend ⭕
+### Phase 3: Authentication & Backend 🔄
 **Goal**: Add user authentication and cloud persistence
 
-- [ ] **AUTH-001**: Set up Supabase project and database schema
-- [ ] **AUTH-002**: Implement magic link authentication
-- [ ] **AUTH-003**: Create user context and auth hooks
-- [ ] **AUTH-004**: Add sign out and account management
-- [ ] **SYNC-001**: Implement cloud sync for canvas data
-- [ ] **SYNC-002**: Add conflict resolution for canvas updates
+- [✅] **AUTH-001**: Set up Supabase project and database schema
+- [✅] **AUTH-002**: Implement magic link authentication
+- [✅] **AUTH-003**: Create user context and auth hooks
+- [✅] **AUTH-004**: Add sign out and account management
+- [🔄] **SYNC-001**: Implement cloud sync for canvas data
+- [⭕] **SYNC-002**: Add conflict resolution for canvas updates
 
 ### Phase 4: Polish & Production ⭕
 **Goal**: Production-ready features and optimizations
 
-- [ ] **PROD-001**: Add comprehensive error handling *(includes CANVAS-004)*
+- [ ] **PROD-001**: Add comprehensive error handling *(includes CANVAS-004 and UI-005)*
 - [ ] **PROD-002**: Implement proper loading states
 - [ ] **PROD-003**: Add user onboarding flow
 - [ ] **PROD-004**: Performance optimizations
@@ -142,21 +143,120 @@ Building a yoga flow planner with multi-canvas support, auto-save, and user auth
 
 ---
 
-### 🔄 UI-001: Create Workspace Layout
-**File**: `src/components/WorkspaceLayout.tsx`, `src/components/FlowPlanner.tsx`
+### ✅ UI-001: Create Workspace Layout
+**File**: `src/components/FlowPlanner.tsx`
 
 **Requirements**:
-- Create workspace layout component with sidebar and canvas area
-- Implement responsive design for different screen sizes
-- Add sidebar toggle functionality
-- Integrate existing FlowPlanner into the layout
+- ✅ Create workspace layout component with sidebar and canvas area
+- ✅ Implement responsive design for different screen sizes
+- ✅ Add sidebar toggle functionality (always visible)
+- ✅ Integrate existing FlowPlanner into the layout
+- ✅ Canvas management functionality working (create, switch, rename, delete)
+- ✅ New canvases start empty
+- ✅ Canvas title display in page menu with proper system font
 
 **Acceptance Criteria**:
-- [ ] Sidebar and canvas area layout works
-- [ ] Responsive design for mobile/desktop
-- [ ] Sidebar can be toggled on/off
-- [ ] Canvas area properly sized
-- [ ] Existing FlowPlanner functionality preserved
+- ✅ Sidebar and canvas area layout works
+- ✅ Responsive design for mobile/desktop
+- ✅ Sidebar functionality working (always visible)
+- ✅ Canvas area properly sized
+- ✅ Existing FlowPlanner functionality preserved
+- ✅ Canvas management functionality working properly
+
+---
+
+### 🔄 AUTH-001: Set up Supabase Project and Database Schema
+**File**: `supabase/`, `src/lib/supabase.ts`
+
+**Requirements**:
+- ✅ Set up Supabase project with proper configuration
+- ✅ Create database schema for users and canvases
+- ✅ Set up authentication with magic link
+- ✅ Configure Row Level Security (RLS) policies
+- ✅ Create TypeScript types for database schema
+
+**Acceptance Criteria**:
+- ✅ Supabase project configured and accessible
+- ✅ Database schema created with proper relationships
+- ✅ Authentication configured for magic link
+- ✅ RLS policies implemented for data security
+- ✅ TypeScript types generated and working
+
+---
+
+### ✅ AUTH-002: Implement Magic Link Authentication
+**File**: `src/hooks/useAuth.ts`, `src/components/AuthProvider.tsx`, `src/components/SignIn.tsx`
+
+**Requirements**:
+- ✅ Create authentication hook for magic link flow
+- ✅ Implement sign in/sign out functionality
+- ✅ Add authentication state management
+- ✅ Create protected route wrapper
+- ✅ Add loading states for auth operations
+
+**Acceptance Criteria**:
+- ✅ Users can sign in with email magic link
+- ✅ Authentication state persists across sessions
+- ✅ Protected routes redirect unauthenticated users
+- ✅ Sign out functionality works properly
+- ✅ Loading states shown during auth operations
+
+---
+
+### ✅ AUTH-003: Create User Context and Auth Hooks
+**File**: `src/contexts/AuthContext.tsx`, `src/hooks/useUser.ts`
+
+**Requirements**:
+- ✅ Create React context for user authentication state
+- 🔄 Implement user profile management
+- ⭕ Add user preferences and settings
+- ⭕ Create hooks for accessing user data
+- ⭕ Add user avatar and profile display
+
+**Acceptance Criteria**:
+- ✅ User context provides authentication state
+- 🔄 User profile data accessible throughout app
+- ⭕ User preferences can be saved and loaded
+- ⭕ User avatar and profile display working
+- ⭕ Context properly handles auth state changes
+
+---
+
+### ✅ AUTH-004: Add Sign Out and Account Management
+**File**: `src/components/AccountMenu.tsx`, `src/components/UserProfile.tsx`
+
+**Requirements**:
+- ✅ Create account management UI components
+- ✅ Implement user profile editing
+- ✅ Add account deletion functionality
+- ✅ Create settings page for user preferences
+- ✅ Add email verification status display
+
+**Acceptance Criteria**:
+- ✅ Users can edit their profile information
+- ✅ Account deletion with confirmation works
+- ✅ Settings page for user preferences
+- ✅ Email verification status displayed
+- ✅ Account management accessible from main UI
+
+---
+
+### 🔄 SYNC-001: Implement Cloud Sync for Canvas Data
+**File**: `src/hooks/useCloudSync.ts`, `src/services/canvasService.ts`
+
+**Requirements**:
+- Create cloud sync service for canvas data
+- Implement real-time sync with Supabase
+- Add offline support with sync queue
+- Handle sync conflicts and resolution
+- Add sync status indicators
+
+**Acceptance Criteria**:
+- [ ] Canvas data syncs to cloud automatically
+- [ ] Real-time updates work across devices
+- [ ] Offline changes queue for later sync
+- [ ] Sync conflicts resolved gracefully
+- [ ] Visual indicators show sync status
 
 ## 🗂️ Future Considerations (Long List)
 
@@ -220,4 +320,4 @@ Building a yoga flow planner with multi-canvas support, auto-save, and user auth
 
 ---
 
-**Next Action**: Begin UI-001 - Create Workspace Layout
+**Next Action**: Begin SYNC-001 - Implement Cloud Sync for Canvas Data

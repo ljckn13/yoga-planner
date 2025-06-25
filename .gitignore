@@ -42,3 +42,6 @@ out/
 # OS generated files
 Thumbs.db
 ehthumbs.db
+
+# tldraw sync backend (separate project)
+tldraw-sync-cloudflare/

@@ -21,9 +21,12 @@ import {
 import 'tldraw/tldraw.css';
 import { YogaPoseShapeUtil, YogaPoseTool, YogaPoseSvgShapeUtil } from '../shapes';
 import { YogaPosePanel } from './YogaPosePanel';
+import { AccountMenu } from './AccountMenu';
 import { getPoseState } from '../utils/pose-state';
 import { yogaCategories } from '../assets/yoga-flows';
 import { useAutoSave } from '../hooks/useAutoSave';
+import { useCloudSync } from '../hooks/useCloudSync';
+import { useAuthContext } from './AuthProvider';
 
 // Canvas context to share state between components
 interface CanvasContextType {
@@ -317,6 +320,7 @@ const createComponents = (): TLComponents => ({
     const isYogaPoseSelected = useIsToolSelected(tools['yogaPose'])
     const [activeCategory, setActiveCategory] = React.useState<number>(0) // Use number for Category enum
     const [isHoveringPoseTool, setIsHoveringPoseTool] = React.useState(false)
+    const { user } = useAuthContext()
     
     return (
       <>
@@ -547,7 +551,15 @@ export const FlowPlanner: React.FC = () => {
   const [currentCanvasId, setCurrentCanvasId] = React.useState<string>('');
   const [isInitialized, setIsInitialized] = React.useState(false);
   const [isCreatingCanvas, setIsCreatingCanvas] = React.useState(false);
+  const [isAccountMenuOpen, setIsAccountMenuOpen] = React.useState(false);
   const editorRef = React.useRef<Editor | null>(null);
+  const { user, signOut } = useAuthContext();
+
+  // Use cloud sync for the current canvas
+  const { store: syncStore, getSyncStatus } = useCloudSync({
+    roomId: currentCanvasId || 'default',
+    userId: user?.id,
+  });
 
   // Load canvases from localStorage on mount
   React.useEffect(() => {
@@ -649,37 +661,25 @@ export const FlowPlanner: React.FC = () => {
     }, 100);
   };
 
-  // Simple canvas manager without complex hooks
+  // Simple canvas manager with cloud sync
   const SimpleCanvasManager = () => {
     const editor = useEditor();
+    const syncStatus = getSyncStatus();
     
-    // Simple auto-save without complex state management
-    const { saveStatus, lastSaved, manualSave } = useAutoSave(editor, {
-      canvasId: currentCanvasId,
-      autoSaveDelay: 200, // Reduced from 1000ms to 200ms for faster saving
-      enableAutoSave: !isCreatingCanvas, // Disable auto-save during canvas creation
-    });
-
-    // Auto-save indicator
-    const AutoSaveIndicator = () => {
+    // Sync status indicator
+    const SyncIndicator = () => {
       const getStatusColor = () => {
-        switch (saveStatus) {
-          case 'saved': return 'text-green-600';
-          case 'saving': return 'text-blue-600';
-          case 'error': return 'text-red-600';
-          case 'unsaved': return 'text-yellow-600';
-          default: return 'text-gray-600';
-        }
+        if (syncStatus.hasError) return 'text-red-600';
+        if (syncStatus.isConnected) return 'text-green-600';
+        if (syncStatus.isSyncing) return 'text-blue-600';
+        return 'text-yellow-600';
       };
 
       const getStatusText = () => {
-        switch (saveStatus) {
-          case 'saved': return 'Saved';
-          case 'saving': return 'Saving...';
-          case 'error': return 'Error';
-          case 'unsaved': return 'Unsaved';
-          default: return 'Unknown';
-        }
+        if (syncStatus.hasError) return 'Sync Error';
+        if (syncStatus.isConnected) return 'Synced';
+        if (syncStatus.isSyncing) return 'Syncing...';
+        return 'Connecting...';
       };
 
       return (
@@ -687,9 +687,9 @@ export const FlowPlanner: React.FC = () => {
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
               <div className={`w-2 h-2 rounded-full ${
-                saveStatus === 'saved' ? 'bg-green-500' :
-                saveStatus === 'saving' ? 'bg-blue-500' :
-                saveStatus === 'error' ? 'bg-red-500' :
+                syncStatus.isConnected ? 'bg-green-500' :
+                syncStatus.isSyncing ? 'bg-blue-500' :
+                syncStatus.hasError ? 'bg-red-500' :
                 'bg-yellow-500'
               }`} />
               <span className={`text-sm font-medium ${getStatusColor()}`}>
@@ -697,26 +697,17 @@ export const FlowPlanner: React.FC = () => {
               </span>
             </div>
             
-            {lastSaved && (
-              <span className="text-xs text-gray-500">
-                {lastSaved.toLocaleTimeString()}
+            {syncStatus.error && (
+              <span className="text-xs text-red-500">
+                {syncStatus.error.message}
               </span>
             )}
-            
-            <button
-              onClick={manualSave}
-              disabled={saveStatus === 'saving'}
-              className="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50"
-              title="Save manually (Ctrl+S)"
-            >
-              Save
-            </button>
           </div>
         </div>
       );
     };
 
-    return <AutoSaveIndicator />;
+    return <SyncIndicator />;
   };
 
   const handleMount = (mountedEditor: Editor) => {
@@ -749,6 +740,12 @@ export const FlowPlanner: React.FC = () => {
 
   return (
     <CanvasContext.Provider value={canvasContextValue}>
+      {/* Account Menu Modal */}
+      <AccountMenu 
+        isOpen={isAccountMenuOpen} 
+        onClose={() => setIsAccountMenuOpen(false)} 
+      />
+
       <div 
         className="tldraw__editor h-screen w-screen"
         style={{
@@ -780,39 +777,37 @@ export const FlowPlanner: React.FC = () => {
             <button
               key={canvas.id}
               onClick={() => {
-                // Use the switchCanvas function from SimpleCanvasManager
-                // For now, just set the current canvas ID and let auto-save handle the rest
                 setCurrentCanvasId(canvas.id);
               }}
               style={{
                 width: '100%',
                 padding: '6px 12px',
                 backgroundColor: currentCanvasId === canvas.id 
-                  ? 'hsl(0 0% 94%)' // Same as toolbar active state
-                  : 'transparent', // Same as toolbar default state
-                color: 'var(--color-text)', // Same as toolbar
+                  ? 'hsl(0 0% 94%)'
+                  : 'transparent',
+                color: 'var(--color-text)',
                 border: 'none',
-                borderRadius: '8px', // Same as toolbar
-                fontSize: '12px', // Same as toolbar
+                borderRadius: '8px',
+                fontSize: '12px',
                 fontWeight: '500',
                 textAlign: 'left',
                 cursor: 'pointer',
-                transition: 'all 0.1s ease', // Same as toolbar
+                transition: 'all 0.1s ease',
                 whiteSpace: 'nowrap',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
-                height: '40px', // Same as toolbar
+                height: '40px',
                 display: 'flex',
                 alignItems: 'center'
               }}
               onMouseEnter={(e) => {
                 if (currentCanvasId !== canvas.id) {
-                  e.currentTarget.style.backgroundColor = 'hsl(0 0% 96.1%)'; // Same as toolbar hover
+                  e.currentTarget.style.backgroundColor = 'hsl(0 0% 96.1%)';
                 }
               }}
               onMouseLeave={(e) => {
                 if (currentCanvasId !== canvas.id) {
-                  e.currentTarget.style.backgroundColor = 'transparent'; // Same as toolbar default
+                  e.currentTarget.style.backgroundColor = 'transparent';
                 }
               }}
               title={canvas.title}
@@ -827,33 +822,122 @@ export const FlowPlanner: React.FC = () => {
             style={{
               width: '100%',
               padding: '6px 12px',
-              backgroundColor: 'hsl(0 0% 98%)', // Light background to make it visible
-              color: 'var(--color-text)', // Same as toolbar
-              border: '1px solid var(--color-panel-contrast)', // Add border to make it visible
-              borderRadius: '8px', // Same as toolbar
-              fontSize: '12px', // Same as toolbar
+              backgroundColor: 'hsl(0 0% 98%)',
+              color: 'var(--color-text)',
+              border: '1px solid var(--color-panel-contrast)',
+              borderRadius: '8px',
+              fontSize: '12px',
               fontWeight: '500',
               textAlign: 'left',
               cursor: 'pointer',
-              transition: 'all 0.1s ease', // Same as toolbar
+              transition: 'all 0.1s ease',
               whiteSpace: 'nowrap',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
-              height: '40px', // Same as toolbar
+              height: '40px',
               display: 'flex',
               alignItems: 'center',
               marginTop: '8px'
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = 'hsl(0 0% 96.1%)'; // Same as toolbar hover
+              e.currentTarget.style.backgroundColor = 'hsl(0 0% 96.1%)';
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = 'hsl(0 0% 98%)'; // Light background
+              e.currentTarget.style.backgroundColor = 'hsl(0 0% 98%)';
             }}
             title="Create New Canvas"
           >
             + Create New Canvas
           </button>
+
+          {/* User Info and Sign Out */}
+          {user && (
+            <div style={{ marginTop: '16px', width: '100%' }}>
+              <div style={{
+                padding: '8px 12px',
+                fontSize: '11px',
+                color: 'var(--color-text-3)',
+                borderBottom: '1px solid var(--color-divider)',
+                marginBottom: '8px'
+              }}>
+                Signed in as: {user.email}
+              </div>
+              
+              {/* Profile Button */}
+              <button
+                onClick={() => {
+                  console.log('Profile button clicked')
+                  setIsAccountMenuOpen(true)
+                }}
+                style={{
+                  width: '100%',
+                  padding: '6px 12px',
+                  backgroundColor: 'hsl(0 0% 98%)',
+                  color: 'var(--color-text)',
+                  border: '1px solid var(--color-panel-contrast)',
+                  borderRadius: '8px',
+                  fontSize: '12px',
+                  fontWeight: '500',
+                  textAlign: 'left',
+                  cursor: 'pointer',
+                  transition: 'all 0.1s ease',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  height: '40px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  marginBottom: '8px'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = 'hsl(0 0% 96.1%)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'hsl(0 0% 98%)';
+                }}
+                title="User Profile"
+              >
+                👤 Profile
+              </button>
+              
+              <button
+                onClick={async () => {
+                  const result = await signOut();
+                  if (result.error) {
+                    console.error('Sign out error:', result.error);
+                  }
+                }}
+                style={{
+                  width: '100%',
+                  padding: '6px 12px',
+                  backgroundColor: 'hsl(0 0% 98%)',
+                  color: 'var(--color-text)',
+                  border: '1px solid var(--color-panel-contrast)',
+                  borderRadius: '8px',
+                  fontSize: '12px',
+                  fontWeight: '500',
+                  textAlign: 'left',
+                  cursor: 'pointer',
+                  transition: 'all 0.1s ease',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  height: '40px',
+                  display: 'flex',
+                  alignItems: 'center'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = 'hsl(0 0% 96.1%)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'hsl(0 0% 98%)';
+                }}
+                title="Sign Out"
+              >
+                Sign Out
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Canvas - Right Side */}
@@ -867,6 +951,8 @@ export const FlowPlanner: React.FC = () => {
           }}
         >
           <Tldraw
+            // Use the sync store instead of local store
+            store={syncStore}
             // Pass in the array of custom tool classes
             tools={customTools}
             // Pass in custom shape utilities
