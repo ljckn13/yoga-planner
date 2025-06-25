@@ -24,7 +24,6 @@ import { YogaPosePanel } from './YogaPosePanel';
 import { AccountMenu } from './AccountMenu';
 import { getPoseState } from '../utils/pose-state';
 import { yogaCategories } from '../assets/yoga-flows';
-import { useAutoSave } from '../hooks/useAutoSave';
 import { useCloudSync } from '../hooks/useCloudSync';
 import { useAuthContext } from './AuthProvider';
 
@@ -320,7 +319,7 @@ const createComponents = (): TLComponents => ({
     const isYogaPoseSelected = useIsToolSelected(tools['yogaPose'])
     const [activeCategory, setActiveCategory] = React.useState<number>(0) // Use number for Category enum
     const [isHoveringPoseTool, setIsHoveringPoseTool] = React.useState(false)
-    const { user } = useAuthContext()
+    const { user: _user } = useAuthContext()
     
     return (
       <>
@@ -550,15 +549,14 @@ export const FlowPlanner: React.FC = () => {
   const [canvases, setCanvases] = React.useState<Array<{id: string, title: string}>>([]);
   const [currentCanvasId, setCurrentCanvasId] = React.useState<string>('');
   const [isInitialized, setIsInitialized] = React.useState(false);
-  const [isCreatingCanvas, setIsCreatingCanvas] = React.useState(false);
   const [isAccountMenuOpen, setIsAccountMenuOpen] = React.useState(false);
   const editorRef = React.useRef<Editor | null>(null);
-  const { user, signOut } = useAuthContext();
+  const { user: _user, signOut } = useAuthContext();
 
   // Use cloud sync for the current canvas
   const { store: syncStore, getSyncStatus } = useCloudSync({
     roomId: currentCanvasId || 'default',
-    userId: user?.id,
+    userId: _user?.id,
   });
 
   // Load canvases from localStorage on mount
@@ -642,9 +640,6 @@ export const FlowPlanner: React.FC = () => {
     };
     console.log('Creating new canvas:', newCanvas);
     
-    // Set flag to prevent auto-save during canvas creation
-    setIsCreatingCanvas(true);
-    
     // Update the canvas list
     setCanvases(prev => {
       const updated = [...prev, newCanvas];
@@ -654,16 +649,10 @@ export const FlowPlanner: React.FC = () => {
     
     // Switch to new canvas
     setCurrentCanvasId(newCanvas.id);
-    
-    // Re-enable auto-save after a short delay
-    setTimeout(() => {
-      setIsCreatingCanvas(false);
-    }, 100);
   };
 
   // Simple canvas manager with cloud sync
   const SimpleCanvasManager = () => {
-    const editor = useEditor();
     const syncStatus = getSyncStatus();
     
     // Sync status indicator
@@ -851,7 +840,7 @@ export const FlowPlanner: React.FC = () => {
           </button>
 
           {/* User Info and Sign Out */}
-          {user && (
+          {_user && (
             <div style={{ marginTop: '16px', width: '100%' }}>
               <div style={{
                 padding: '8px 12px',
@@ -860,7 +849,7 @@ export const FlowPlanner: React.FC = () => {
                 borderBottom: '1px solid var(--color-divider)',
                 marginBottom: '8px'
               }}>
-                Signed in as: {user.email}
+                Signed in as: {_user.email}
               </div>
               
               {/* Profile Button */}

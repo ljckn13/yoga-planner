@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuthContext } from './AuthProvider'
 import { useUser } from '../hooks/useUser'
 
@@ -59,14 +59,6 @@ export function AccountMenu({ isOpen, onClose }: AccountMenuProps) {
       setSaveSuccess(true)
       setTimeout(() => setSaveSuccess(false), 2000) // Hide success message after 2 seconds
     }
-  }
-
-  const getEmailVerificationStatus = () => {
-    return user?.email_confirmed_at ? 'Verified' : 'Not verified'
-  }
-
-  const getAccountCreatedDate = () => {
-    return user?.created_at ? new Date(user.created_at).toLocaleDateString() : 'Unknown'
   }
 
   return (

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuthContext } from './AuthProvider'
 import { useUser } from '../hooks/useUser'
 
@@ -11,7 +11,6 @@ export function UserProfile() {
     updateProfile, 
     updatePreferences,
     getPreference,
-    setPreference 
   } = useUser()
   
   const [isEditing, setIsEditing] = useState(false)
