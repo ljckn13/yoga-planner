@@ -1,4 +1,4 @@
-import React, { useLayoutEffect, useRef, useMemo, useCallback, createContext, useContext } from 'react';
+import React, { useLayoutEffect, useRef, createContext, useContext } from 'react';
 import {
   Tldraw,
   TldrawUiMenuItem,
@@ -22,10 +22,7 @@ import 'tldraw/tldraw.css';
 import { YogaPoseShapeUtil, YogaPoseTool, YogaPoseSvgShapeUtil } from '../shapes';
 import { YogaPosePanel } from './YogaPosePanel';
 import { getPoseState } from '../utils/pose-state';
-import { useCanvasManager } from '../hooks/useCanvasManager';
 import { yogaCategories } from '../assets/yoga-flows';
-import { YogaPosePanelOverlay } from './YogaPosePanelOverlay';
-import { CategoryMenu } from './CategoryMenu';
 import { useAutoSave } from '../hooks/useAutoSave';
 
 // Canvas context to share state between components
@@ -155,7 +152,6 @@ function useCurrentCanvasTitle(editor: Editor | null) {
 // Custom page menu that shows canvas title instead of page name
 function CustomPageMenu() {
   const editor = useEditor();
-  const currentPage = useValue('current page', () => editor.getCurrentPage(), [editor]);
   const canvasTitle = useCurrentCanvasTitle(editor);
 
   return (
@@ -180,7 +176,6 @@ function CustomPageMenu() {
 
 // Custom main menu with canvas management
 function CustomMainMenu() {
-  const editor = useEditor();
   const { canvases, currentCanvasId, setCanvases, setCurrentCanvasId } = useCanvasContext();
 
   const handleCreateCanvas = async () => {
@@ -633,23 +628,6 @@ export const FlowPlanner: React.FC = () => {
       enableAutoSave: true,
     });
 
-    // Function to switch canvas and load its state
-    const switchCanvas = React.useCallback(async (canvasId: string) => {
-      if (canvasId === currentCanvasId) return;
-      
-      try {
-        // Save current canvas state before switching
-        await manualSave();
-        
-        // Switch to new canvas
-        setCurrentCanvasId(canvasId);
-        
-        // The auto-save system will automatically load the new canvas state
-        // because it uses the canvasId in its configuration
-      } catch (err) {
-        console.error('Error switching canvas:', err);
-      }
-    }, [currentCanvasId, manualSave]);
 
     // Auto-save indicator
     const AutoSaveIndicator = () => {
