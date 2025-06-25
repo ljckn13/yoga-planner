@@ -219,6 +219,9 @@ export const YogaPosePanel: React.FC<YogaPosePanelProps> = ({ onPoseSelect, sele
                   
                   // Create pose using the new async function
                   await createPoseFromSVG(editor, pose, x, y);
+                  
+                  // Clear the selected pose after pasting
+                  onPoseSelect(undefined as any);
                 }}
                 onMouseEnter={(e) => {
                   if (selectedPose?.id !== pose.id) {
