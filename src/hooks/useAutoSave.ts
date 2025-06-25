@@ -77,7 +77,33 @@ export function useAutoSave(
     isOperatingRef.current = true;
     try {
       const savedData = localStorage.getItem(storageKey);
-      if (!savedData) return;
+      if (!savedData) {
+        // No saved data exists for this canvas - clear editor and start with empty state
+        console.log(`No saved data for canvas ${canvasId}, clearing editor and starting with empty state`);
+        
+        // Clear all content from the editor
+        try {
+          // Get all shape IDs and delete them one by one
+          const snapshot = editor.store.getSnapshot();
+          const allShapeIds = Object.keys(snapshot.store).filter(key => key !== 'schema');
+          allShapeIds.forEach(shapeId => {
+            try {
+              editor.deleteShape(shapeId as any);
+            } catch (err) {
+              // Ignore errors for individual shape deletion
+            }
+          });
+          console.log('Editor content cleared for new canvas');
+        } catch (err) {
+          console.error('Error clearing editor content:', err);
+        }
+        
+        setLastSaved(null);
+        setSaveStatus('saved');
+        setHasUnsavedChanges(false);
+        return;
+      }
+      
       const canvasState: CanvasState = JSON.parse(savedData);
       if (!canvasState.snapshot || !canvasState.timestamp) {
         throw new Error('Invalid saved canvas data');
@@ -98,7 +124,7 @@ export function useAutoSave(
     } finally {
       isOperatingRef.current = false;
     }
-  }, [editor, deserializeCanvas, storageKey]);
+  }, [editor, deserializeCanvas, storageKey, canvasId]);
 
   const manualSave = useCallback(async () => {
     clearAutoSaveTimeout();

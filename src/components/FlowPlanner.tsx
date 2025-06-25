@@ -178,21 +178,6 @@ function CustomPageMenu() {
 function CustomMainMenu() {
   const { canvases, currentCanvasId, setCanvases, setCurrentCanvasId } = useCanvasContext();
 
-  const handleCreateCanvas = async () => {
-    const title = prompt('Enter canvas title:') || 'Untitled Canvas';
-    const newCanvas = {
-      id: `canvas_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      title: title.trim()
-    };
-    console.log('Creating new canvas:', newCanvas);
-    setCanvases(prev => {
-      const updated = [...prev, newCanvas];
-      console.log('Updated canvases after create:', updated);
-      return updated;
-    });
-    setCurrentCanvasId(newCanvas.id);
-  };
-
   const handleRenameCanvas = async () => {
     const currentCanvas = canvases.find(c => c.id === currentCanvasId);
     if (!currentCanvas) return;
@@ -242,7 +227,11 @@ function CustomMainMenu() {
           id="create-canvas"
           label="Create New Canvas"
           icon="plus"
-          onSelect={handleCreateCanvas}
+          onSelect={() => {
+            // This will be handled by the main component's handleCreateCanvas
+            // We'll trigger it through a custom event
+            window.dispatchEvent(new CustomEvent('createNewCanvas'));
+          }}
         />
         {canvases.length > 1 && (
           <TldrawUiMenuSubmenu
@@ -557,6 +546,8 @@ export const FlowPlanner: React.FC = () => {
   const [canvases, setCanvases] = React.useState<Array<{id: string, title: string}>>([]);
   const [currentCanvasId, setCurrentCanvasId] = React.useState<string>('');
   const [isInitialized, setIsInitialized] = React.useState(false);
+  const [isCreatingCanvas, setIsCreatingCanvas] = React.useState(false);
+  const editorRef = React.useRef<Editor | null>(null);
 
   // Load canvases from localStorage on mount
   React.useEffect(() => {
@@ -617,6 +608,47 @@ export const FlowPlanner: React.FC = () => {
     }
   }, [currentCanvasId, isInitialized]);
 
+  // Listen for createNewCanvas events from the main menu
+  React.useEffect(() => {
+    const handleCreateNewCanvas = () => {
+      handleCreateCanvas();
+    };
+
+    window.addEventListener('createNewCanvas', handleCreateNewCanvas);
+    return () => {
+      window.removeEventListener('createNewCanvas', handleCreateNewCanvas);
+    };
+  }, []);
+
+  // Handle creating a new canvas
+  const handleCreateCanvas = async () => {
+    console.log('Create New Canvas button clicked!');
+    const title = prompt('Enter canvas title:') || 'Untitled Canvas';
+    const newCanvas = {
+      id: `canvas_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      title: title.trim()
+    };
+    console.log('Creating new canvas:', newCanvas);
+    
+    // Set flag to prevent auto-save during canvas creation
+    setIsCreatingCanvas(true);
+    
+    // Update the canvas list
+    setCanvases(prev => {
+      const updated = [...prev, newCanvas];
+      console.log('Updated canvases after create:', updated);
+      return updated;
+    });
+    
+    // Switch to new canvas
+    setCurrentCanvasId(newCanvas.id);
+    
+    // Re-enable auto-save after a short delay
+    setTimeout(() => {
+      setIsCreatingCanvas(false);
+    }, 100);
+  };
+
   // Simple canvas manager without complex hooks
   const SimpleCanvasManager = () => {
     const editor = useEditor();
@@ -625,9 +657,8 @@ export const FlowPlanner: React.FC = () => {
     const { saveStatus, lastSaved, manualSave } = useAutoSave(editor, {
       canvasId: currentCanvasId,
       autoSaveDelay: 200, // Reduced from 1000ms to 200ms for faster saving
-      enableAutoSave: true,
+      enableAutoSave: !isCreatingCanvas, // Disable auto-save during canvas creation
     });
-
 
     // Auto-save indicator
     const AutoSaveIndicator = () => {
@@ -689,6 +720,9 @@ export const FlowPlanner: React.FC = () => {
   };
 
   const handleMount = (mountedEditor: Editor) => {
+    // Store the editor reference for later use
+    editorRef.current = mountedEditor;
+    
     mountedEditor.updateInstanceState({ isGridMode: true });
     
     // Ensure only one page per canvas - remove extra pages
@@ -786,6 +820,40 @@ export const FlowPlanner: React.FC = () => {
               {canvas.title}
             </button>
           ))}
+          
+          {/* Create New Canvas Button */}
+          <button
+            onClick={handleCreateCanvas}
+            style={{
+              width: '100%',
+              padding: '6px 12px',
+              backgroundColor: 'hsl(0 0% 98%)', // Light background to make it visible
+              color: 'var(--color-text)', // Same as toolbar
+              border: '1px solid var(--color-panel-contrast)', // Add border to make it visible
+              borderRadius: '8px', // Same as toolbar
+              fontSize: '12px', // Same as toolbar
+              fontWeight: '500',
+              textAlign: 'left',
+              cursor: 'pointer',
+              transition: 'all 0.1s ease', // Same as toolbar
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              height: '40px', // Same as toolbar
+              display: 'flex',
+              alignItems: 'center',
+              marginTop: '8px'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = 'hsl(0 0% 96.1%)'; // Same as toolbar hover
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'hsl(0 0% 98%)'; // Light background
+            }}
+            title="Create New Canvas"
+          >
+            + Create New Canvas
+          </button>
         </div>
 
         {/* Canvas - Right Side */}
