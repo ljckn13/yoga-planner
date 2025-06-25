@@ -159,11 +159,12 @@ const {
 **Dependencies**: CANVAS-003 ✅ complete
 
 **Implementation Steps**:
-1. Create workspace layout component with sidebar and canvas area
-2. Implement responsive design for different screen sizes
-3. Add sidebar toggle functionality
-4. Integrate existing FlowPlanner into the layout
-5. Ensure proper canvas area sizing
+1. ✅ Toolbar and yoga pose tool functionality restored and working
+2. Create workspace layout component with sidebar and canvas area
+3. Implement responsive design for different screen sizes
+4. Add sidebar toggle functionality
+5. Integrate existing FlowPlanner into the layout
+6. Ensure proper canvas area sizing
 
 **Code Requirements**:
 ```typescript

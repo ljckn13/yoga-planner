@@ -324,7 +324,10 @@ const createComponents = (): TLComponents => ({
               zIndex: 9999,
               maxHeight: '300px',
               overflow: 'hidden',
-              pointerEvents: 'auto'
+              pointerEvents: 'auto',
+              boxShadow: '0px 0px 2px hsl(0, 0%, 0%, 16%), 0px 2px 3px hsl(0, 0%, 0%, 24%), 0px 2px 6px hsl(0, 0%, 0%, 0.1), inset 0px 0px 0px 1px hsl(0, 0%, 100%)',
+              borderRadius: '11px',
+              padding: '2px'
             }}
             onMouseDown={(e) => {
               e.preventDefault();
@@ -358,7 +361,7 @@ const createComponents = (): TLComponents => ({
           width: '440px',
           '--tlui-toolbar-width': '440px',
           position: 'fixed',
-          bottom: '8px', // 8px gap from bottom
+          bottom: '0px', // No gap from bottom
           left: '50%',
           transform: 'translateX(-50%)',
           zIndex: 1000
