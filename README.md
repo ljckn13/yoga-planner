@@ -1,15 +1,25 @@
 # Yoga Flow Planner
 
-A React-based yoga flow planning application built with tldraw for creating and organizing yoga sequences.
+A collaborative yoga flow planning app built with React, TypeScript, and tldraw.
 
 ## Features
 
-- **Interactive Canvas**: Create yoga flows using tldraw's powerful drawing tools
-- **Yoga Pose Library**: Browse and add yoga poses with English and Sanskrit names
-- **Custom Yoga Pose Tool**: Specialized tool for placing yoga poses on the canvas
-- **Category Organization**: Organize poses by categories and subcategories
-- **Theme Support**: Light and dark mode support
-- **Responsive Design**: Works on desktop and tablet devices
+- Real-time collaborative canvas editing
+- Cloud sync with Cloudflare Workers
+- Custom yoga pose shapes and tools
+- Multi-canvas management
+- User authentication with Supabase
+
+## Development
+
+```bash
+npm install
+npm run dev
+```
+
+## Production
+
+The app is automatically deployed to Vercel on push to main branch.
 
 ## Tech Stack
 
