@@ -1,8 +1,8 @@
 # Current Development Tasks
 
-> **Active Phase**: Phase 1 - Canvas State Management  
-> **Current Task**: CANVAS-004  
-> **Sprint Goal**: Implement error handling for state operations
+> **Active Phase**: Phase 2 - Multi-Canvas UI  
+> **Current Task**: UI-001  
+> **Sprint Goal**: Build sidebar with canvas management
 
 ## 🎯 Phase 1 Tasks (In Order)
 
@@ -118,13 +118,15 @@ const {
 
 ---
 
-### 🔄 CANVAS-004: Error Handling
-**Status**: 🔄 IN PROGRESS  
+### ⏸️ CANVAS-004: Error Handling
+**Status**: ⏸️ DEFERRED  
 **Files**: `src/components/ErrorBoundary.tsx`
 
 **Dependencies**: CANVAS-003 ✅ complete
 
-**Implementation Steps**:
+**Note**: Error handling will be addressed later in Phase 4 (Polish & Production) when we focus on production-ready features. For now, the basic error handling in the existing hooks is sufficient for development.
+
+**Implementation Steps** (for future reference):
 1. Create React error boundary around canvas area
 2. Implement graceful handling of localStorage quota exceeded
 3. Add recovery options for corrupted canvas data
@@ -148,31 +150,66 @@ const {
 
 ---
 
+## 🎯 Phase 2 Tasks (In Order)
+
+### 🔄 UI-001: Create Workspace Layout
+**Status**: 🔄 IN PROGRESS  
+**Files**: `src/components/WorkspaceLayout.tsx`, `src/components/FlowPlanner.tsx`
+
+**Dependencies**: CANVAS-003 ✅ complete
+
+**Implementation Steps**:
+1. Create workspace layout component with sidebar and canvas area
+2. Implement responsive design for different screen sizes
+3. Add sidebar toggle functionality
+4. Integrate existing FlowPlanner into the layout
+5. Ensure proper canvas area sizing
+
+**Code Requirements**:
+```typescript
+// Expected workspace layout interface
+<WorkspaceLayout>
+  <Sidebar />
+  <CanvasArea>
+    <FlowPlanner />
+  </CanvasArea>
+</WorkspaceLayout>
+```
+
+**Acceptance Criteria**:
+- [ ] Sidebar and canvas area layout works
+- [ ] Responsive design for mobile/desktop
+- [ ] Sidebar can be toggled on/off
+- [ ] Canvas area properly sized
+- [ ] Existing FlowPlanner functionality preserved
+
+---
+
 ## 🚀 Quick Start for AI Agent
 
-To begin CANVAS-004:
+To begin UI-001:
 
 1. **Review the completed CANVAS-003**:
    - Understand the `useCanvasManager` hook in `src/hooks/useCanvasManager.ts`
    - Review the canvas management UI in `src/components/FlowPlanner.tsx`
 
-2. **Create the error boundary component**:
-   - File: `src/components/ErrorBoundary.tsx`
-   - Implement React error boundary with fallback UI
+2. **Create the workspace layout component**:
+   - File: `src/components/WorkspaceLayout.tsx`
+   - Implement responsive layout with sidebar and canvas area
 
-3. **Implement error handling**:
-   - localStorage quota exceeded handling
-   - Corrupted canvas data recovery
-   - User-friendly error messages
+3. **Implement core functionality**:
+   - Sidebar toggle functionality
+   - Responsive design
+   - Proper canvas area sizing
 
 4. **Test the implementation**:
-   - Verify error boundary catches crashes
-   - Test localStorage error scenarios
-   - Ensure recovery options work
+   - Verify layout works on different screen sizes
+   - Test sidebar toggle functionality
+   - Ensure canvas functionality is preserved
 
 5. **Update this file when complete**:
-   - Mark CANVAS-004 as ✅ complete
-   - Move to Phase 2 (UI-001)
+   - Mark UI-001 as ✅ complete
+   - Move to UI-002
    - Update progress status
 
 ## 📋 Context for AI Agents
@@ -186,7 +223,7 @@ To begin CANVAS-004:
 - ✅ Canvas state serialization/deserialization implemented
 - ✅ localStorage persistence and auto-save implemented
 - ✅ Multi-canvas management implemented
-- 🔄 Working on error handling
+- 🔄 Moving to Phase 2: Multi-Canvas UI
 
 **Key Files to Understand**:
 - `src/components/FlowPlanner.tsx` - Main tldraw integration with canvas management

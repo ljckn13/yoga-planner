@@ -1,8 +1,8 @@
 # Yoga Planner - Development Blueprint
 
-> **Status**: 🟢 Phase 1 - Canvas State Management  
+> **Status**: 🟢 Phase 2 - Multi-Canvas UI  
 > **Last Updated**: 2024-12-19  
-> **Current Task**: CANVAS-004
+> **Current Task**: UI-001
 
 ## 📋 Project Overview
 
@@ -26,15 +26,15 @@ Building a yoga flow planner with multi-canvas support, auto-save, and user auth
 
 ## 🚀 Development Phases
 
-### Phase 1: Canvas State Management 🔄
+### Phase 1: Canvas State Management ✅
 **Goal**: Serialize, persist, and restore canvas state locally
 
 - [x] **CANVAS-001**: Implement canvas state serialization/deserialization
 - [x] **CANVAS-002**: Add localStorage persistence with auto-save
 - [x] **CANVAS-003**: Create canvas state management hooks
-- [ ] **CANVAS-004**: Add error handling for state operations
+- [⏸️] **CANVAS-004**: Add error handling for state operations *(deferred to Phase 4)*
 
-### Phase 2: Multi-Canvas UI ⭕  
+### Phase 2: Multi-Canvas UI 🔄
 **Goal**: Build sidebar with canvas management
 
 - [ ] **UI-001**: Create workspace layout (sidebar + canvas area)
@@ -56,7 +56,7 @@ Building a yoga flow planner with multi-canvas support, auto-save, and user auth
 ### Phase 4: Polish & Production ⭕
 **Goal**: Production-ready features and optimizations
 
-- [ ] **PROD-001**: Add comprehensive error handling
+- [ ] **PROD-001**: Add comprehensive error handling *(includes CANVAS-004)*
 - [ ] **PROD-002**: Implement proper loading states
 - [ ] **PROD-003**: Add user onboarding flow
 - [ ] **PROD-004**: Performance optimizations
@@ -121,8 +121,12 @@ Building a yoga flow planner with multi-canvas support, auto-save, and user auth
 
 ---
 
-### 🔄 CANVAS-004: Error Handling for State Operations
+### ⏸️ CANVAS-004: Error Handling for State Operations
 **File**: `src/components/ErrorBoundary.tsx`
+
+**Status**: Deferred to Phase 4 (Polish & Production)
+
+**Note**: Error handling will be addressed later when we focus on production-ready features. The basic error handling in existing hooks is sufficient for development.
 
 **Requirements**:
 - React error boundary around canvas area
@@ -135,6 +139,24 @@ Building a yoga flow planner with multi-canvas support, auto-save, and user auth
 - [ ] Clear error messages for users
 - [ ] Recovery options provided
 - [ ] Errors logged for debugging
+
+---
+
+### 🔄 UI-001: Create Workspace Layout
+**File**: `src/components/WorkspaceLayout.tsx`, `src/components/FlowPlanner.tsx`
+
+**Requirements**:
+- Create workspace layout component with sidebar and canvas area
+- Implement responsive design for different screen sizes
+- Add sidebar toggle functionality
+- Integrate existing FlowPlanner into the layout
+
+**Acceptance Criteria**:
+- [ ] Sidebar and canvas area layout works
+- [ ] Responsive design for mobile/desktop
+- [ ] Sidebar can be toggled on/off
+- [ ] Canvas area properly sized
+- [ ] Existing FlowPlanner functionality preserved
 
 ## 🗂️ Future Considerations (Long List)
 
@@ -198,4 +220,4 @@ Building a yoga flow planner with multi-canvas support, auto-save, and user auth
 
 ---
 
-**Next Action**: Begin CANVAS-004 - Add error handling for state operations
+**Next Action**: Begin UI-001 - Create Workspace Layout

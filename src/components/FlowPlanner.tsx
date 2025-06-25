@@ -24,6 +24,7 @@ import { YogaPosePanel } from './YogaPosePanel';
 import { getPoseState } from '../utils/pose-state';
 import { useAutoSave } from '../hooks/useAutoSave';
 import { useCanvasManager } from '../hooks/useCanvasManager';
+import { yogaCategories } from '../assets/yoga-flows';
 
 // Custom grid component with subtle dots
 const CustomGrid = ({ size, ...camera }: any) => {
@@ -303,8 +304,10 @@ const createComponents = (): TLComponents => ({
   PageMenu: CustomPageMenu,
   Toolbar: (props) => {
     const tools = useTools()
+    const editor = useEditor()
     const isYogaPoseSelected = useIsToolSelected(tools['yogaPose'])
     const [activeCategory, setActiveCategory] = React.useState<number>(0) // Use number for Category enum
+    const [isHoveringPoseTool, setIsHoveringPoseTool] = React.useState(false)
     
     return (
       <>
@@ -355,7 +358,7 @@ const createComponents = (): TLComponents => ({
           width: '440px',
           '--tlui-toolbar-width': '440px',
           position: 'fixed',
-          bottom: '0px', // 8px gap from bottom
+          bottom: '8px', // 8px gap from bottom
           left: '50%',
           transform: 'translateX(-50%)',
           zIndex: 1000
@@ -391,7 +394,126 @@ const createComponents = (): TLComponents => ({
             `}
           </style>
           <DefaultToolbar {...props}>
-            <DefaultToolbarContent />
+            {/* Custom Yoga Pose Tool Button - Always visible */}
+            <div style={{ padding: '0 4px' }}>
+              <button
+                onMouseEnter={() => setIsHoveringPoseTool(true)}
+                onMouseLeave={() => setIsHoveringPoseTool(false)}
+                onClick={() => {
+                  if (isYogaPoseSelected) {
+                    // Deactivate yoga pose tool and switch to select
+                    editor.setCurrentTool('select')
+                  } else {
+                    // Activate yoga pose tool
+                    editor.setCurrentTool('yoga-pose-tool')
+                  }
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '40px',
+                  height: '40px',
+                  backgroundColor: isYogaPoseSelected 
+                    ? (isHoveringPoseTool ? 'hsl(0 0% 96.1%)' : 'hsl(0 0% 94%)') 
+                    : (isHoveringPoseTool ? 'hsl(0 0% 96.1%)' : 'transparent'),
+                  color: 'var(--color-text)',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  transition: 'all 0.1s ease',
+                  position: 'relative'
+                }}
+                title={isYogaPoseSelected ? 'Exit Yoga Pose Tool' : 'Yoga Pose Tool'}
+              >
+                {isYogaPoseSelected && isHoveringPoseTool ? (
+                  <svg 
+                    width="16" 
+                    height="16" 
+                    viewBox="0 0 24 24" 
+                    fill="none" 
+                    stroke="currentColor" 
+                    strokeWidth="2" 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round"
+                  >
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                  </svg>
+                ) : (
+                  <svg 
+                    width="20" 
+                    height="20" 
+                    viewBox="0 0 400 400" 
+                    fill="none" 
+                    stroke="currentColor" 
+                    strokeWidth="23.7138" 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round"
+                  >
+                    <path d="M53.3214 378.29C48.7952 378.376 25.8009 387.388 22.9267 381.718C11.7629 359.699 52.2853 324.225 63.1906 314.427C131.032 253.479 206.364 210.474 293.345 230.136C309.62 233.814 327.128 241.669 332.663 262.742C339.019 286.938 345.673 318.52 345.673 344.127C345.673 365.685 342.055 365.403 355.522 356.745C362.318 352.376 379.465 344.851 386.119 353.531C387.921 355.882 389.14 363.509 386.361 365.336M225.448 136.499C221.027 120.076 225.196 170.556 225.903 187.563C226.163 193.806 229.062 225.803 216.615 225.803M197.983 52.5269C175.092 45.1433 189.055 115.596 219.618 119.631C280.084 127.612 235.811 23.6007 197.983 49.1472M108.083 30.9972C97.8879 59.1956 127.586 98.8249 141.33 121.691C151.127 137.99 198.523 176.926 217.999 182.983M289.465 12.4131C302.589 5.51314 299.323 87.2355 298.894 93.8838C297.479 115.796 291.371 140.149 279.132 158.546C273.706 166.703 235.013 184.237 230.484 192.693"/>
+                  </svg>
+                )}
+              </button>
+            </div>
+            
+            {isYogaPoseSelected ? (
+              // Show categories when yoga pose tool is selected
+              <div style={{ 
+                display: 'flex', 
+                gap: '0px', 
+                padding: '4px 4px', 
+                alignItems: 'center',
+                flex: 1,
+                minHeight: '40px'
+              }}>
+                {yogaCategories.map((category) => (
+                  <button
+                    key={category.category}
+                    onClick={() => setActiveCategory(category.category)}
+                    style={{ 
+                      whiteSpace: 'nowrap',
+                      fontSize: '12px',
+                      padding: '6px 12px',
+                      backgroundColor: activeCategory === category.category ? 'hsl(0 0% 94%)' : 'transparent',
+                      color: 'var(--color-text)',
+                      border: 'none',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      transition: 'all 0.1s ease',
+                      height: '40px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      flex: 1,
+                      margin: '0 2px'
+                    }}
+                    onMouseEnter={(e) => {
+                      if (activeCategory !== category.category) {
+                        e.currentTarget.style.backgroundColor = 'hsl(0 0% 96.1%)';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (activeCategory !== category.category) {
+                        e.currentTarget.style.backgroundColor = 'transparent';
+                      }
+                    }}
+                  >
+                    {category.title}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              // Show normal tools when yoga pose tool is not selected
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center',
+                flex: 1,
+                minHeight: '40px',
+                padding: '0 4px'
+              }}>
+                <DefaultToolbarContent />
+              </div>
+            )}
           </DefaultToolbar>
         </div>
       </>
