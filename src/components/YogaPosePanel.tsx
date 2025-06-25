@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { useEditor, createShapeId } from 'tldraw';
+import { useEditor } from 'tldraw';
 import { yogaPoses, yogaCategories } from '../assets/yoga-flows';
 import { sampleSVGPoses } from '../assets/sample-svg-poses';
-import { Category, SubCategory } from '../types/category';
+import { SubCategory } from '../types/category';
 import { createPoseFromSVG, type YogaPoseSVG } from '../utils/svg-pose-parser';
 
 interface YogaPosePanelProps {
@@ -12,7 +12,7 @@ interface YogaPosePanelProps {
   onCategoryChange: (category: number) => void;
 }
 
-export const YogaPosePanel: React.FC<YogaPosePanelProps> = ({ onPoseSelect, selectedPose, activeCategory, onCategoryChange }) => {
+export const YogaPosePanel: React.FC<YogaPosePanelProps> = ({ onPoseSelect, selectedPose, activeCategory }) => {
   const editor = useEditor();
   const [activeSubCategory, setActiveSubCategory] = useState<SubCategory | undefined>();
   const [lastPosePosition, setLastPosePosition] = useState<{ x: number; y: number } | null>(null);
@@ -30,7 +30,7 @@ export const YogaPosePanel: React.FC<YogaPosePanelProps> = ({ onPoseSelect, sele
   // For now, let's use the sample SVG poses for testing
   const availablePoses = sampleSVGPoses;
   
-  const filteredPoses = availablePoses.filter(pose => {
+  const filteredPoses = availablePoses.filter(() => {
     // For now, show all SVG poses regardless of category
     return true;
   });

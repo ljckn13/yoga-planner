@@ -3,9 +3,10 @@ import { useTools, useIsToolSelected } from 'tldraw';
 import { YogaPosePanel } from './YogaPosePanel';
 import { yogaPoses } from '../assets/yoga-flows';
 import { getPoseState } from '../utils/pose-state';
+import { type YogaPoseSVG } from '../utils/svg-pose-parser';
 
 interface YogaPosePanelOverlayProps {
-  onPoseSelect: (pose: typeof yogaPoses[0]) => void;
+  onPoseSelect: (pose: typeof yogaPoses[0] | YogaPoseSVG) => void;
 }
 
 export const YogaPosePanelOverlay: React.FC<YogaPosePanelOverlayProps> = ({ onPoseSelect }) => {
@@ -32,6 +33,8 @@ export const YogaPosePanelOverlay: React.FC<YogaPosePanelOverlayProps> = ({ onPo
       <YogaPosePanel 
         onPoseSelect={onPoseSelect}
         selectedPose={getPoseState().selectedPose}
+        activeCategory={0}
+        onCategoryChange={() => {}}
       />
     </div>
   );

@@ -1,4 +1,4 @@
-import { createShapeId, type TLShape, type Editor, AssetRecordType } from 'tldraw';
+import { createShapeId, type TLShape, type Editor } from 'tldraw';
 
 export interface YogaPoseSVG {
   id: string;

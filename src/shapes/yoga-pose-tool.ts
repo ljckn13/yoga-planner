@@ -8,7 +8,7 @@ export class YogaPoseTool extends StateNode {
     this.editor.setCursor({ type: 'default', rotation: 0 });
   };
 
-  override onPointerDown: TLEventHandlers['onPointerDown'] = (info) => {
+  override onPointerDown: TLEventHandlers['onPointerDown'] = () => {
     // Switch to select tool for full selection functionality
     this.editor.setCurrentTool('select');
   };
