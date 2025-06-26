@@ -18,6 +18,7 @@ Building a yoga flow planner with multi-canvas support, auto-save, and user auth
 - ✅ Cloud sync with Supabase
 - ✅ **NEW**: Cloudflare Workers optimizations for multiple tabs/rooms
 - ✅ **NEW**: Local development environment working perfectly
+- ✅ **NEW**: Yoga pose color system working perfectly (style panel integration + accurate exports)
 
 ## 🏗️ Architecture Decisions
 
@@ -61,6 +62,7 @@ Building a yoga flow planner with multi-canvas support, auto-save, and user auth
 ### Phase 4: Polish & Production 🔄
 **Goal**: Production-ready features and optimizations
 
+- [✅] **COLOR-001**: Fix yoga pose color system *(style panel integration + accurate exports)*
 - [🔄] **PROD-001**: Add comprehensive error handling *(includes CANVAS-004 and UI-005)*
 - [⭕] **PROD-002**: Implement proper loading states
 - [⭕] **PROD-003**: Add user onboarding flow
@@ -308,6 +310,27 @@ Building a yoga flow planner with multi-canvas support, auto-save, and user auth
 - ✅ Hibernation reduces resource usage
 - ✅ LRU cache manages memory properly
 - ✅ Persistence optimizations work
+
+---
+
+### ✅ COLOR-001: Fix Yoga Pose Color System
+**File**: `src/shapes/yoga-pose-svg-shape.ts`, `src/utils/svg-pose-parser.ts`
+
+**Requirements**:
+- ✅ Fix color detection from style panel when pasting poses
+- ✅ Update `createPoseFromSVG` to get current style from selected shapes or editor state
+- ✅ Fix nested color property access in editor's next styles
+- ✅ Update `toSvg` method to use tldraw's `DefaultColorThemePalette` for accurate export colors
+- ✅ Add comprehensive color mapping for all tldraw color variants
+- ✅ Ensure export colors match exactly what's displayed in the app
+
+**Acceptance Criteria**:
+- ✅ Poses appear in the selected color from style panel immediately
+- ✅ Color selector shows in style panel when yoga pose tool is active
+- ✅ Export colors match exactly what's displayed in the app
+- ✅ All tldraw color variants (light-green, light-blue, etc.) work correctly
+- ✅ Color detection works from both selected shapes and editor state
+- ✅ Export uses tldraw's actual color theme values
 
 ---
 

@@ -48,7 +48,7 @@ export const YogaPosePanel: React.FC<YogaPosePanelProps> = ({ onPoseSelect, sele
   return (
     <div 
       className="yoga-pose-panel" 
-      style={{ 
+                style={{ 
         display: 'flex', 
         flexDirection: 'column',
         maxHeight: '300px',

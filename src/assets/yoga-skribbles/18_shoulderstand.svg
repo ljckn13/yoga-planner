@@ -1,7 +1,5 @@
-<svg width="130" height="130" viewBox="0 0 130 130" fill="none" xmlns="http://www.w3.org/2000/svg">
-<rect width="130" height="130" fill="white"/>
-<path d="M52.9597 86.7481C50.842 83.7475 49.2791 89.4342 49.1139 90.6203C48.3932 95.7939 51.0774 103.119 57.617 99.4741C63.0884 96.4244 62.7331 89.111 58.7006 85.0871C57.3811 83.7705 49.9816 79.9182 49.8352 84.2681" stroke="#450D59" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
-<path d="M52.8529 73.5702C50.7202 71.1486 51.7631 78.7155 51.8222 79.1236C52.0498 80.6947 52.31 87.4157 53.9557 88.3691" stroke="#450D59" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
-<path d="M60.5808 96.968C57.8572 96.4938 66.0733 97.6469 68.8347 97.7803C70.5315 97.8622 70.0594 96.989 70.1459 95.5303C70.4111 91.0551 70.7252 86.5843 70.9543 82.1042C71.8377 64.8326 71.8787 47.2262 71.8787 30" stroke="#450D59" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
-<path d="M60.6133 96.66C66.8193 96.66 72.9458 95.3749 79.1524 95.3552C81.9303 95.3464 81.3733 96.2533 80.851 95.0175C78.9168 90.4413 77.1201 85.9006 74.3545 81.7197C74.1426 81.3994 71.2174 78.595 72.2247 78.595" stroke="#450D59" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+<svg viewBox="0 0 130 130" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">
+<path d="M65 65C65 65 60 70 60 75C60 80 65 85 70 85C75 85 80 80 80 75C80 70 75 65 70 65C65 65 65 65 65 65Z" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M70 85C70 85 75 90 75 95C75 100 70 105 65 105C60 105 55 100 55 95C55 90 60 85 65 85C70 85 70 85 70 85Z" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M65 105C65 105 60 110 60 115C60 120 65 125 70 125C75 125 80 120 80 115C80 110 75 105 70 105C65 105 65 105 65 105Z" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>

@@ -9,7 +9,23 @@ export class YogaPoseTool extends StateNode {
   };
 
   override onPointerDown: TLEventHandlers['onPointerDown'] = () => {
-    // Switch to select tool for full selection functionality
+    // Switch to select tool when clicking on canvas
     this.editor.setCurrentTool('select');
+  };
+
+  override onExit = () => {
+    // Clean up the temporary shape when exiting the tool
+    if (this.tempShapeId) {
+      this.editor.deleteShape(this.tempShapeId);
+      this.tempShapeId = null;
+    }
+  };
+
+  override onPointerMove: TLEventHandlers['onPointerMove'] = () => {
+    // Keep the tool active while moving
+  };
+
+  override onPointerUp: TLEventHandlers['onPointerUp'] = () => {
+    // Keep the tool active
   };
 }

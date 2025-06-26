@@ -129,6 +129,17 @@ export function useCanvasManager(
     }
   }, [editor, version]);
 
+  // Save canvas list to localStorage
+  const saveCanvasList = useCallback((canvasList: CanvasListItem[]) => {
+    try {
+      localStorage.setItem(CANVAS_LIST_KEY, JSON.stringify(canvasList));
+      console.log('💾 Canvas list saved to localStorage:', canvasList.length, 'canvases');
+    } catch (err) {
+      console.error('Error saving canvas list:', err);
+      setError('Failed to save canvas list');
+    }
+  }, []);
+
   // Load canvas list from localStorage
   const loadCanvasList = useCallback(() => {
     try {
@@ -349,6 +360,9 @@ export function useCanvasManager(
       const updatedCanvases = [...canvases, newCanvas];
       setCanvases(updatedCanvases);
       
+      // Save to localStorage
+      saveCanvasList(updatedCanvases);
+      
       // Switch to the new canvas
       setCurrentCanvasId(id);
       
@@ -360,7 +374,7 @@ export function useCanvasManager(
     } finally {
       setIsLoading(false);
     }
-  }, [canvases, defaultCanvasTitle, version, generateThumbnail]);
+  }, [canvases, defaultCanvasTitle, version, generateThumbnail, saveCanvasList]);
 
   // Update canvas metadata
   const updateCanvas = useCallback(async (
@@ -386,6 +400,10 @@ export function useCanvasManager(
       });
 
       setCanvases(updatedCanvases);
+      
+      // Save to localStorage
+      saveCanvasList(updatedCanvases);
+      
       return true;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to update canvas';
@@ -394,7 +412,7 @@ export function useCanvasManager(
     } finally {
       setIsLoading(false);
     }
-  }, [canvases]);
+  }, [canvases, saveCanvasList]);
 
   // Delete a canvas
   const deleteCanvas = useCallback(async (id: string): Promise<boolean> => {
@@ -405,6 +423,9 @@ export function useCanvasManager(
       // Remove from canvas list
       const updatedCanvases = canvases.filter(canvas => canvas.metadata.id !== id);
       setCanvases(updatedCanvases);
+      
+      // Save to localStorage
+      saveCanvasList(updatedCanvases);
 
       // If we deleted the current canvas, switch to another one
       if (currentCanvasId === id) {
@@ -426,7 +447,7 @@ export function useCanvasManager(
     } finally {
       setIsLoading(false);
     }
-  }, [canvases, currentCanvasId, loadCanvasState]);
+  }, [canvases, currentCanvasId, loadCanvasState, saveCanvasList]);
 
   // Switch to a different canvas
   const switchCanvas = useCallback(async (id: string): Promise<boolean> => {
@@ -462,6 +483,9 @@ export function useCanvasManager(
       });
       setCanvases(updatedCanvases);
       
+      // Save to localStorage
+      saveCanvasList(updatedCanvases);
+      
       // Load the canvas state
       console.log('Loading canvas state for:', id);
       const success = await loadCanvasState(id);
@@ -480,7 +504,7 @@ export function useCanvasManager(
     } finally {
       setIsLoading(false);
     }
-  }, [canvases, loadCanvasState]);
+  }, [canvases, loadCanvasState, saveCanvasList]);
 
   // Load canvas list on mount (only once)
   useEffect(() => {

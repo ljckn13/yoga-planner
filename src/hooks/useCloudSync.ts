@@ -10,10 +10,15 @@ interface UseCloudSyncOptions {
 }
 
 export function useCloudSync({ roomId, userId }: UseCloudSyncOptions) {
-  // Use wss:// in production, ws:// in development
-  const uri = import.meta.env.DEV
-    ? `ws://localhost:5172/connect/${roomId}`
-    : `wss://tldraw-worker.le-jckn.workers.dev/connect/${roomId}`
+  // Use environment variable for worker URL, fallback to localhost:8787 in dev
+  const workerUrl = import.meta.env.VITE_TLDRAW_WORKER_URL || 
+    (import.meta.env.DEV ? 'http://localhost:8787' : 'https://tldraw-worker.le-jckn.workers.dev')
+  
+  // Convert HTTP to WebSocket URL
+  const wsUrl = workerUrl.replace(/^http/, 'ws')
+  const uri = `${wsUrl}/connect/${roomId}`
+
+  console.log('🔗 Connecting to sync server:', uri)
 
   const syncResult = useSync({
     uri,

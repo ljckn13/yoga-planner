@@ -17,6 +17,7 @@ import {
   DefaultToolbar,
   DefaultToolbarContent,
   type Editor,
+  getSnapshot,
 } from 'tldraw';
 import 'tldraw/tldraw.css';
 import { YogaPoseShapeUtil, YogaPoseTool, YogaPoseSvgShapeUtil } from '../shapes';
@@ -25,6 +26,19 @@ import { getPoseState } from '../utils/pose-state';
 import { yogaCategories } from '../assets/yoga-flows';
 import { useCloudSync } from '../hooks/useCloudSync';
 import { useAuthContext } from './AuthProvider';
+
+// Temporary debug function to clear localStorage
+const clearLocalStorage = () => {
+  console.log('🧹 Clearing localStorage...');
+  localStorage.clear();
+  console.log('✅ localStorage cleared');
+  window.location.reload();
+};
+
+// Add to window for easy access
+if (typeof window !== 'undefined') {
+  (window as any).clearLocalStorage = clearLocalStorage;
+}
 
 // Canvas context to share state between components
 interface CanvasContextType {
@@ -304,6 +318,20 @@ const uiOverrides: TLUiOverrides = {
     if (tools.note) allowedTools.note = tools.note
     
     return allowedTools
+  },
+  // Enable style panel for yoga pose tool
+  actions(editor, actions) {
+    return {
+      ...actions,
+      'toggle-quick-styles': {
+        id: 'toggle-quick-styles',
+        label: 'Toggle Quick Styles',
+        kbd: '$mod+shift+s',
+        onSelect: () => {
+          editor.setCurrentTool('select')
+        },
+      },
+    }
   },
 }
 
@@ -704,6 +732,21 @@ export const FlowPlanner: React.FC = () => {
     
     mountedEditor.updateInstanceState({ isGridMode: true });
     
+    // Add debug listener for export operations
+    const unsubscribe = mountedEditor.store.listen(() => {
+      // This will help us track when the editor state changes (including during exports)
+      const currentState = getSnapshot(mountedEditor.store);
+      // Access shapes from the TLEditorSnapshot
+      const snapshot = currentState as any;
+      const yogaPoseShapes = Object.values(snapshot.shapes || {}).filter(
+        (shape: any) => shape && shape.typeName === 'shape' && shape.type === 'yoga-pose-svg'
+      );
+      
+      if (yogaPoseShapes.length > 0) {
+        console.log('🎨 Editor state updated, yoga pose shapes found:', yogaPoseShapes.length);
+      }
+    });
+    
     // Ensure only one page per canvas - remove extra pages
     const pages = mountedEditor.getPages();
     if (pages.length > 1) {
@@ -714,6 +757,8 @@ export const FlowPlanner: React.FC = () => {
         }
       });
     }
+    
+    console.log('🚀 Editor mounted with debug logging enabled');
   };
 
   const components = createComponents();

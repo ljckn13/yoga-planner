@@ -487,11 +487,55 @@ node test-worker.js
 
 ## 🎯 Phase 4 Tasks (In Order)
 
+### ✅ COLOR-001: Fix Yoga Pose Color System
+**Status**: ✅ COMPLETE  
+**Files**: `src/shapes/yoga-pose-svg-shape.ts`, `src/utils/svg-pose-parser.ts`
+
+**Dependencies**: SYNC-003 ✅ complete
+
+**Implementation Steps**:
+1. ✅ Fix color detection from style panel when pasting poses
+2. ✅ Update `createPoseFromSVG` to get current style from selected shapes or editor state
+3. ✅ Fix nested color property access in editor's next styles
+4. ✅ Update `toSvg` method to use tldraw's `DefaultColorThemePalette` for accurate export colors
+5. ✅ Add comprehensive color mapping for all tldraw color variants
+6. ✅ Ensure export colors match exactly what's displayed in the app
+
+**Code Requirements**:
+```typescript
+// Color detection from selected shapes or editor state
+const selectedShapes = editor.getSelectedShapes();
+if (selectedShapes.length > 0) {
+  // Get color from selected shape
+} else {
+  // Get color from editor's next styles (handling nested properties)
+}
+
+// Export using tldraw's actual color theme
+const getColorValue = (colorName: string): string => {
+  const lightTheme = DefaultColorThemePalette.lightMode;
+  if (colorName in lightTheme) {
+    return lightTheme[colorName].solid;
+  }
+  // Fallback mapping
+};
+```
+
+**Acceptance Criteria**:
+- ✅ Poses appear in the selected color from style panel immediately
+- ✅ Color selector shows in style panel when yoga pose tool is active
+- ✅ Export colors match exactly what's displayed in the app
+- ✅ All tldraw color variants (light-green, light-blue, etc.) work correctly
+- ✅ Color detection works from both selected shapes and editor state
+- ✅ Export uses tldraw's actual color theme values
+
+---
+
 ### 🔄 PROD-001: Add Comprehensive Error Handling
 **Status**: 🔄 IN PROGRESS  
 **Files**: `src/components/ErrorBoundary.tsx`, `src/hooks/useErrorHandler.ts`
 
-**Dependencies**: SYNC-003 ✅ complete
+**Dependencies**: COLOR-001 ✅ complete
 
 **Implementation Steps**:
 1. Create React error boundary around canvas area
@@ -723,15 +767,16 @@ To begin PROD-001:
 - ✅ Authentication and cloud sync implemented
 - ✅ **NEW**: Cloudflare Workers optimizations for multiple tabs/rooms
 - ✅ **NEW**: Local development environment working perfectly
+- ✅ **NEW**: Yoga pose color system working perfectly (style panel integration + accurate exports)
 - 🔄 Moving to Phase 4: Polish & Production
 
 **Key Files to Understand**:
 - `src/components/FlowPlanner.tsx` - Main tldraw integration with canvas management
-- `src/utils/svg-pose-parser.ts` - Yoga pose creation logic
+- `src/utils/svg-pose-parser.ts` - Yoga pose creation logic with color detection
 - `src/hooks/useCanvasState.ts` - Canvas state serialization (✅ complete)
 - `src/hooks/useAutoSave.ts` - Auto-save functionality (✅ complete)
 - `src/hooks/useCanvasManager.ts` - Multi-canvas management with LRU cache (✅ complete)
-- `src/shapes/` - Custom shape definitions
+- `src/shapes/` - Custom shape definitions with color system
 - `tldraw-sync-cloudflare/worker/TldrawDurableObject.ts` - Optimized sync server (✅ complete)
 
 **Don't Change These (Working Features)**:
@@ -746,3 +791,4 @@ To begin PROD-001:
 - Authentication and cloud sync (✅ complete)
 - **NEW**: Cloudflare Workers optimizations (✅ complete)
 - **NEW**: Local development environment (✅ complete)
+- **NEW**: Yoga pose color system (✅ complete)
