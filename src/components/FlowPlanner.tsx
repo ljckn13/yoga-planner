@@ -1066,22 +1066,22 @@ export const FlowPlanner: React.FC = () => {
             border: '1px solid var(--color-divider)'
           }}
         >
-          <Tldraw
+      <Tldraw
             // Use the sync store instead of local store
             store={syncStore}
-            // Pass in the array of custom tool classes
-            tools={customTools}
-            // Pass in custom shape utilities
-            shapeUtils={customShapeUtils}
-            // Pass in our ui overrides
-            overrides={uiOverrides}
-            // Pass in our custom components
+        // Pass in the array of custom tool classes
+        tools={customTools}
+        // Pass in custom shape utilities
+        shapeUtils={customShapeUtils}
+        // Pass in our ui overrides
+        overrides={uiOverrides}
+        // Pass in our custom components
             components={{
               ...components,
               // You can add a custom UI slot here if needed
             }}
-            // Pass in our custom asset urls
-            assetUrls={customAssetUrls}
+        // Pass in our custom asset urls
+        assetUrls={customAssetUrls}
             // Enable built-in grid
             onMount={handleMount}
           >
@@ -1089,7 +1089,7 @@ export const FlowPlanner: React.FC = () => {
             <SimpleCanvasManager />
           </Tldraw>
         </div>
-      </div>
+    </div>
     </CanvasContext.Provider>
   );
 };

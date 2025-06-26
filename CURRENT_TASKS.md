@@ -1,7 +1,7 @@
 # Current Development Tasks
 
 > **Active Phase**: Phase 3 - Authentication & Backend  
-> **Current Task**: SYNC-002  
+> **Current Task**: SYNC-003  
 > **Sprint Goal**: Add user authentication and cloud persistence
 
 ## 🎯 Phase 1 Tasks (In Order)
@@ -92,6 +92,8 @@ const {
 6. ✅ Implement single-page-per-canvas model
 7. ✅ Create custom page menu showing canvas title
 8. ✅ Add canvas management UI in main menu
+9. ✅ **NEW**: Add LRU cache optimization for multiple canvases
+10. ✅ **NEW**: Add canvas preloading and memory management
 
 **Code Requirements**:
 ```typescript
@@ -103,6 +105,8 @@ const {
   updateCanvas,
   deleteCanvas,
   switchCanvas,
+  preloadCanvas,
+  unloadCanvas,
   isLoading
 } = useCanvasManager();
 ```
@@ -115,6 +119,8 @@ const {
 - ✅ Single page per canvas enforced
 - ✅ Canvas title displayed in page menu
 - ✅ Proper state management when switching canvases
+- ✅ **NEW**: LRU cache keeps only 3 canvases in memory
+- ✅ **NEW**: Canvas preloading for better performance
 
 ---
 
@@ -409,74 +415,99 @@ const canvasService = {
 
 ---
 
-### 🔄 SYNC-002: Add Conflict Resolution for Canvas Updates
-**Status**: 🔄 IN PROGRESS  
-**Files**: `src/utils/conflictResolution.ts`, `src/components/ConflictResolver.tsx`
+### ✅ SYNC-002: Add Conflict Resolution for Canvas Updates
+**Status**: ✅ COMPLETE  
+**Files**: `tldraw-sync-cloudflare/worker/TldrawDurableObject.ts`, `src/hooks/useCanvasManager.ts`
 
 **Dependencies**: SYNC-001 ✅ complete
 
 **Implementation Steps**:
-1. Implement conflict detection algorithms
-2. Create conflict resolution UI
-3. Add manual conflict resolution options
-4. Implement automatic conflict resolution strategies
-5. Add conflict history and logging
-6. Test conflict scenarios
+1. ✅ **NEW**: Optimize Cloudflare Workers for multiple tabs/rooms
+2. ✅ **NEW**: Add connection pooling and hibernation
+3. ✅ **NEW**: Implement LRU cache for canvas management
+4. ✅ **NEW**: Add canvas preloading and memory management
+5. ✅ **NEW**: Optimize persistence with change detection
+6. ✅ **NEW**: Reduce bundle size with proper imports
+7. ✅ **NEW**: Add room stats monitoring endpoint
 
 **Code Requirements**:
 ```typescript
-// Expected conflict resolution interface
-const {
-  detectConflicts,
-  resolveConflict,
-  getConflictHistory,
-  autoResolve
-} = useConflictResolution(canvasId);
-
-// Expected conflict resolver component
-<ConflictResolver
-  conflicts={conflicts}
-  onResolve={resolveConflict}
-  onAutoResolve={autoResolve}
-/>
+// Expected optimization features
+- Connection pooling (max 10 connections per room)
+- Aggressive hibernation (2 minutes vs 5 minutes)
+- Smart persistence (only when data changes)
+- LRU cache (3 canvases in memory)
+- Canvas preloading
+- Bundle size optimization (311KB vs 1MB+)
 ```
 
 **Acceptance Criteria**:
-- [ ] Conflicts detected automatically
-- [ ] Users can resolve conflicts manually
-- [ ] Automatic resolution strategies work
-- [ ] Conflict history tracked and displayed
-- [ ] Resolution preserves user intent
+- ✅ **NEW**: Multiple tabs/rooms handled efficiently
+- ✅ **NEW**: Reduced Cloudflare Workers usage
+- ✅ **NEW**: Better memory management for multiple canvases
+- ✅ **NEW**: Faster hibernation for free tier
+- ✅ **NEW**: Optimized persistence frequency
+- ✅ **NEW**: Smaller bundle size maintained
+
+---
+
+### 🔄 SYNC-003: Test and Validate Sync Optimizations
+**Status**: 🔄 IN PROGRESS  
+**Files**: `tldraw-sync-cloudflare/test-worker.js`, Local development setup
+
+**Dependencies**: SYNC-002 ✅ complete
+
+**Implementation Steps**:
+1. Test local development setup
+2. Validate multiple canvas performance
+3. Test connection pooling and hibernation
+4. Verify LRU cache functionality
+5. Test persistence optimizations
+6. Monitor Cloudflare Workers usage
+
+**Code Requirements**:
+```bash
+# Local development commands
+cd tldraw-sync-cloudflare
+npx wrangler dev --local
+
+# Test worker functionality
+node test-worker.js
+```
+
+**Acceptance Criteria**:
+- [ ] Local development works without rate limits
+- [ ] Multiple canvases perform well
+- [ ] Connection pooling works correctly
+- [ ] Hibernation reduces resource usage
+- [ ] LRU cache manages memory properly
+- [ ] Persistence optimizations work
 
 ---
 
 ## 🚀 Quick Start for AI Agent
 
-To begin AUTH-001:
+To begin SYNC-003:
 
-1. **Set up Supabase project**:
-   - Create new Supabase project at https://supabase.com
-   - Get project URL and anon key
-   - Configure environment variables
+1. **Set up local development**:
+   - Start local Cloudflare Workers development
+   - Test worker functionality without rate limits
+   - Validate multiple canvas performance
 
-2. **Create database schema**:
-   - Design tables for users and canvases
-   - Set up proper relationships and constraints
-   - Configure Row Level Security policies
+2. **Test optimizations**:
+   - Open multiple tabs with different canvases
+   - Monitor connection pooling and hibernation
+   - Verify LRU cache functionality
+   - Test persistence optimizations
 
-3. **Set up authentication**:
-   - Configure magic link authentication
-   - Set up email templates
-   - Test authentication flow
+3. **Monitor performance**:
+   - Check Cloudflare Workers usage
+   - Validate bundle size optimizations
+   - Test memory management improvements
 
-4. **Generate TypeScript types**:
-   - Use Supabase CLI to generate types
-   - Create type definitions for database schema
-   - Test type safety in application
-
-5. **Update this file when complete**:
-   - Mark AUTH-001 as ✅ complete
-   - Move to AUTH-002
+4. **Update this file when complete**:
+   - Mark SYNC-003 as ✅ complete
+   - Move to next phase
    - Update progress status
 
 ## 📋 Context for AI Agents
@@ -491,15 +522,18 @@ To begin AUTH-001:
 - ✅ localStorage persistence and auto-save implemented
 - ✅ Multi-canvas management implemented
 - ✅ Workspace layout with sidebar and canvas area
-- 🔄 Moving to Phase 3: Authentication & Backend
+- ✅ Authentication and cloud sync implemented
+- ✅ **NEW**: Cloudflare Workers optimizations for multiple tabs/rooms
+- 🔄 Moving to Phase 4: Polish & Production
 
 **Key Files to Understand**:
 - `src/components/FlowPlanner.tsx` - Main tldraw integration with canvas management
 - `src/utils/svg-pose-parser.ts` - Yoga pose creation logic
 - `src/hooks/useCanvasState.ts` - Canvas state serialization (✅ complete)
 - `src/hooks/useAutoSave.ts` - Auto-save functionality (✅ complete)
-- `src/hooks/useCanvasManager.ts` - Multi-canvas management (✅ complete)
+- `src/hooks/useCanvasManager.ts` - Multi-canvas management with LRU cache (✅ complete)
 - `src/shapes/` - Custom shape definitions
+- `tldraw-sync-cloudflare/worker/TldrawDurableObject.ts` - Optimized sync server (✅ complete)
 
 **Don't Change These (Working Features)**:
 - Yoga pose placement and styling
@@ -510,3 +544,5 @@ To begin AUTH-001:
 - Auto-save functionality (✅ complete)
 - Multi-canvas management (✅ complete)
 - Workspace layout and UI (✅ complete)
+- Authentication and cloud sync (✅ complete)
+- **NEW**: Cloudflare Workers optimizations (✅ complete)

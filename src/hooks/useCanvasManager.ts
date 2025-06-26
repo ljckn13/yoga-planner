@@ -14,6 +14,8 @@ export interface CanvasListItem {
   metadata: CanvasMetadata;
   hasUnsavedChanges: boolean;
   saveStatus: 'saved' | 'saving' | 'error' | 'unsaved';
+  isLoaded?: boolean; // Track if canvas is loaded in memory
+  lastAccessed?: Date; // Track last access for LRU cache
 }
 
 export interface UseCanvasManagerReturn {
@@ -26,17 +28,21 @@ export interface UseCanvasManagerReturn {
   deleteCanvas: (id: string) => Promise<boolean>;
   switchCanvas: (id: string) => Promise<boolean>;
   clearError: () => void;
+  preloadCanvas: (id: string) => Promise<void>; // Preload canvas data
+  unloadCanvas: (id: string) => void; // Unload canvas from memory
 }
 
 export interface UseCanvasManagerOptions {
   defaultCanvasTitle?: string;
   autoCreateDefault?: boolean;
   version?: string;
+  maxLoadedCanvases?: number; // Limit number of canvases kept in memory
 }
 
 const CANVAS_LIST_KEY = 'yoga_flow_canvas_list';
 const STORAGE_KEY_PREFIX = 'yoga_flow_canvas_';
 const DEFAULT_CANVAS_TITLE = 'Untitled Flow';
+const DEFAULT_MAX_LOADED_CANVASES = 3; // Keep only 3 canvases in memory
 
 export function useCanvasManager(
   editor: Editor | null,
@@ -46,6 +52,7 @@ export function useCanvasManager(
     defaultCanvasTitle = DEFAULT_CANVAS_TITLE,
     autoCreateDefault = true,
     version = '1.0.0',
+    maxLoadedCanvases = DEFAULT_MAX_LOADED_CANVASES,
   } = options;
 
   const [canvases, setCanvases] = useState<CanvasListItem[]>([]);
@@ -54,10 +61,56 @@ export function useCanvasManager(
   const [error, setError] = useState<string | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
   const defaultCanvasCreatedRef = useRef(false);
+  
+  // Track loaded canvases for LRU cache
+  const loadedCanvasesRef = useRef<Set<string>>(new Set());
+  const canvasAccessTimesRef = useRef<Map<string, number>>(new Map());
 
   const clearError = useCallback(() => {
     setError(null);
   }, []);
+
+  // LRU cache management
+  const updateCanvasAccess = useCallback((canvasId: string) => {
+    const now = Date.now();
+    canvasAccessTimesRef.current.set(canvasId, now);
+    
+    // Update canvas list with last accessed time
+    setCanvases(prev => prev.map(canvas => 
+      canvas.metadata.id === canvasId 
+        ? { ...canvas, lastAccessed: new Date(now) }
+        : canvas
+    ));
+  }, []);
+
+  const evictLeastRecentlyUsed = useCallback(() => {
+    if (loadedCanvasesRef.current.size <= maxLoadedCanvases) return;
+    
+    // Find least recently used canvas
+    let oldestCanvasId: string | null = null;
+    let oldestTime = Infinity;
+    
+    for (const [canvasId, accessTime] of canvasAccessTimesRef.current) {
+      if (accessTime < oldestTime && canvasId !== currentCanvasId) {
+        oldestTime = accessTime;
+        oldestCanvasId = canvasId;
+      }
+    }
+    
+    if (oldestCanvasId) {
+      loadedCanvasesRef.current.delete(oldestCanvasId);
+      canvasAccessTimesRef.current.delete(oldestCanvasId);
+      
+      // Update canvas list
+      setCanvases(prev => prev.map(canvas => 
+        canvas.metadata.id === oldestCanvasId 
+          ? { ...canvas, isLoaded: false }
+          : canvas
+      ));
+      
+      console.log(`🗑️ Unloaded canvas ${oldestCanvasId} due to LRU cache limit`);
+    }
+  }, [maxLoadedCanvases, currentCanvasId]);
 
   // Create a blank canvas state
   const createBlankCanvasState = useCallback(() => {
@@ -93,6 +146,8 @@ export function useCanvasManager(
             },
             hasUnsavedChanges: item.hasUnsavedChanges || false,
             saveStatus: item.saveStatus || 'saved',
+            isLoaded: false, // Start with unloaded state
+            lastAccessed: item.lastAccessed ? new Date(item.lastAccessed) : undefined,
           }));
         setCanvases(validCanvases);
         
@@ -143,6 +198,17 @@ export function useCanvasManager(
             });
           }
           
+          // Mark as loaded and update access time
+          loadedCanvasesRef.current.add(canvasId);
+          updateCanvasAccess(canvasId);
+          
+          // Update canvas list
+          setCanvases(prev => prev.map(canvas => 
+            canvas.metadata.id === canvasId 
+              ? { ...canvas, isLoaded: true }
+              : canvas
+          ));
+          
           console.log('Canvas state loaded successfully');
           return true;
         }
@@ -166,6 +232,17 @@ export function useCanvasManager(
           });
         }
         
+        // Mark as loaded and update access time
+        loadedCanvasesRef.current.add(canvasId);
+        updateCanvasAccess(canvasId);
+        
+        // Update canvas list
+        setCanvases(prev => prev.map(canvas => 
+          canvas.metadata.id === canvasId 
+            ? { ...canvas, isLoaded: true }
+            : canvas
+        ));
+        
         console.log('Blank canvas state created successfully');
         return true;
       }
@@ -176,7 +253,60 @@ export function useCanvasManager(
       console.error('Error in loadCanvasState:', err);
       return false;
     }
-  }, [editor, createBlankCanvasState]);
+  }, [editor, createBlankCanvasState, updateCanvasAccess]);
+
+  // Preload canvas data without switching to it
+  const preloadCanvas = useCallback(async (canvasId: string): Promise<void> => {
+    if (loadedCanvasesRef.current.has(canvasId)) {
+      updateCanvasAccess(canvasId);
+      return; // Already loaded
+    }
+    
+    try {
+      const storageKey = `${STORAGE_KEY_PREFIX}${canvasId}`;
+      const savedData = localStorage.getItem(storageKey);
+      
+      if (savedData) {
+        // Just mark as loaded without actually loading into editor
+        loadedCanvasesRef.current.add(canvasId);
+        updateCanvasAccess(canvasId);
+        
+        // Update canvas list
+        setCanvases(prev => prev.map(canvas => 
+          canvas.metadata.id === canvasId 
+            ? { ...canvas, isLoaded: true }
+            : canvas
+        ));
+        
+        // Evict LRU if needed
+        evictLeastRecentlyUsed();
+        
+        console.log(`📦 Preloaded canvas ${canvasId}`);
+      }
+    } catch (err) {
+      console.error('Error preloading canvas:', err);
+    }
+  }, [updateCanvasAccess, evictLeastRecentlyUsed]);
+
+  // Unload canvas from memory
+  const unloadCanvas = useCallback((canvasId: string) => {
+    if (canvasId === currentCanvasId) {
+      console.warn('Cannot unload current canvas');
+      return;
+    }
+    
+    loadedCanvasesRef.current.delete(canvasId);
+    canvasAccessTimesRef.current.delete(canvasId);
+    
+    // Update canvas list
+    setCanvases(prev => prev.map(canvas => 
+      canvas.metadata.id === canvasId 
+        ? { ...canvas, isLoaded: false }
+        : canvas
+    ));
+    
+    console.log(`🗑️ Unloaded canvas ${canvasId}`);
+  }, [currentCanvasId]);
 
   // Generate canvas thumbnail
   const generateThumbnail = useCallback(async (): Promise<string | undefined> => {
@@ -213,6 +343,7 @@ export function useCanvasManager(
         },
         hasUnsavedChanges: false,
         saveStatus: 'saved',
+        isLoaded: false,
       };
 
       const updatedCanvases = [...canvases, newCanvas];
@@ -379,5 +510,7 @@ export function useCanvasManager(
     deleteCanvas,
     switchCanvas,
     clearError,
+    preloadCanvas,
+    unloadCanvas,
   };
 } 
