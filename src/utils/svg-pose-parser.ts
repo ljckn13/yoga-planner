@@ -1,4 +1,5 @@
 import { createShapeId, type TLShape, type Editor } from 'tldraw';
+import { toRichText } from '@tldraw/tlschema';
 
 export interface YogaPoseSVG {
   id: string;
@@ -43,93 +44,21 @@ export async function createPoseFromSVG(
     },
   };
   
+  // Create SVG shape first
   editor.createShape(svgShape);
   
-  // Create title text using putExternalContent but then update with draw font
+  // Create text shapes using putExternalContent (safer for sync)
   await editor.putExternalContent({
     type: 'text',
     text: poseData.name,
     point: { x: targetX + 125, y: targetY + 265 },
-    sources: [
-      { type: 'text', subtype: 'text', data: poseData.name } as const
-    ]
   });
   
-  // Create Indian name text using putExternalContent
   await editor.putExternalContent({
-    type: 'text',
+    type: 'text', 
     text: poseData.indianName,
     point: { x: targetX + 125, y: targetY + 295 },
-    sources: [
-      { type: 'text', subtype: 'text', data: poseData.indianName } as const
-    ]
   });
-  
-  // Update the created text shapes to use draw font and proper styling, then group all three shapes
-  setTimeout(() => {
-    const allShapes = editor.getCurrentPageShapes();
-    
-    // Get the most recently created shapes (last 3: SVG + 2 text shapes)
-    const recentShapes = allShapes
-      .sort((a, b) => {
-        // Sort by creation time (index) to get most recent
-        return b.index.localeCompare(a.index);
-      })
-      .slice(0, 3); // Take the 3 most recent shapes
-    
-    // Separate text shapes and update their styling
-    const textShapes = recentShapes
-      .filter(shape => shape.type === 'text')
-      .sort((a, b) => a.y - b.y); // Sort by Y position (top to bottom)
-    
-    textShapes.forEach((shape, index) => {
-      if (index === 0) {
-        // Title text (higher Y position)
-        editor.updateShape({
-          id: shape.id,
-          type: 'text',
-          props: {
-            ...shape.props,
-            font: 'draw',
-            size: 'l',
-            color: 'black',
-          },
-        });
-      } else if (index === 1) {
-        // Subtitle text (lower Y position - Indian name)
-        editor.updateShape({
-          id: shape.id,
-          type: 'text',
-          props: {
-            ...shape.props,
-            font: 'draw',
-            size: 'm',
-            color: 'grey',
-          },
-        });
-      }
-    });
-    
-    // Group all three shapes (SVG + title + subtitle)
-    const shapeIds = recentShapes.map(shape => shape.id);
-    
-    if (shapeIds.length === 3) {
-      try {
-        // Use batch operation to ensure atomic grouping
-        editor.batch(() => {
-          const existingShapes = shapeIds.filter(id => editor.getShape(id));
-          
-          if (existingShapes.length === 3) {
-            // Select and group in one batch operation
-            editor.setSelectedShapes(existingShapes);
-            editor.groupShapes(existingShapes);
-          }
-        });
-      } catch (error) {
-        console.error('Error grouping shapes:', error);
-      }
-    }
-  }, 50); // Increased timeout to ensure shapes are fully created
   
 }
 
@@ -180,10 +109,14 @@ export function parseSVGToShapes(poseData: YogaPoseSVG, targetX: number, targetY
     opacity: 1,
     meta: {},
     props: {
+      richText: toRichText(poseData.name),
       color: 'black',
       font: 'draw',
       size: 'l',
-      text: poseData.name,
+      textAlign: 'start',
+      w: 330,
+      scale: 1,
+      autoSize: true,
     },
   };
   shapes.push(titleShape);
@@ -203,10 +136,14 @@ export function parseSVGToShapes(poseData: YogaPoseSVG, targetX: number, targetY
     opacity: 0.6,
     meta: {},
     props: {
+      richText: toRichText(poseData.indianName),
       color: 'grey',
       font: 'draw',
       size: 'm',
-      text: poseData.indianName,
+      textAlign: 'start',
+      w: 330,
+      scale: 1,
+      autoSize: true,
     },
   };
   shapes.push(indianNameShape);

@@ -552,11 +552,15 @@ export const FlowPlanner: React.FC = () => {
   const editorRef = React.useRef<Editor | null>(null);
   const { user: _user, signOut } = useAuthContext();
 
+  // For local development, disable cloud sync to avoid INVALID_RECORD errors
   // Use cloud sync for the current canvas
   const { store: syncStore, getSyncStatus } = useCloudSync({
     roomId: currentCanvasId || 'default',
     userId: _user?.id,
   });
+  
+  // Skip cloud sync validation for local development
+  const useLocalStore = process.env.NODE_ENV === 'development';
 
   // Load canvases from localStorage on mount
   React.useEffect(() => {
@@ -1067,8 +1071,8 @@ export const FlowPlanner: React.FC = () => {
           }}
         >
           <Tldraw
-            // Use the sync store instead of local store
-            store={syncStore}
+            // Use local store for development, sync store for production
+            {...(useLocalStore ? {} : { store: syncStore })}
             // Pass in the array of custom tool classes
             tools={customTools}
             // Pass in custom shape utilities
