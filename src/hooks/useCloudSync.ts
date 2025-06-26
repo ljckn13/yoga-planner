@@ -1,5 +1,5 @@
 import { useSync } from '@tldraw/sync'
-import { useMemo } from 'react'
+import { useMemo, useEffect } from 'react'
 import { assetStore } from '../services/assetStore'
 import { YogaPoseShapeUtil, YogaPoseSvgShapeUtil } from '../shapes'
 import { defaultShapeUtils, defaultBindingUtils } from 'tldraw'
@@ -17,6 +17,32 @@ export function useCloudSync({ roomId, userId }: UseCloudSyncOptions) {
     shapeUtils: useMemo(() => [YogaPoseShapeUtil, YogaPoseSvgShapeUtil, ...defaultShapeUtils], []),
     bindingUtils: useMemo(() => defaultBindingUtils, []),
   })
+
+  // Debug logging
+  console.log('🎨 Shape Utils:', {
+    yogaPoseShape: YogaPoseShapeUtil,
+    yogaPoseSvgShape: YogaPoseSvgShapeUtil,
+    defaultShapes: defaultShapeUtils.length,
+    allShapeTypes: [YogaPoseShapeUtil, YogaPoseSvgShapeUtil, ...defaultShapeUtils].map(util => util.type)
+  })
+
+  console.log('🔄 Sync Status:', {
+    status: syncResult.status,
+    error: syncResult.error,
+    roomId,
+    storeRecords: syncResult.store ? Object.keys(syncResult.store.getSnapshot()) : []
+  })
+
+  // Monitor for sync errors
+  useEffect(() => {
+    if (syncResult.error) {
+      console.error('🔴 Sync Error Details:', {
+        error: syncResult.error,
+        status: syncResult.status,
+        roomId
+      })
+    }
+  }, [syncResult.error, syncResult.status, roomId])
 
   return {
     store: syncResult.store,
