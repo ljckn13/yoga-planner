@@ -1,8 +1,8 @@
 # Current Development Tasks
 
-> **Active Phase**: Phase 3 - Authentication & Backend  
-> **Current Task**: SYNC-003  
-> **Sprint Goal**: Add user authentication and cloud persistence
+> **Active Phase**: Phase 4 - Polish & Production  
+> **Current Task**: PROD-001  
+> **Sprint Goal**: Production-ready features and optimizations
 
 ## 🎯 Phase 1 Tasks (In Order)
 
@@ -451,19 +451,19 @@ const canvasService = {
 
 ---
 
-### 🔄 SYNC-003: Test and Validate Sync Optimizations
-**Status**: 🔄 IN PROGRESS  
+### ✅ SYNC-003: Test and Validate Sync Optimizations
+**Status**: ✅ COMPLETE  
 **Files**: `tldraw-sync-cloudflare/test-worker.js`, Local development setup
 
 **Dependencies**: SYNC-002 ✅ complete
 
 **Implementation Steps**:
-1. Test local development setup
-2. Validate multiple canvas performance
-3. Test connection pooling and hibernation
-4. Verify LRU cache functionality
-5. Test persistence optimizations
-6. Monitor Cloudflare Workers usage
+1. ✅ Test local development setup
+2. ✅ Validate multiple canvas performance
+3. ✅ Test connection pooling and hibernation
+4. ✅ Verify LRU cache functionality
+5. ✅ Test persistence optimizations
+6. ✅ Monitor Cloudflare Workers usage
 
 **Code Requirements**:
 ```bash
@@ -476,38 +476,236 @@ node test-worker.js
 ```
 
 **Acceptance Criteria**:
-- [ ] Local development works without rate limits
-- [ ] Multiple canvases perform well
-- [ ] Connection pooling works correctly
-- [ ] Hibernation reduces resource usage
-- [ ] LRU cache manages memory properly
-- [ ] Persistence optimizations work
+- ✅ Local development works without rate limits
+- ✅ Multiple canvases perform well
+- ✅ Connection pooling works correctly
+- ✅ Hibernation reduces resource usage
+- ✅ LRU cache manages memory properly
+- ✅ Persistence optimizations work
+
+---
+
+## 🎯 Phase 4 Tasks (In Order)
+
+### 🔄 PROD-001: Add Comprehensive Error Handling
+**Status**: 🔄 IN PROGRESS  
+**Files**: `src/components/ErrorBoundary.tsx`, `src/hooks/useErrorHandler.ts`
+
+**Dependencies**: SYNC-003 ✅ complete
+
+**Implementation Steps**:
+1. Create React error boundary around canvas area
+2. Implement graceful handling of localStorage quota exceeded
+3. Add recovery options for corrupted canvas data
+4. Create user-friendly error messages
+5. Add error logging for debugging
+6. Handle WebSocket connection errors
+7. Add retry mechanisms for failed operations
+
+**Code Requirements**:
+```typescript
+// Expected error boundary interface
+<ErrorBoundary fallback={<ErrorFallback />}>
+  <FlowPlanner />
+</ErrorBoundary>
+
+// Expected error handler hook
+const {
+  handleError,
+  clearError,
+  error,
+  retry
+} = useErrorHandler();
+```
+
+**Acceptance Criteria**:
+- [ ] App doesn't crash on canvas errors
+- [ ] Clear error messages for users
+- [ ] Recovery options provided
+- [ ] Errors logged for debugging
+- [ ] Graceful handling of localStorage issues
+- [ ] WebSocket connection errors handled
+- [ ] Retry mechanisms for failed operations
+
+---
+
+### ⭕ PROD-002: Implement Proper Loading States
+**Status**: ⭕ PENDING  
+**Files**: `src/components/LoadingStates.tsx`, `src/hooks/useLoadingState.ts`
+
+**Dependencies**: PROD-001 🔄 in progress
+
+**Implementation Steps**:
+1. Create loading state management hook
+2. Add loading indicators for canvas operations
+3. Implement skeleton screens for better UX
+4. Add progress indicators for long operations
+5. Handle loading states for authentication
+6. Add loading states for sync operations
+
+**Code Requirements**:
+```typescript
+// Expected loading state hook
+const {
+  isLoading,
+  loadingMessage,
+  progress,
+  setLoading
+} = useLoadingState();
+
+// Expected loading components
+<LoadingSpinner />
+<LoadingSkeleton />
+<ProgressBar />
+```
+
+**Acceptance Criteria**:
+- [ ] Loading states for all async operations
+- [ ] Skeleton screens for better perceived performance
+- [ ] Progress indicators for long operations
+- [ ] Smooth transitions between states
+- [ ] Loading states don't block UI
+
+---
+
+### ⭕ PROD-003: Add User Onboarding Flow
+**Status**: ⭕ PENDING  
+**Files**: `src/components/Onboarding.tsx`, `src/hooks/useOnboarding.ts`
+
+**Dependencies**: PROD-002 ⭕ pending
+
+**Implementation Steps**:
+1. Create onboarding flow component
+2. Add welcome tour for new users
+3. Implement feature discovery tooltips
+4. Add interactive tutorials
+5. Create help documentation
+6. Add keyboard shortcuts guide
+
+**Code Requirements**:
+```typescript
+// Expected onboarding hook
+const {
+  isFirstTime,
+  currentStep,
+  nextStep,
+  completeOnboarding
+} = useOnboarding();
+
+// Expected onboarding components
+<WelcomeTour />
+<FeatureTooltip />
+<HelpModal />
+```
+
+**Acceptance Criteria**:
+- [ ] New users see welcome tour
+- [ ] Feature discovery tooltips work
+- [ ] Interactive tutorials available
+- [ ] Help documentation accessible
+- [ ] Keyboard shortcuts guide provided
+
+---
+
+### ⭕ PROD-004: Performance Optimizations
+**Status**: ⭕ PENDING  
+**Files**: `src/utils/performance.ts`, `src/hooks/usePerformance.ts`
+
+**Dependencies**: PROD-003 ⭕ pending
+
+**Implementation Steps**:
+1. Implement code splitting and lazy loading
+2. Add performance monitoring
+3. Optimize bundle size
+4. Add caching strategies
+5. Implement virtual scrolling for large lists
+6. Add performance metrics tracking
+
+**Code Requirements**:
+```typescript
+// Expected performance hook
+const {
+  measurePerformance,
+  getMetrics,
+  optimize
+} = usePerformance();
+
+// Expected performance utilities
+<LazyComponent />
+<VirtualList />
+<PerformanceMonitor />
+```
+
+**Acceptance Criteria**:
+- [ ] Code splitting reduces initial bundle size
+- [ ] Performance monitoring in place
+- [ ] Bundle size optimized
+- [ ] Caching strategies implemented
+- [ ] Virtual scrolling for large lists
+- [ ] Performance metrics tracked
+
+---
+
+### ⭕ PROD-005: End-to-End Testing
+**Status**: ⭕ PENDING  
+**Files**: `tests/`, `cypress/`, `src/__tests__/`
+
+**Dependencies**: PROD-004 ⭕ pending
+
+**Implementation Steps**:
+1. Set up testing framework (Cypress/Playwright)
+2. Write end-to-end tests for core flows
+3. Add unit tests for critical components
+4. Implement integration tests
+5. Add visual regression tests
+6. Set up CI/CD testing pipeline
+
+**Code Requirements**:
+```typescript
+// Expected test structure
+describe('Canvas Management', () => {
+  it('should create and switch canvases', () => {
+    // Test implementation
+  });
+});
+
+// Expected test utilities
+<TestWrapper />
+<MockProvider />
+```
+
+**Acceptance Criteria**:
+- [ ] End-to-end tests cover core flows
+- [ ] Unit tests for critical components
+- [ ] Integration tests working
+- [ ] Visual regression tests implemented
+- [ ] CI/CD pipeline includes testing
+- [ ] Test coverage meets standards
 
 ---
 
 ## 🚀 Quick Start for AI Agent
 
-To begin SYNC-003:
+To begin PROD-001:
 
-1. **Set up local development**:
-   - Start local Cloudflare Workers development
-   - Test worker functionality without rate limits
-   - Validate multiple canvas performance
+1. **Create error boundary component**:
+   - Implement React error boundary
+   - Add graceful error handling
+   - Create user-friendly error messages
 
-2. **Test optimizations**:
-   - Open multiple tabs with different canvases
-   - Monitor connection pooling and hibernation
-   - Verify LRU cache functionality
-   - Test persistence optimizations
+2. **Add error handling hooks**:
+   - Create useErrorHandler hook
+   - Add retry mechanisms
+   - Implement error logging
 
-3. **Monitor performance**:
-   - Check Cloudflare Workers usage
-   - Validate bundle size optimizations
-   - Test memory management improvements
+3. **Test error scenarios**:
+   - Test localStorage quota exceeded
+   - Test corrupted canvas data
+   - Test WebSocket connection errors
 
 4. **Update this file when complete**:
-   - Mark SYNC-003 as ✅ complete
-   - Move to next phase
+   - Mark PROD-001 as ✅ complete
+   - Move to PROD-002
    - Update progress status
 
 ## 📋 Context for AI Agents
@@ -524,6 +722,7 @@ To begin SYNC-003:
 - ✅ Workspace layout with sidebar and canvas area
 - ✅ Authentication and cloud sync implemented
 - ✅ **NEW**: Cloudflare Workers optimizations for multiple tabs/rooms
+- ✅ **NEW**: Local development environment working perfectly
 - 🔄 Moving to Phase 4: Polish & Production
 
 **Key Files to Understand**:
@@ -546,3 +745,4 @@ To begin SYNC-003:
 - Workspace layout and UI (✅ complete)
 - Authentication and cloud sync (✅ complete)
 - **NEW**: Cloudflare Workers optimizations (✅ complete)
+- **NEW**: Local development environment (✅ complete)
