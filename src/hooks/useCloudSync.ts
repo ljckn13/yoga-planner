@@ -12,7 +12,7 @@ interface UseCloudSyncOptions {
 export function useCloudSync({ roomId, userId }: UseCloudSyncOptions) {
   // Create the sync store with our custom shapes and asset store
   const syncResult = useSync({
-    uri: `${import.meta.env.VITE_TLDRAW_WORKER_URL || 'https://tldraw-worker.le-jckn.workers.dev'}/connect/${roomId}`,
+    uri: `${import.meta.env.DEV ? 'ws://localhost:5172' : import.meta.env.VITE_TLDRAW_WORKER_URL}/connect/${roomId}`,
     assets: assetStore,
     shapeUtils: useMemo(() => [YogaPoseShapeUtil, YogaPoseSvgShapeUtil, ...defaultShapeUtils], []),
     bindingUtils: useMemo(() => defaultBindingUtils, []),
