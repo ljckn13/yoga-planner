@@ -3,7 +3,6 @@ import {
   Tldraw,
   TldrawUiMenuItem,
   TldrawUiMenuGroup,
-  TldrawUiMenuSubmenu,
   useIsToolSelected,
   useTools,
   type TLComponents,
@@ -17,7 +16,6 @@ import {
   DefaultToolbar,
   DefaultToolbarContent,
   type Editor,
-  getSnapshot,
 } from 'tldraw';
 import 'tldraw/tldraw.css';
 import { YogaPoseShapeUtil, YogaPoseTool, YogaPoseSvgShapeUtil } from '../shapes';
@@ -523,7 +521,7 @@ export const FlowPlanner: React.FC = () => {
   const { user: _user, signOut } = useAuthContext();
 
   // Use cloud sync for the current canvas
-  const { store: syncStore, getSyncStatus } = useCloudSync({
+  const { store: syncStore } = useCloudSync({
     roomId: currentCanvasId || 'default',
     userId: _user?.id,
   });
@@ -626,20 +624,7 @@ export const FlowPlanner: React.FC = () => {
     
     mountedEditor.updateInstanceState({ isGridMode: true });
     
-    // Add debug listener for export operations
-    const unsubscribe = mountedEditor.store.listen(() => {
-      // This will help us track when the editor state changes (including during exports)
-      const currentState = getSnapshot(mountedEditor.store);
-      // Access shapes from the TLEditorSnapshot
-      const snapshot = currentState as any;
-      const yogaPoseShapes = Object.values(snapshot.shapes || {}).filter(
-        (shape: any) => shape && shape.typeName === 'shape' && shape.type === 'yoga-pose-svg'
-      );
-      
-      if (yogaPoseShapes.length > 0) {
-        console.log('🎨 Editor state updated, yoga pose shapes found:', yogaPoseShapes.length);
-      }
-    });
+    
     
     // Ensure only one page per canvas - remove extra pages
     const pages = mountedEditor.getPages();

@@ -1,6 +1,5 @@
-<svg width="130" height="130" viewBox="0 0 130 130" fill="none" xmlns="http://www.w3.org/2000/svg">
-<rect width="130" height="130" fill="white"/>
-<path d="M27.0811 91.8568C27.0171 90.1279 17.5372 91.1511 16.3091 91.1582C13.2262 91.176 16.3699 90.3185 17.782 89.4177C22.3641 86.4949 26.1119 81.9402 29.3021 77.6064C37.0024 67.146 45.053 56.712 53.1052 46.546C55.698 43.2726 58.7115 39 63.3214 39C69.928 39 76.8429 52.0594 80.222 56.8334C82.7452 60.3982 83.4157 60.9079 83.4157 64.5081C83.4157 74.6192 98.2104 78.714 98.1309 67.3701C98.0872 61.1365 87.5642 51.6361 84.6665 60.6207" stroke="#450D59" stroke-width="3.16239" stroke-linecap="round" stroke-linejoin="round"/>
-<path d="M83.4883 65.9339C83.4883 65.665 88.2473 71.607 88.6659 72.2543C91.1807 76.1436 93.1583 80.053 94.2304 84.562C94.2457 84.6264 94.8886 88.8644 94.9866 88.8916C96.4159 89.2885 100.043 87.5394 101.67 87.3504C103.31 87.1599 114.295 87.6601 114.807 86.6354" stroke="#450D59" stroke-width="3.16239" stroke-linecap="round" stroke-linejoin="round"/>
-<path d="M89.6432 68.5999C86.6152 68.5999 85.4519 72.2325 84.5664 74.6853" stroke="#450D59" stroke-width="3.16239" stroke-linecap="round" stroke-linejoin="round"/>
+<svg viewBox="0 0 130 130" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">
+<path d="M65 65C65 65 60 70 60 75C60 80 65 85 70 85C75 85 80 80 80 75C80 70 75 65 70 65C65 65 65 65 65 65Z" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M70 85C70 85 75 90 75 95C75 100 70 105 65 105C60 105 55 100 55 95C55 90 60 85 65 85C70 85 70 85 70 85Z" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M65 105C65 105 60 110 60 115C60 120 65 125 70 125C75 125 80 120 80 115C80 110 75 105 70 105C65 105 65 105 65 105Z" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>

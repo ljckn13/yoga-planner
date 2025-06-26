@@ -10,6 +10,53 @@ A collaborative yoga flow planning app built with React, TypeScript, and tldraw.
 - Multi-canvas management
 - User authentication with Supabase
 
+---
+
+## 🚀 Local Development: Start & Debug Guide
+
+### Quick Start
+
+1. **Install dependencies (root):**
+   ```sh
+   npm install
+   ```
+2. **Install dependencies for Cloudflare Worker:**
+   ```sh
+   cd tldraw-sync-cloudflare && npm install && cd ..
+   ```
+3. **Start the Cloudflare Worker (in a separate terminal):**
+   ```sh
+   cd tldraw-sync-cloudflare && npm run dev
+   ```
+   - This runs both the worker and a test client. The worker will listen on port `8787`.
+4. **Start the main app (in another terminal):**
+   ```sh
+   npm run dev
+   ```
+   - The app will run on port `5173` (or `5174` if 5173 is busy).
+5. **Open the app:**
+   - Visit the URL shown in the terminal (e.g. [http://localhost:5173](http://localhost:5173) or [http://localhost:5174](http://localhost:5174)).
+
+### Debugging Tips
+
+- **Cloudflare Worker not running?**
+  - Make sure you see `Ready on http://127.0.0.1:8787` in the worker terminal.
+  - If you get `curl: (7) Failed to connect`, the worker is not running or is on a different port.
+- **WebSocket errors in browser?**
+  - Ensure the worker is running and listening on port `8787`.
+  - The app should connect to `ws://localhost:8787/connect/...`.
+  - If you see a port like `5172`, update `tldraw-sync-cloudflare/vite.config.ts` to use `8787`.
+- **Port already in use?**
+  - The app will try the next available port (e.g. `5174`).
+  - Always check the terminal output for the correct URL.
+- **Worker logs:**
+  - The worker terminal will show connection attempts, errors, and room activity.
+  - Look for `[wrangler:info] GET /connect/... 101 Switching Protocols` for successful WebSocket connections.
+- **Restarting:**
+  - If you change config or see errors, stop both servers and restart them as above.
+
+---
+
 ## Development
 
 ```bash

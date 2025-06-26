@@ -6,7 +6,6 @@ import {
   type TLBaseShape,
   type RecordProps,
   T,
-  type SvgExportContext,
   DefaultColorStyle,
   DefaultFillStyle,
   type TLDefaultColorStyle,
@@ -155,7 +154,7 @@ export class YogaPoseSvgShapeUtil extends ShapeUtil<YogaPoseSvgShape> {
   }
 
   /* Export renderer - parse SVG and return proper SVG elements */
-  toSvg(shape: YogaPoseSvgShape, ctx: SvgExportContext) {
+  toSvg(shape: YogaPoseSvgShape) {
     const { svg, w, h, color, fill, opacity } = shape.props;
     
     console.log('🔍 toSvg called for yoga pose shape:', {
@@ -173,7 +172,6 @@ export class YogaPoseSvgShapeUtil extends ShapeUtil<YogaPoseSvgShape> {
     const getColorValue = (colorName: string): string => {
       // Try to get the color from tldraw's theme palette
       const lightTheme = DefaultColorThemePalette.lightMode;
-      const darkTheme = DefaultColorThemePalette.darkMode;
       
       // Check if the color exists in the theme
       if (colorName in lightTheme) {

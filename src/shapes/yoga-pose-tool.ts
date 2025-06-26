@@ -1,7 +1,8 @@
-import { StateNode } from 'tldraw';
+import { StateNode, type TLShapeId } from 'tldraw';
 import type { TLEventHandlers } from 'tldraw';
 
 export class YogaPoseTool extends StateNode {
+  tempShapeId: TLShapeId | null = null;
   static override id = 'yoga-pose-tool';
   
   override onEnter = () => {

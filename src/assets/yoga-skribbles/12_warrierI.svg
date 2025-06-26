@@ -1,10 +1,5 @@
-<svg width="130" height="130" viewBox="0 0 130 130" fill="none" xmlns="http://www.w3.org/2000/svg">
-<rect width="130" height="130" fill="white"/>
-<path d="M32.354 104.847C27.3612 103.69 22.2124 104.965 17.1437 104.64C14.2544 104.454 17.6401 102.776 18.5611 102.268C23.5325 99.5254 28.3439 96.6331 33.0801 93.4981C40.1903 88.7916 47.2269 83.7112 54.9409 80.0231C56.4341 79.3091 62.6408 77.8749 63.1308 76.0015" stroke="#450D59" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-<path d="M61.5781 77.3341C62.5415 75.4041 65.6359 75.6212 67.488 75.3723C74.8345 74.385 82.1946 73.4637 89.6218 73.6493C94.6789 73.7757 101.88 71.9013 102.418 78.2131C103.106 86.2748 101.013 95.2475 104.742 102.811C106.388 106.15 111.976 103.59 114.732 103.24" stroke="#450D59" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-<path d="M65.1677 52.4207C63.3683 55.1549 64.8008 75.3664 65.1154 75.2699" stroke="#450D59" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-<path d="M61.6819 38.3244C60.1311 36.4062 59.4071 39.5742 59.1385 40.8204C58.0987 45.6438 58.7605 54.1526 65.6515 53.6066C76.7589 52.7266 70.2016 30.3226 60.8628 35.0583" stroke="#450D59" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-<path d="M62.1875 44.5429C62.7125 42.4766 69.822 42.1364 71.7029 41.708" stroke="#450D59" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-<path d="M46.1367 30.4467C51.4777 30.8866 56.5145 41.0494 58.7232 44.8978C61.3216 49.4253 65.3745 55.7637 63.6164 61.1867" stroke="#450D59" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-<path d="M69.6144 26.6189C69.6144 20.133 74.1346 35.1232 74.2618 36.7305C74.7137 42.4422 75.0519 50.0784 71.8635 55.1503C70.789 56.8597 69.0604 57.9957 67.9414 59.6321" stroke="#450D59" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+<svg viewBox="0 0 130 130" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">
+<path d="M65 65C65 65 60 70 60 75C60 80 65 85 70 85C75 85 80 80 80 75C80 70 75 65 70 65C65 65 65 65 65 65Z" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M70 85C70 85 75 90 75 95C75 100 70 105 65 105C60 105 55 100 55 95C55 90 60 85 65 85C70 85 70 85 70 85Z" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M65 105C65 105 60 110 60 115C60 120 65 125 70 125C75 125 80 120 80 115C80 110 75 105 70 105C65 105 65 105 65 105Z" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>

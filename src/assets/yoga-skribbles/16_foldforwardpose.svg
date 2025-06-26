@@ -1,7 +1,5 @@
-<svg width="130" height="130" viewBox="0 0 130 130" fill="none" xmlns="http://www.w3.org/2000/svg">
-<rect width="130" height="130" fill="white"/>
-<path d="M64.2897 100.615C58.9922 100.615 53.6827 103.142 48.1585 103.064C44.6256 103.013 44.6129 101.593 45.4671 98.477C47.5945 90.716 49.3383 82.9842 50.069 74.944C51.3226 61.1504 51.0845 44.7984 60.1668 33.3169C62.3643 30.5389 66.1492 26.6425 70.101 27.0263C74.3286 27.437 76.2576 35.2526 77.4299 38.4259C80.4287 46.5433 80.2302 54.2642 80.2302 62.7571C80.2302 63.819 80.3173 61.76 80.1967 61.4451C79.352 59.2395 75.8849 59.5027 74.2565 60.3782C65.4941 65.0893 68.3336 84.3916 79.2262 80.4191C88.0727 77.1927 84.9699 51.1802 73.024 59.0112" stroke="#450D59" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-<path d="M77.4786 47.1749C77.0969 46.7954 76.5634 46.3162 76.8749 45.7324" stroke="#450D59" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-<path d="M79.0787 45.0112C78.3361 44.1776 76.6238 43.0065 75.7083 44.2287C70.7118 50.8984 74.5736 63.0663 67.1847 68.5717C61.3639 72.9086 56.9151 75.6419 54.0036 82.948C52.9418 85.6126 50.3657 93.0822 53.6116 94.9165" stroke="#450D59" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-<path d="M76.6276 69.575C72.6055 67.0725 66.3766 72.67 63.3281 74.9205" stroke="#450D59" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+<svg viewBox="0 0 130 130" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">
+<path d="M65 65C65 65 60 70 60 75C60 80 65 85 70 85C75 85 80 80 80 75C80 70 75 65 70 65C65 65 65 65 65 65Z" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M70 85C70 85 75 90 75 95C75 100 70 105 65 105C60 105 55 100 55 95C55 90 60 85 65 85C70 85 70 85 70 85Z" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M65 105C65 105 60 110 60 115C60 120 65 125 70 125C75 125 80 120 80 115C80 110 75 105 70 105C65 105 65 105 65 105Z" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>

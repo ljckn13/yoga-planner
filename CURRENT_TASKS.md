@@ -468,7 +468,8 @@ const canvasService = {
 **Code Requirements**:
 ```bash
 # Local development commands
-cd tldraw-sync-cloudflare
+
+
 npx wrangler dev --local
 
 # Test worker functionality
