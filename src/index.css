@@ -29,6 +29,12 @@
   display: none !important;
 }
 
+/* Style the background wrapper with border-radius and thicker stroke */
+.tl-background__wrapper {
+  border-radius: 12px !important;
+  stroke-width: 3px !important;
+}
+
 /* Ensure page menu title uses system font */
 .tlui-page-menu__header__title {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;

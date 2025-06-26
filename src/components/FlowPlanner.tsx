@@ -22,6 +22,7 @@ import {
 import 'tldraw/tldraw.css';
 import { YogaPoseShapeUtil, YogaPoseTool, YogaPoseSvgShapeUtil } from '../shapes';
 import { YogaPosePanel } from './YogaPosePanel';
+import { EditableCanvasTitle } from './EditableCanvasTitle';
 import { getPoseState } from '../utils/pose-state';
 import { yogaCategories } from '../assets/yoga-flows';
 import { useCloudSync } from '../hooks/useCloudSync';
@@ -193,25 +194,6 @@ function CustomPageMenu() {
 function CustomMainMenu() {
   const { canvases, currentCanvasId, setCanvases, setCurrentCanvasId } = useCanvasContext();
 
-  const handleRenameCanvas = async () => {
-    const currentCanvas = canvases.find(c => c.id === currentCanvasId);
-    if (!currentCanvas) return;
-    
-    const newTitle = prompt('Enter new title:', currentCanvas.title);
-    if (newTitle && newTitle.trim() && newTitle !== currentCanvas.title) {
-      console.log('Renaming canvas from', currentCanvas.title, 'to', newTitle.trim());
-      setCanvases(prev => {
-        const updated = prev.map(c => 
-          c.id === currentCanvasId 
-            ? { ...c, title: newTitle.trim() }
-            : c
-        );
-        console.log('Updated canvases after rename:', updated);
-        return updated;
-      });
-    }
-  };
-
   const handleDeleteCanvas = async () => {
     if (canvases.length <= 1) {
       alert('Cannot delete the last canvas. Create a new one first.');
@@ -230,61 +212,19 @@ function CustomMainMenu() {
     }
   };
 
-  const handleSwitchCanvas = async (canvasId: string) => {
-    console.log('Switching to canvas:', canvasId);
-    setCurrentCanvasId(canvasId);
-  };
-
   return (
     <DefaultMainMenu>
-      <TldrawUiMenuGroup id="canvas-management">
-        <TldrawUiMenuItem
-          id="create-canvas"
-          label="Create New Canvas"
-          icon="plus"
-          onSelect={() => {
-            // This will be handled by the main component's handleCreateCanvas
-            // We'll trigger it through a custom event
-            window.dispatchEvent(new CustomEvent('createNewCanvas'));
-          }}
-        />
-        {canvases.length > 1 && (
-          <TldrawUiMenuSubmenu
-            id="switch-canvas"
-            label="Switch Canvas"
-            size="small"
-          >
-            {canvases.map((canvas) => (
-              <TldrawUiMenuItem
-                key={canvas.id}
-                id={`switch-to-${canvas.id}`}
-                label={canvas.title}
-                icon={currentCanvasId === canvas.id ? "check" : "blank"}
-                onSelect={() => handleSwitchCanvas(canvas.id)}
-              />
-            ))}
-          </TldrawUiMenuSubmenu>
-        )}
-        {canvases.length > 0 && (
-          <>
-            <TldrawUiMenuItem
-              id="rename-canvas"
-              label="Rename Canvas"
-              icon="edit"
-              onSelect={handleRenameCanvas}
-            />
-            {canvases.length > 1 && (
-              <TldrawUiMenuItem
-                id="delete-canvas"
-                label="Delete Canvas"
-                icon="trash"
-                onSelect={handleDeleteCanvas}
-              />
-            )}
-          </>
-        )}
-      </TldrawUiMenuGroup>
       <DefaultMainMenuContent />
+      {canvases.length > 1 && (
+        <TldrawUiMenuGroup id="canvas-management">
+          <TldrawUiMenuItem
+            id="delete-canvas"
+            label="Delete Canvas"
+            icon="trash"
+            onSelect={handleDeleteCanvas}
+          />
+        </TldrawUiMenuGroup>
+      )}
     </DefaultMainMenu>
   );
 }
@@ -362,8 +302,9 @@ const createComponents = (): TLComponents => ({
               width: '440px', // Fixed width to match toolbar
               zIndex: 9999,
               maxHeight: '300px',
-              overflow: 'hidden',
-              pointerEvents: 'auto'
+              pointerEvents: 'auto',
+              borderRadius: '12px',
+              boxShadow: '0px 0px 2px hsl(0, 0%, 0%, 16%), 0px 2px 3px hsl(0, 0%, 0%, 24%), 0px 2px 6px hsl(0, 0%, 0%, 0.1), inset 0px 0px 0px 1px hsl(0, 0%, 100%)'
             }}
             onMouseDown={(e) => {
               e.preventDefault();
@@ -397,7 +338,7 @@ const createComponents = (): TLComponents => ({
           width: '440px',
           '--tlui-toolbar-width': '440px',
           position: 'fixed',
-          bottom: '8px', // 8px gap from bottom
+          bottom: '0px', // 4px gap from bottom (moved down by 4px)
           left: '50%',
           transform: 'translateX(-50%)',
           zIndex: 1000
@@ -454,11 +395,11 @@ const createComponents = (): TLComponents => ({
                   width: '40px',
                   height: '40px',
                   backgroundColor: isYogaPoseSelected 
-                    ? (isHoveringPoseTool ? 'hsl(0 0% 96.1%)' : 'hsl(0 0% 94%)') 
-                    : (isHoveringPoseTool ? 'hsl(0 0% 96.1%)' : 'transparent'),
+                    ? (isHoveringPoseTool ? '#EEF0F2' : 'hsl(0 0% 94%)') 
+                    : (isHoveringPoseTool ? '#EEF0F2' : 'transparent'),
                   color: 'var(--color-text)',
                   border: 'none',
-                  borderRadius: '8px',
+                  borderRadius: '12px',
                   cursor: 'pointer',
                   transition: 'all 0.1s ease',
                   position: 'relative'
@@ -514,7 +455,7 @@ const createComponents = (): TLComponents => ({
                       whiteSpace: 'nowrap',
                       fontSize: '12px',
                       padding: '6px 12px',
-                      backgroundColor: activeCategory === category.category ? 'hsl(0 0% 94%)' : 'transparent',
+                      backgroundColor: activeCategory === category.category ? '#EEF0F2' : 'transparent',
                       color: 'var(--color-text)',
                       border: 'none',
                       borderRadius: '8px',
@@ -528,7 +469,7 @@ const createComponents = (): TLComponents => ({
                     }}
                     onMouseEnter={(e) => {
                       if (activeCategory !== category.category) {
-                        e.currentTarget.style.backgroundColor = 'hsl(0 0% 96.1%)';
+                        e.currentTarget.style.backgroundColor = '#EEF0F2';
                       }
                     }}
                     onMouseLeave={(e) => {
@@ -577,6 +518,7 @@ export const FlowPlanner: React.FC = () => {
   const [currentCanvasId, setCurrentCanvasId] = React.useState<string>('');
   const [isInitialized, setIsInitialized] = React.useState(false);
   const [isAccountMenuOpen, setIsAccountMenuOpen] = React.useState(false);
+  const [editingCanvasId, setEditingCanvasId] = React.useState<string | null>(null);
   const editorRef = React.useRef<Editor | null>(null);
   const { user: _user, signOut } = useAuthContext();
 
@@ -676,54 +618,6 @@ export const FlowPlanner: React.FC = () => {
     
     // Switch to new canvas
     setCurrentCanvasId(newCanvas.id);
-  };
-
-  // Simple canvas manager with cloud sync
-  const SimpleCanvasManager = () => {
-    const syncStatus = getSyncStatus();
-    
-    // Sync status indicator
-    const SyncIndicator = () => {
-      const getStatusColor = () => {
-        if (syncStatus.hasError) return 'text-red-600';
-        if (syncStatus.isConnected) return 'text-green-600';
-        if (syncStatus.isSyncing) return 'text-blue-600';
-        return 'text-yellow-600';
-      };
-
-      const getStatusText = () => {
-        if (syncStatus.hasError) return 'Sync Error';
-        if (syncStatus.isConnected) return 'Synced';
-        if (syncStatus.isSyncing) return 'Syncing...';
-        return 'Connecting...';
-      };
-
-      return (
-        <div className="fixed top-4 left-4 bg-white border border-gray-200 rounded-lg shadow-lg p-3 z-50">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
-              <div className={`w-2 h-2 rounded-full ${
-                syncStatus.isConnected ? 'bg-green-500' :
-                syncStatus.isSyncing ? 'bg-blue-500' :
-                syncStatus.hasError ? 'bg-red-500' :
-                'bg-yellow-500'
-              }`} />
-              <span className={`text-sm font-medium ${getStatusColor()}`}>
-                {getStatusText()}
-              </span>
-            </div>
-            
-            {syncStatus.error && (
-              <span className="text-xs text-red-500">
-                {syncStatus.error.message}
-              </span>
-            )}
-          </div>
-        </div>
-      );
-    };
-
-    return <SyncIndicator />;
   };
 
   const handleMount = (mountedEditor: Editor) => {
@@ -827,7 +721,7 @@ export const FlowPlanner: React.FC = () => {
                 marginBottom: '8px'
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = 'hsl(0 0% 96.1%)';
+                e.currentTarget.style.backgroundColor = '#EEF0F2';
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.backgroundColor = 'hsl(0 0% 98%)';
@@ -840,48 +734,88 @@ export const FlowPlanner: React.FC = () => {
             {/* Canvas List - Sorted alphabetically */}
             {canvases
               .sort((a, b) => a.title.localeCompare(b.title))
-              .map((canvas) => (
-              <button
-                key={canvas.id}
-                onClick={() => {
-                  setCurrentCanvasId(canvas.id);
-                }}
-                style={{
-                  width: '100%',
-                  padding: '6px 12px',
-                  backgroundColor: currentCanvasId === canvas.id 
-                    ? 'hsl(0 0% 94%)'
-                    : 'hsl(0 0% 98%)',
-                  color: 'var(--color-text)',
-                  border: '1px solid var(--color-panel-contrast)',
-                  borderRadius: '8px',
-                  fontSize: '12px',
-                  fontWeight: '500',
-                  textAlign: 'left',
-                  cursor: 'pointer',
-                  transition: 'all 0.1s ease',
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  height: '40px',
-                  display: 'flex',
-                  alignItems: 'center'
-                }}
-                onMouseEnter={(e) => {
-                  if (currentCanvasId !== canvas.id) {
-                    e.currentTarget.style.backgroundColor = 'hsl(0 0% 96.1%)';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (currentCanvasId !== canvas.id) {
-                    e.currentTarget.style.backgroundColor = 'hsl(0 0% 98%)';
-                  }
-                }}
-                title={canvas.title}
-              >
-                {canvas.title}
-              </button>
-            ))}
+              .map((canvas) => {
+                const isEditing = editingCanvasId === canvas.id;
+                
+                const handleSaveTitle = (newTitle: string) => {
+                  console.log('Renaming canvas from', canvas.title, 'to', newTitle);
+                  setCanvases(prev => {
+                    const updated = prev.map(c => 
+                      c.id === canvas.id 
+                        ? { ...c, title: newTitle }
+                        : c
+                    );
+                    console.log('Updated canvases after rename:', updated);
+                    return updated;
+                  });
+                };
+
+                return (
+                  <div
+                    key={canvas.id}
+                    style={{
+                      width: 'auto',
+                      minWidth: '120px',
+                      maxWidth: '180px',
+                      padding: '6px 12px',
+                      backgroundColor: currentCanvasId === canvas.id 
+                        ? 'hsl(0 0% 94%)'
+                        : 'hsl(0 0% 98%)',
+                      color: 'var(--color-text)',
+                      border: '1px solid var(--color-panel-contrast)',
+                      borderRadius: '8px',
+                      fontSize: '12px',
+                      fontWeight: '500',
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                      transition: 'all 0.1s ease',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      height: '40px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      marginBottom: '8px'
+                    }}
+                    onMouseEnter={(e) => {
+                      if (currentCanvasId !== canvas.id && !isEditing) {
+                        e.currentTarget.style.backgroundColor = '#EEF0F2';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (currentCanvasId !== canvas.id && !isEditing) {
+                        e.currentTarget.style.backgroundColor = 'hsl(0 0% 98%)';
+                      }
+                    }}
+                    onClick={() => {
+                      if (!isEditing) {
+                        setCurrentCanvasId(canvas.id);
+                      }
+                    }}
+                  >
+                    <EditableCanvasTitle
+                      title={canvas.title}
+                      onSave={handleSaveTitle}
+                      isEditing={isEditing}
+                      onStartEdit={() => setEditingCanvasId(canvas.id)}
+                      onCancelEdit={() => setEditingCanvasId(null)}
+                      style={{
+                        width: 'auto',
+                        minWidth: '0',
+                        flex: '1',
+                        fontSize: '12px',
+                        fontWeight: '500',
+                        color: 'inherit',
+                        backgroundColor: 'transparent',
+                        border: 'none',
+                        padding: '0',
+                        cursor: isEditing ? 'text' : 'pointer',
+                        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
+                      }}
+                    />
+                  </div>
+                );
+              })}
           </div>
 
           {/* Account Settings Button - Expandable */}
@@ -897,7 +831,7 @@ export const FlowPlanner: React.FC = () => {
                 style={{
                   width: '100%',
                   padding: '6px 12px',
-                  backgroundColor: 'hsl(0 0% 98%)',
+                  backgroundColor: isAccountMenuOpen ? '#EEF0F2' : 'hsl(0 0% 98%)',
                   color: 'var(--color-text)',
                   border: '1px solid var(--color-panel-contrast)',
                   borderRadius: isAccountMenuOpen ? '8px 8px 0 0' : '8px',
@@ -916,7 +850,7 @@ export const FlowPlanner: React.FC = () => {
                 }}
                 onMouseEnter={(e) => {
                   if (!isAccountMenuOpen) {
-                    e.currentTarget.style.backgroundColor = 'hsl(0 0% 96.1%)';
+                    e.currentTarget.style.backgroundColor = '#EEF0F2';
                   }
                 }}
                 onMouseLeave={(e) => {
@@ -953,22 +887,23 @@ export const FlowPlanner: React.FC = () => {
                   overflow: 'hidden',
                   transition: 'max-height 0.3s ease, opacity 0.3s ease',
                   opacity: isAccountMenuOpen ? 1 : 0,
-                  backgroundColor: 'hsl(0 0% 98%)',
+                  backgroundColor: '#EEF0F2',
                   border: '1px solid var(--color-panel-contrast)',
                   borderTop: 'none',
                   borderRadius: '0 0 8px 8px'
                 }}
               >
-                <div style={{ padding: '16px' }}>
+                <div style={{ padding: '12px 16px' }}>
                   {/* Email (read-only) */}
-                  <div style={{ marginBottom: '12px' }}>
+                  <div style={{ marginBottom: '0px' }}>
                     <label 
                       style={{
                         display: 'block',
                         fontSize: '10px',
                         fontWeight: '500',
                         color: 'var(--color-text-3)',
-                        marginBottom: '4px'
+                        marginBottom: '4px',
+                        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
                       }}
                     >
                       Email
@@ -981,38 +916,9 @@ export const FlowPlanner: React.FC = () => {
                         width: '100%',
                         padding: '6px 10px',
                         fontSize: '11px',
-                        backgroundColor: 'hsl(0 0% 96.1%)',
-                        color: '#9ca3af',
-                        border: '1px solid var(--color-divider)',
-                        borderRadius: '6px',
-                        boxSizing: 'border-box'
-                      }}
-                    />
-                  </div>
-
-                  {/* Display Name */}
-                  <div style={{ marginBottom: '16px' }}>
-                    <label 
-                      style={{
-                        display: 'block',
-                        fontSize: '10px',
-                        fontWeight: '500',
-                        color: 'var(--color-text-3)',
-                        marginBottom: '4px'
-                      }}
-                    >
-                      Display Name
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="Enter display name"
-                      style={{
-                        width: '100%',
-                        padding: '6px 10px',
-                        fontSize: '11px',
-                        backgroundColor: '#ffffff',
-                        color: 'var(--color-text)',
-                        border: '1px solid var(--color-divider)',
+                        backgroundColor: 'transparent',
+                        color: '#A4A5A7',
+                        border: '1px solid #A4A5A7',
                         borderRadius: '6px',
                         boxSizing: 'border-box'
                       }}
@@ -1023,7 +929,7 @@ export const FlowPlanner: React.FC = () => {
                   <div 
                     style={{
                       borderTop: '1px solid var(--color-divider)',
-                      paddingTop: '12px'
+                      paddingTop: '12px',
                     }}
                   >
                     <button
@@ -1052,7 +958,7 @@ export const FlowPlanner: React.FC = () => {
                         justifyContent: 'center'
                       }}
                       onMouseEnter={(e) => {
-                        e.currentTarget.style.backgroundColor = 'hsl(0 0% 96.1%)'
+                        e.currentTarget.style.backgroundColor = '#EEF0F2'
                       }}
                       onMouseLeave={(e) => {
                         e.currentTarget.style.backgroundColor = 'transparent'
@@ -1130,8 +1036,6 @@ export const FlowPlanner: React.FC = () => {
             // Enable built-in grid
             onMount={handleMount}
           >
-            {/* Place SimpleCanvasManager here so it has access to the editor context */}
-            <SimpleCanvasManager />
           </Tldraw>
         </div>
     </div>

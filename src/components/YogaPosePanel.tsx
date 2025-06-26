@@ -53,10 +53,12 @@ export const YogaPosePanel: React.FC<YogaPosePanelProps> = ({ onPoseSelect, sele
         flexDirection: 'column',
         maxHeight: '300px',
         margin: '0',
+        padding: '4px',
         gap: '0px',
         backgroundColor: 'var(--color-panel)',
-        borderRadius: '8px',
+        borderRadius: '12px',
         overflow: 'hidden'
+
       }}
       onMouseDown={(e) => e.stopPropagation()}
       onPointerDown={(e) => e.stopPropagation()}
@@ -133,7 +135,7 @@ export const YogaPosePanel: React.FC<YogaPosePanelProps> = ({ onPoseSelect, sele
                     backgroundColor: activeSubCategory === subCat.subCategory ? 'hsl(0 0% 94%)' : 'transparent',
                     color: 'var(--color-text)',
                     border: 'none',
-                    borderRadius: '8px',
+                    borderRadius: '12px',
                     cursor: 'pointer',
                     transition: 'all 0.1s ease'
                   }}

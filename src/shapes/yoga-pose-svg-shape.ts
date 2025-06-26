@@ -177,7 +177,8 @@ export class YogaPoseSvgShapeUtil extends ShapeUtil<YogaPoseSvgShape> {
       
       // Check if the color exists in the theme
       if (colorName in lightTheme) {
-        return lightTheme[colorName as keyof typeof lightTheme].solid;
+        const colorObj = lightTheme[colorName as keyof typeof lightTheme];
+        return typeof colorObj === 'string' ? colorObj : colorObj.solid;
       }
       
       // Fallback color mapping for any missing colors
@@ -215,7 +216,7 @@ export class YogaPoseSvgShapeUtil extends ShapeUtil<YogaPoseSvgShape> {
       mappedColor: colorValue,
       originalFill: fill,
       mappedFill: fillValue,
-      themeColor: DefaultColorThemePalette.lightMode[color as keyof typeof DefaultColorThemePalette.lightMode]?.solid
+      themeColor: DefaultColorThemePalette.lightMode[color as keyof typeof DefaultColorThemePalette.lightMode]
     });
     
     // Apply style properties to the SVG content (same logic as component)
