@@ -52,6 +52,7 @@ export class YogaPoseSvgShapeUtil extends ShapeUtil<YogaPoseSvgShape> {
           width: props.w, 
           height: props.h,
           overflow: 'hidden',
+          
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center'
