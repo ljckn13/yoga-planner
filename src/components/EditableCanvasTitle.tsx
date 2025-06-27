@@ -65,37 +65,32 @@ export function EditableCanvasTitle({
         onChange={(e) => setEditValue(e.target.value)}
         onKeyDown={handleKeyDown}
         onBlur={handleBlur}
+        className={`text-primary ${className || ''}`}
         style={{
-          width: '100%',
-          padding: '4px 8px',
-          fontSize: 'inherit',
-          fontFamily: 'inherit',
-          fontWeight: 'inherit',
-          backgroundColor: '#ffffff',
-          color: 'var(--color-text)',
-          border: '2px solid var(--color-selected)',
-          borderRadius: '4px',
+          background: 'transparent',
+          border: 'none',
           outline: 'none',
-          boxSizing: 'border-box',
+          padding: 0,
+          margin: 0,
+          fontFamily: 'inherit',
+          fontSize: 'inherit',
+          fontWeight: 'inherit',
+          color: 'inherit',
+          width: '100%',
           ...style
         }}
-        className={className}
       />
     );
   }
 
+  const { fontWeight, ...otherStyles } = style || {};
   return (
     <div
       onDoubleClick={onStartEdit}
+      className={`text-primary cursor-pointer w-full overflow-hidden text-ellipsis whitespace-nowrap ${className || ''}`}
       style={{
-        cursor: 'pointer',
-        width: '100%',
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
-        whiteSpace: 'nowrap',
-        ...style
+        ...otherStyles
       }}
-      className={className}
       title={`Double-click to edit: ${title}`}
     >
       {title}

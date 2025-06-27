@@ -492,7 +492,7 @@ node test-worker.js
 **Status**: ✅ COMPLETE  
 **Files**: `src/shapes/yoga-pose-svg-shape.ts`, `src/utils/svg-pose-parser.ts`
 
-**Dependencies**: SYNC-003 ✅ complete
+**Dependencies**: None
 
 **Implementation Steps**:
 1. ✅ Fix color detection from style panel when pasting poses
@@ -504,22 +504,11 @@ node test-worker.js
 
 **Code Requirements**:
 ```typescript
-// Color detection from selected shapes or editor state
-const selectedShapes = editor.getSelectedShapes();
-if (selectedShapes.length > 0) {
-  // Get color from selected shape
-} else {
-  // Get color from editor's next styles (handling nested properties)
-}
-
-// Export using tldraw's actual color theme
-const getColorValue = (colorName: string): string => {
-  const lightTheme = DefaultColorThemePalette.lightMode;
-  if (colorName in lightTheme) {
-    return lightTheme[colorName].solid;
-  }
-  // Fallback mapping
-};
+// Expected color system features
+- Style panel integration for yoga pose tool
+- Accurate color detection from editor state
+- Proper export color mapping
+- Support for all tldraw color variants
 ```
 
 **Acceptance Criteria**:
@@ -529,6 +518,38 @@ const getColorValue = (colorName: string): string => {
 - ✅ All tldraw color variants (light-green, light-blue, etc.) work correctly
 - ✅ Color detection works from both selected shapes and editor state
 - ✅ Export uses tldraw's actual color theme values
+
+---
+
+### ✅ UI-001: Implement Neumorphic Design System
+**Status**: ✅ COMPLETE  
+**Files**: `src/index.css`, `src/components/FlowPlanner.tsx`, `src/components/EditableCanvasTitle.tsx`
+
+**Dependencies**: COLOR-001 ✅ complete
+
+**Implementation Steps**:
+1. ✅ Add neumorphic box shadows to canvas container
+2. ✅ Implement warm, paper-like canvas background (`hsla(39, 88%, 97%, 0.5)`)
+3. ✅ Update grid dots to match background theme (`rgba(139, 69, 19, 0.15)`)
+4. ✅ Remove canvas border styling in favor of neumorphic shadows
+5. ✅ Increase sidebar-to-canvas gap to 16px for better spacing
+6. ✅ Make canvas title input transparent when editing (no background/padding)
+7. ✅ Apply consistent neumorphic shadows across UI elements
+
+**Code Requirements**:
+```css
+/* Expected neumorphic styling */
+--shadow-neumorphic: -2px -2px 10px rgba(255, 248, 220, 1), 3px 3px 10px rgba(255, 69, 0, 0.4);
+--canvas-bg: hsla(39, 88%, 97%, 0.5);
+```
+
+**Acceptance Criteria**:
+- ✅ Canvas has neumorphic shadow effect matching sidebar buttons
+- ✅ Canvas background is warm cream color with 50% opacity
+- ✅ Grid dots are visible and complement the background
+- ✅ Layout has proper spacing and visual hierarchy
+- ✅ Canvas title editing is seamless and unobtrusive
+- ✅ Overall design is cohesive and warm
 
 ---
 
@@ -756,10 +777,6 @@ To begin PROD-001:
 ## 📋 Context for AI Agents
 
 **Current Project State**:
-- ✅ Basic yoga flow planner working with tldraw
-- ✅ Custom yoga pose shapes implemented  
-- ✅ Pose placement with automatic spacing
-- ✅ GitHub repository set up
 - ✅ Vercel deployment working
 - ✅ Canvas state serialization/deserialization implemented
 - ✅ localStorage persistence and auto-save implemented
@@ -769,6 +786,7 @@ To begin PROD-001:
 - ✅ **NEW**: Cloudflare Workers optimizations for multiple tabs/rooms
 - ✅ **NEW**: Local development environment working perfectly
 - ✅ **NEW**: Yoga pose color system working perfectly (style panel integration + accurate exports)
+- ✅ **NEW**: Neumorphic design system implemented (warm canvas background, shadows, spacing)
 - 🔄 Moving to Phase 4: Polish & Production
 
 **Key Files to Understand**:
@@ -779,6 +797,7 @@ To begin PROD-001:
 - `src/hooks/useCanvasManager.ts` - Multi-canvas management with LRU cache (✅ complete)
 - `src/shapes/` - Custom shape definitions with color system
 - `tldraw-sync-cloudflare/worker/TldrawDurableObject.ts` - Optimized sync server (✅ complete)
+- `src/index.css` - Neumorphic design system and styling (✅ complete)
 
 **Don't Change These (Working Features)**:
 - Yoga pose placement and styling
@@ -793,3 +812,4 @@ To begin PROD-001:
 - **NEW**: Cloudflare Workers optimizations (✅ complete)
 - **NEW**: Local development environment (✅ complete)
 - **NEW**: Yoga pose color system (✅ complete)
+- **NEW**: Neumorphic design system (✅ complete)

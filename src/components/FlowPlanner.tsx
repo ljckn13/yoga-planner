@@ -25,6 +25,7 @@ import { getPoseState } from '../utils/pose-state';
 import { yogaCategories } from '../assets/yoga-flows';
 import { useCloudSync } from '../hooks/useCloudSync';
 import { useAuthContext } from './AuthProvider';
+import { ChevronLeft, ChevronRight, ArrowUpLeft, ArrowDownRight, UserPen, Plus, X, MoreVertical } from 'lucide-react';
 
 // Temporary debug function to clear localStorage
 const clearLocalStorage = () => {
@@ -89,8 +90,8 @@ const CustomGrid = ({ size, ...camera }: any) => {
     const numRows = Math.round((endPageY - startPageY) / gridSize)
     const numCols = Math.round((endPageX - startPageX) / gridSize)
 
-    // More subtle dot color
-    ctx.fillStyle = isDarkMode ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.1)'
+    // Dots color that matches the yellow-white background theme
+    ctx.fillStyle = isDarkMode ? 'rgba(255, 255, 255, 0.15)' : 'rgba(139, 69, 19, 0.15)'
 
     // Draw dots at grid intersections
     for (let row = 0; row <= numRows; row++) {
@@ -163,26 +164,29 @@ function useCurrentCanvasTitle(editor: Editor | null) {
   return canvasTitle;
 }
 
-// Custom page menu that shows canvas title instead of page name
-function CustomPageMenu() {
+// Custom page menu that shows canvas title and main menu side by side
+function CustomPageMenu({ sidebarVisible }: { sidebarVisible: boolean }) {
   const editor = useEditor();
   const canvasTitle = useCurrentCanvasTitle(editor);
-
   return (
     <div className="tlui-page-menu">
-      <div className="tlui-page-menu__header">
+      <div className="tlui-page-menu__header" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        {/* Arrow Icon in Canvas UI Main Menu */}
+        {sidebarVisible ? (
+          <ArrowUpLeft size={18} />
+        ) : (
+          <ArrowDownRight size={18} />
+        )}
         <div 
-          className="tlui-page-menu__header__title tlui-text"
+          className="tlui-page-menu__header__title tlui-text text-primary-bold w-30 overflow-hidden text-ellipsis whitespace-nowrap"
           style={{
-            width: '200px',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-            fontFamily: 'inherit'
+            width: '120px',
           }}
         >
           {canvasTitle}
         </div>
+        {/* Main menu to the right of the title */}
+        <CustomMainMenu />
       </div>
     </div>
   );
@@ -226,6 +230,53 @@ function CustomMainMenu() {
     </DefaultMainMenu>
   );
 }
+
+// Reusable Sidebar Button Component
+interface SidebarButtonProps {
+  onClick: () => void;
+  icon: React.ReactNode;
+  text: string;
+  title?: string;
+  borderRadius?: string;
+  marginBottom?: string;
+  boxShadow?: string;
+  activeBoxShadow?: string;
+  backgroundColor?: string;
+}
+
+const SidebarButton: React.FC<SidebarButtonProps> = ({ 
+  onClick, 
+  icon, 
+  text, 
+  title, 
+  borderRadius = '8px',
+  marginBottom = '8px',
+  boxShadow = 'var(--shadow-neumorphic-complex)',
+  activeBoxShadow = 'var(--shadow-neumorphic-inset)',
+  backgroundColor = 'var(--bg-glass)'
+}) => {
+  const [isActive, setIsActive] = React.useState(false);
+  
+  return (
+    <button
+      onClick={onClick}
+      onMouseDown={() => setIsActive(true)}
+      onMouseUp={() => setIsActive(false)}
+      onMouseLeave={() => setIsActive(false)}
+      className="btn-primary w-full mb-2"
+      style={{
+        borderRadius,
+        marginBottom,
+        backgroundColor,
+        boxShadow: isActive ? activeBoxShadow : boxShadow,
+      }}
+      title={title}
+    >
+      <span className="flex-1 text-left">{text}</span>
+      <span className="flex items-center">{icon}</span>
+    </button>
+  );
+};
 
 // [1] UI Overrides to add yoga pose tool to the context and remove unwanted tools
 const uiOverrides: TLUiOverrides = {
@@ -274,10 +325,10 @@ const uiOverrides: TLUiOverrides = {
 }
 
 // [2] Components to override toolbar and keyboard shortcuts  
-const createComponents = (): TLComponents => ({
+const createComponents = (sidebarVisible: boolean): TLComponents => ({
   Grid: CustomGrid,
-  MainMenu: CustomMainMenu,
-  PageMenu: CustomPageMenu,
+  MainMenu: null,
+  PageMenu: () => <CustomPageMenu sidebarVisible={sidebarVisible} />,
   Toolbar: (props) => {
     const tools = useTools()
     const editor = useEditor()
@@ -375,8 +426,12 @@ const createComponents = (): TLComponents => ({
             {/* Custom Yoga Pose Tool Button - Always visible */}
             <div style={{ padding: '0 4px' }}>
               <button
-                onMouseEnter={() => setIsHoveringPoseTool(true)}
-                onMouseLeave={() => setIsHoveringPoseTool(false)}
+                onMouseEnter={(e) => {
+                  // Keep white background on hover
+                }}
+                onMouseLeave={(e) => {
+                  // Keep white background when leaving
+                }}
                 onClick={() => {
                   if (isYogaPoseSelected) {
                     // Deactivate yoga pose tool and switch to select
@@ -461,6 +516,7 @@ const createComponents = (): TLComponents => ({
                       transition: 'all 0.1s ease',
                       height: '40px',
                       display: 'flex',
+                      justifyContent: 'flex-start',
                       alignItems: 'center',
                       flex: 1,
                       margin: '0 2px'
@@ -519,6 +575,8 @@ export const FlowPlanner: React.FC = () => {
   const [editingCanvasId, setEditingCanvasId] = React.useState<string | null>(null);
   const editorRef = React.useRef<Editor | null>(null);
   const { user: _user, signOut } = useAuthContext();
+  // Use local state for sidebar
+  const [sidebarVisible, setSidebarVisible] = React.useState(true);
 
   // Use cloud sync for the current canvas
   const { store: syncStore } = useCloudSync({
@@ -537,14 +595,19 @@ export const FlowPlanner: React.FC = () => {
         const parsed = JSON.parse(savedCanvases);
         console.log('Parsed canvases:', parsed);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          setCanvases(parsed);
+          // Migrate existing canvases to remove emoji
+          const migratedCanvases = parsed.map((canvas: any) => ({
+            id: canvas.id,
+            title: canvas.title || 'Untitled Canvas'
+          }));
+          setCanvases(migratedCanvases);
           // Set current canvas to the first one, or the last one that was active
           const lastActiveCanvas = localStorage.getItem('yoga_flow_current_canvas');
           console.log('Last active canvas:', lastActiveCanvas);
-          if (lastActiveCanvas && parsed.find(c => c.id === lastActiveCanvas)) {
+          if (lastActiveCanvas && migratedCanvases.find(c => c.id === lastActiveCanvas)) {
             setCurrentCanvasId(lastActiveCanvas);
           } else {
-            setCurrentCanvasId(parsed[0].id);
+            setCurrentCanvasId(migratedCanvases[0].id);
           }
         } else {
           // No valid saved canvases, create default
@@ -600,10 +663,9 @@ export const FlowPlanner: React.FC = () => {
   // Handle creating a new canvas
   const handleCreateCanvas = async () => {
     console.log('Create New Canvas button clicked!');
-    const title = prompt('Enter canvas title:') || 'Untitled Canvas';
     const newCanvas = {
       id: `canvas_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      title: title.trim()
+      title: 'Untitled Canvas'
     };
     console.log('Creating new canvas:', newCanvas);
     
@@ -616,6 +678,18 @@ export const FlowPlanner: React.FC = () => {
     
     // Switch to new canvas
     setCurrentCanvasId(newCanvas.id);
+    
+    // Activate inline editing for the new canvas
+    setEditingCanvasId(newCanvas.id);
+  };
+
+  // Handle updating canvas title
+  const updateCanvas = (canvasId: string, updates: { title?: string }) => {
+    setCanvases(prev => prev.map(canvas => 
+      canvas.id === canvasId 
+        ? { ...canvas, ...updates }
+        : canvas
+    ));
   };
 
   const handleMount = (mountedEditor: Editor) => {
@@ -640,7 +714,7 @@ export const FlowPlanner: React.FC = () => {
     console.log('🚀 Editor mounted with debug logging enabled');
   };
 
-  const components = createComponents();
+  const components = React.useMemo(() => createComponents(sidebarVisible), [sidebarVisible]);
 
   // Canvas context value
   const canvasContextValue: CanvasContextType = {
@@ -650,107 +724,199 @@ export const FlowPlanner: React.FC = () => {
     setCurrentCanvasId,
   };
 
+  React.useEffect(() => {
+    const handler = () => setSidebarVisible(v => !v);
+    window.addEventListener('toggleSidebar', handler);
+    return () => window.removeEventListener('toggleSidebar', handler);
+  }, []);
+
+  // Calculate button position
+  const left = sidebarVisible ? 220 : 52; // 40px padding + 8px gap + 4px offset
+  const top = 44;
+
   return (
-    <CanvasContext.Provider value={canvasContextValue}>
-      <div 
-        className="tldraw__editor h-screen w-screen"
-        style={{
-          display: 'flex',
-          width: '100vw',
-          height: '100vh',
-          padding: '40px 40px 40px 8px',
-          backgroundColor: 'var(--color-panel)',
-          gap: '8px',
-          boxSizing: 'border-box'
-        }}
-      >
-        {/* Canvas Title Menu - Left Side */}
-        <div 
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'space-between',
-            alignItems: 'flex-start',
-            minWidth: '200px',
-            maxWidth: '200px',
-            height: '100%',
-            padding: '0',
-            backgroundColor: 'transparent',
-            border: 'none',
-            gap: '8px'
-          }}
-        >
-          {/* Canvas List and Create Button Container */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
-            {/* Create New Canvas Button - At top */}
+    <>
+      <style>{`
+        @keyframes sunriseBreath {
+          0% { filter: brightness(1); }
+          50% { filter: brightness(1.06); }
+          100% { filter: brightness(1); }
+        }
+        .sunrise-bg {
+          background:
+            url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200' fill='none'><filter id='noiseFilter'><feTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23noiseFilter)' opacity='0.40'/><rect width='100%' height='100%' fill='%23ffb347' opacity='0.18'/></svg>") repeat,
+            linear-gradient(180deg, #ffecd2 0%, #fcb69f 40%, #ffdde1 100%);
+          animation: sunriseBreath 8s ease-in-out infinite;
+          min-height: 100vh;
+          width: 100vw;
+        }
+      `}</style>
+      <div className="sunrise-bg" style={{ minHeight: '100vh', width: '100vw' }}>
+        <CanvasContext.Provider value={canvasContextValue}>
+          <div 
+            className="tldraw__editor h-screen w-screen"
+            style={{
+              display: 'flex',
+              width: '100vw',
+              height: '100vh',
+              padding: sidebarVisible ? '40px 40px 40px 8px' : '40px',
+              backgroundColor: 'transparent',
+              gap: '16px',
+              boxSizing: 'border-box',
+              position: 'relative',
+            }}
+          >
+            {/* Sidebar Toggle Button - Absolutely positioned, invisible */}
             <button
-              onClick={handleCreateCanvas}
+              onClick={() => setSidebarVisible(v => !v)}
               style={{
-                width: '100%',
-                padding: '6px 12px',
-                backgroundColor: 'hsl(0 0% 98%)',
-                color: 'var(--color-text)',
-                border: '1px solid var(--color-panel-contrast)',
-                borderRadius: '8px',
-                fontSize: '12px',
-                fontWeight: '500',
-                textAlign: 'left',
+                position: 'absolute',
+                left,
+                top,
+                zIndex: 101,
+                width: '32px',
+                height: '32px',
+                background: 'transparent',
+                border: 'none',
+                padding: 0,
+                margin: 0,
                 cursor: 'pointer',
-                transition: 'all 0.1s ease',
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                height: '40px',
+                outline: 'none',
+              }}
+              title={sidebarVisible ? 'Hide sidebar (fullscreen)' : 'Show sidebar'}
+            />
+            {/* Sidebar (Canvas Title Menu - Left Side) */}
+            <div 
+              style={{
                 display: 'flex',
-                alignItems: 'center',
-                marginBottom: '8px'
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+                alignItems: 'flex-start',
+                width: sidebarVisible ? '200px' : '0px',
+                minWidth: sidebarVisible ? '200px' : '0px',
+                maxWidth: sidebarVisible ? '200px' : '0px',
+                height: '100%',
+                padding: '0',
+                backgroundColor: 'transparent',
+                border: 'none',
+                gap: '8px',
+                opacity: sidebarVisible ? 1 : 0,
+                pointerEvents: sidebarVisible ? 'auto' : 'none',
               }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = '#EEF0F2';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = 'hsl(0 0% 98%)';
-              }}
-              title="Create New Canvas"
             >
-              + Create New Canvas
-            </button>
+              {/* Canvas List and Create Button Container */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
+                {/* Create New Canvas Button - At top */}
+                <SidebarButton
+                  onClick={handleCreateCanvas}
+                  icon={<Plus size={16} style={{ opacity: 0.5 }} />}
+                  text="Add canvas"
+                  title="Add canvas"
+                  boxShadow="var(--shadow-neumorphic)"
+                  activeBoxShadow="var(--shadow-neumorphic-inset)"
+                />
 
-            {/* Canvas List - Sorted alphabetically */}
-            {canvases
-              .sort((a, b) => a.title.localeCompare(b.title))
-              .map((canvas) => {
-                const isEditing = editingCanvasId === canvas.id;
-                
-                const handleSaveTitle = (newTitle: string) => {
-                  console.log('Renaming canvas from', canvas.title, 'to', newTitle);
-                  setCanvases(prev => {
-                    const updated = prev.map(c => 
-                      c.id === canvas.id 
-                        ? { ...c, title: newTitle }
-                        : c
+                {/* Canvas List - Sorted alphabetically */}
+                {canvases
+                  .sort((a, b) => a.title.localeCompare(b.title))
+                  .map((canvas) => {
+                    const isEditing = editingCanvasId === canvas.id;
+                    
+                    const handleSaveTitle = (newTitle: string) => {
+                      console.log('Renaming canvas from', canvas.title, 'to', newTitle);
+                      setCanvases(prev => {
+                        const updated = prev.map(c => 
+                          c.id === canvas.id 
+                            ? { ...c, title: newTitle }
+                            : c
+                        );
+                        console.log('Updated canvases after rename:', updated);
+                        return updated;
+                      });
+                    };
+
+                    return (
+                      <div
+                        key={canvas.id}
+                        className={`text-primary text-left cursor-pointer transition-fast whitespace-nowrap overflow-hidden text-ellipsis h-7 flex justify-start items-center mb-0.5 backdrop-blur-md rounded-lg ${
+                          currentCanvasId === canvas.id 
+                            ? 'bg-glass shadow-neumorphic' 
+                            : 'bg-transparent'
+                        }`}
+                        style={{
+                          width: 'auto',
+                          minWidth: '120px',
+                          maxWidth: '180px',
+                          padding: '8px 12px',
+                          fontSize: '12px',
+                          fontWeight: '500',
+                          fontFamily: 'var(--font-system)',
+                          borderRadius: '8px',
+                          border: 'none',
+                          marginBottom: '2px',
+                        }}
+                        onMouseEnter={(e) => {
+                          if (currentCanvasId !== canvas.id && !isEditing) {
+                            e.currentTarget.style.backgroundColor = 'var(--bg-glass)';
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          if (currentCanvasId !== canvas.id && !isEditing) {
+                            e.currentTarget.style.backgroundColor = 'transparent';
+                          }
+                        }}
+                        onClick={(e) => {
+                          if (!isEditing) {
+                            setCurrentCanvasId(canvas.id);
+                            // Reset any hover state
+                            const element = e.currentTarget as HTMLElement;
+                            if (element && currentCanvasId !== canvas.id) {
+                              element.style.backgroundColor = 'transparent';
+                            }
+                          }
+                        }}
+                      >
+                        <EditableCanvasTitle
+                          title={canvas.title}
+                          onSave={(newTitle) => {
+                            updateCanvas(canvas.id, { title: newTitle });
+                          }}
+                          isEditing={editingCanvasId === canvas.id}
+                          onStartEdit={() => setEditingCanvasId(canvas.id)}
+                          onCancelEdit={() => setEditingCanvasId(null)}
+                          className="text-primary h-7 flex items-center mb-0.5"
+                        />
+                      </div>
                     );
-                    console.log('Updated canvases after rename:', updated);
-                    return updated;
-                  });
-                };
+                  })}
+              </div>
 
-                return (
-                  <div
-                    key={canvas.id}
+              {/* Account Settings Button - Expandable */}
+              {_user && (
+                <div style={{ 
+                  width: '100%',
+                  borderRadius: '8px',
+                  backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                  backdropFilter: 'blur(10px)',
+                  WebkitBackdropFilter: 'blur(10px)',
+                  boxShadow: '-2px -2px 10px rgba(255, 248, 220, 1), 3px 3px 10px rgba(255, 69, 0, 0.4)',
+                  overflow: 'hidden',
+                }}>
+                  <button
+                    onClick={() => {
+                      console.log('Account Settings button clicked')
+                      setIsAccountMenuOpen(!isAccountMenuOpen)
+                    }}
                     style={{
-                      width: 'auto',
-                      minWidth: '120px',
-                      maxWidth: '180px',
+                      width: '100%',
                       padding: '6px 12px',
-                      backgroundColor: currentCanvasId === canvas.id 
-                        ? 'hsl(0 0% 94%)'
-                        : 'hsl(0 0% 98%)',
-                      color: 'var(--color-text)',
-                      border: '1px solid var(--color-panel-contrast)',
-                      borderRadius: '8px',
+                      backgroundColor: 'transparent',
+                      color: '#885050',
+                      border: 'none',
+                      borderRadius: isAccountMenuOpen ? '8px 8px 0 0' : '8px',
                       fontSize: '12px',
-                      fontWeight: '500',
+                      fontWeight: '600',
+                      fontFamily: 'var(--font-system)',
                       textAlign: 'left',
                       cursor: 'pointer',
                       transition: 'all 0.1s ease',
@@ -759,271 +925,180 @@ export const FlowPlanner: React.FC = () => {
                       textOverflow: 'ellipsis',
                       height: '40px',
                       display: 'flex',
+                      justifyContent: 'space-between',
                       alignItems: 'center',
-                      marginBottom: '8px'
+                      marginBottom: '0px',
                     }}
-                    onMouseEnter={(e) => {
-                      if (currentCanvasId !== canvas.id && !isEditing) {
-                        e.currentTarget.style.backgroundColor = '#EEF0F2';
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (currentCanvasId !== canvas.id && !isEditing) {
-                        e.currentTarget.style.backgroundColor = 'hsl(0 0% 98%)';
-                      }
-                    }}
-                    onClick={() => {
-                      if (!isEditing) {
-                        setCurrentCanvasId(canvas.id);
-                      }
-                    }}
+                    title="Account Settings"
                   >
-                    <EditableCanvasTitle
-                      title={canvas.title}
-                      onSave={handleSaveTitle}
-                      isEditing={isEditing}
-                      onStartEdit={() => setEditingCanvasId(canvas.id)}
-                      onCancelEdit={() => setEditingCanvasId(null)}
-                      style={{
-                        width: 'auto',
-                        minWidth: '0',
-                        flex: '1',
-                        fontSize: '12px',
-                        fontWeight: '500',
-                        color: 'inherit',
-                        backgroundColor: 'transparent',
-                        border: 'none',
-                        padding: '0',
-                        cursor: isEditing ? 'text' : 'pointer',
-                        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
-                      }}
-                    />
-                  </div>
-                );
-              })}
-          </div>
-
-          {/* Account Settings Button - Expandable */}
-          {_user && (
-            <div style={{ 
-              width: '100%'
-            }}>
-              <button
-                onClick={() => {
-                  console.log('Account Settings button clicked')
-                  setIsAccountMenuOpen(!isAccountMenuOpen)
-                }}
-                style={{
-                  width: '100%',
-                  padding: '6px 12px',
-                  backgroundColor: isAccountMenuOpen ? '#EEF0F2' : 'hsl(0 0% 98%)',
-                  color: 'var(--color-text)',
-                  border: '1px solid var(--color-panel-contrast)',
-                  borderRadius: isAccountMenuOpen ? '8px 8px 0 0' : '8px',
-                  fontSize: '12px',
-                  fontWeight: '500',
-                  textAlign: 'left',
-                  cursor: 'pointer',
-                  transition: 'all 0.1s ease',
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  height: '40px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between'
-                }}
-                onMouseEnter={(e) => {
-                  if (!isAccountMenuOpen) {
-                    e.currentTarget.style.backgroundColor = '#EEF0F2';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (!isAccountMenuOpen) {
-                    e.currentTarget.style.backgroundColor = 'hsl(0 0% 98%)';
-                  }
-                }}
-                title="Account Settings"
-              >
-                <span>⚙️ Account Settings</span>
-                <svg 
-                  width="12" 
-                  height="12" 
-                  viewBox="0 0 24 24" 
-                  fill="none" 
-                  stroke="currentColor" 
-                  strokeWidth="2" 
-                  strokeLinecap="round" 
-                  strokeLinejoin="round"
-                  style={{
-                    transform: isAccountMenuOpen ? 'rotate(180deg)' : 'rotate(0deg)',
-                    transition: 'transform 0.2s ease'
-                  }}
-                >
-                  <polyline points="6,9 12,15 18,9"></polyline>
-                </svg>
-              </button>
-              
-              {/* Expandable Account Settings Content */}
-              <div
-                style={{
-                  width: '100%',
-                  maxHeight: isAccountMenuOpen ? '400px' : '0px',
-                  overflow: 'hidden',
-                  transition: 'max-height 0.3s ease, opacity 0.3s ease',
-                  opacity: isAccountMenuOpen ? 1 : 0,
-                  backgroundColor: '#EEF0F2',
-                  border: '1px solid var(--color-panel-contrast)',
-                  borderTop: 'none',
-                  borderRadius: '0 0 8px 8px'
-                }}
-              >
-                <div style={{ padding: '12px 16px' }}>
-                  {/* Email (read-only) */}
-                  <div style={{ marginBottom: '0px' }}>
-                    <label 
-                      style={{
-                        display: 'block',
-                        fontSize: '10px',
-                        fontWeight: '500',
-                        color: 'var(--color-text-3)',
-                        marginBottom: '4px',
-                        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
-                      }}
-                    >
-                      Email
-                    </label>
-                    <input
-                      type="email"
-                      value={_user.email || ''}
-                      disabled
-                      style={{
-                        width: '100%',
-                        padding: '6px 10px',
-                        fontSize: '11px',
-                        backgroundColor: 'transparent',
-                        color: '#A4A5A7',
-                        border: '1px solid #A4A5A7',
-                        borderRadius: '6px',
-                        boxSizing: 'border-box'
-                      }}
-                    />
-                  </div>
-
-                  {/* Account Actions */}
-                  <div 
+                    <span style={{ flex: '1', textAlign: 'left' }}>Account Settings</span>
+                    <span style={{ display: 'flex', alignItems: 'center' }}>
+                      {isAccountMenuOpen ? (
+                        <X 
+                          size={16} 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setIsAccountMenuOpen(false);
+                          }}
+                          style={{ cursor: 'pointer', opacity: 0.5 }}
+                        />
+                      ) : (
+                        <MoreVertical size={16} style={{ opacity: 0.5 }} />
+                      )}
+                    </span>
+                  </button>
+                  
+                  {/* Expandable Account Settings Content */}
+                  <div
                     style={{
-                      borderTop: '1px solid var(--color-divider)',
-                      paddingTop: '12px',
+                      width: '100%',
+                      maxHeight: isAccountMenuOpen ? '400px' : '0px',
+                      overflow: 'hidden',
+                      transition: 'max-height 0.3s ease, opacity 0.3s ease, transform 0.3s ease',
+                      opacity: isAccountMenuOpen ? 1 : 0,
+                      transform: isAccountMenuOpen ? 'translateY(0)' : 'translateY(-10px)',
+                      backgroundColor: 'transparent',
+                      border: 'none',
+                      borderRadius: '0 0 8px 8px',
                     }}
                   >
-                    <button
-                      onClick={async () => {
-                        const result = await signOut();
-                        if (result.error) {
-                          console.error('Sign out error:', result.error);
-                        }
-                        setIsAccountMenuOpen(false);
-                      }}
-                      style={{
-                        width: '100%',
-                        padding: '6px 12px',
-                        fontSize: '11px',
-                        fontWeight: '500',
-                        backgroundColor: 'transparent',
-                        color: 'var(--color-text)',
-                        border: 'none',
-                        borderRadius: '8px',
-                        cursor: 'pointer',
-                        transition: 'all 0.1s ease',
-                        marginBottom: '6px',
-                        height: '32px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center'
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.backgroundColor = '#EEF0F2'
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.backgroundColor = 'transparent'
-                      }}
-                    >
-                      Sign Out
-                    </button>
+                    <div style={{ padding: '4px 8px 8px 8px' }}>
+                      {/* Email (read-only) */}
+                      <div style={{ marginBottom: '0px' }}>
+                        <input
+                          type="email"
+                          value={_user.email || ''}
+                          disabled
+                          style={{
+                            width: '100%',
+                            padding: '6px 10px',
+                            fontSize: '11px',
+                            backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                            color: '#BD8F8E',
+                            border: 'none',
+                            borderRadius: '6px',
+                            boxSizing: 'border-box',
+                            fontFamily: 'var(--font-system)',
+                          }}
+                        />
+                      </div>
 
-                    <button
-                      onClick={() => {
-                        if (confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
-                          // TODO: Implement account deletion
-                          console.log('Account deletion not implemented yet');
-                          setIsAccountMenuOpen(false);
-                        }
-                      }}
-                      style={{
-                        width: '100%',
-                        padding: '6px 12px',
-                        fontSize: '11px',
-                        fontWeight: '500',
-                        backgroundColor: 'transparent',
-                        color: '#dc2626',
-                        border: 'none',
-                        borderRadius: '8px',
-                        cursor: 'pointer',
-                        transition: 'all 0.1s ease',
-                        height: '32px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center'
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.backgroundColor = '#fef2f2'
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.backgroundColor = 'transparent'
-                      }}
-                    >
-                      Delete Account
-                    </button>
+                      {/* Account Actions */}
+                      <div style={{
+                        borderTop: '1px solid var(--color-divider)',
+                        paddingTop: '12px',
+                      }}>
+                        <button
+                          onClick={async () => {
+                            const result = await signOut();
+                            if (result.error) {
+                              console.error('Sign out error:', result.error);
+                            }
+                            setIsAccountMenuOpen(false);
+                          }}
+                          style={{
+                            width: '100%',
+                            padding: '6px 12px',
+                            fontSize: '11px',
+                            fontWeight: '500',
+                            backgroundColor: 'transparent',
+                            color: '#885050',
+                            border: 'none',
+                            borderRadius: '8px',
+                            cursor: 'pointer',
+                            transition: 'all 0.1s ease',
+                            marginBottom: '6px',
+                            height: '32px',
+                            display: 'flex',
+                            justifyContent: 'flex-start',
+                            alignItems: 'center',
+                            fontFamily: 'var(--font-system)',
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.2)';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.backgroundColor = 'transparent';
+                          }}
+                        >
+                          Sign Out
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            if (confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
+                              // TODO: Implement account deletion
+                              console.log('Account deletion not implemented yet');
+                              setIsAccountMenuOpen(false);
+                            }
+                          }}
+                          style={{
+                            width: '100%',
+                            padding: '6px 12px',
+                            fontSize: '11px',
+                            fontWeight: '500',
+                            backgroundColor: 'transparent',
+                            color: '#885050',
+                            border: 'none',
+                            borderRadius: '8px',
+                            cursor: 'pointer',
+                            transition: 'all 0.1s ease',
+                            height: '32px',
+                            display: 'flex',
+                            justifyContent: 'flex-start',
+                            alignItems: 'center',
+                            fontFamily: 'var(--font-system)',
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.2)';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.backgroundColor = 'transparent';
+                          }}
+                        >
+                          Delete Account
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
-          )}
-        </div>
 
-        {/* Canvas - Right Side */}
-        <div 
-          style={{
-            flex: '1',
-            backgroundColor: 'var(--color-background)',
-            borderRadius: '12px',
-            overflow: 'hidden',
-            border: '1px solid var(--color-divider)'
-          }}
-        >
-      <Tldraw
-            // Use the sync store instead of local store
-            store={syncStore}
-        // Pass in the array of custom tool classes
-        tools={customTools}
-        // Pass in custom shape utilities
-        shapeUtils={customShapeUtils}
-        // Pass in our ui overrides
-        overrides={uiOverrides}
-        // Pass in our custom components
-            components={{
-              ...components,
-              // You can add a custom UI slot here if needed
-            }}
-        // Pass in our custom asset urls
-        assetUrls={customAssetUrls}
-            // Enable built-in grid
-            onMount={handleMount}
-          >
-          </Tldraw>
-        </div>
-    </div>
-    </CanvasContext.Provider>
+            {/* Canvas - Right Side */}
+            <div 
+              style={{
+                flex: '1',
+                backgroundColor: 'hsla(39, 88%, 97%, 1)',
+                borderRadius: '12px',
+                overflow: 'hidden',
+                //boxShadow: 'var(--shadow-neumorphic)',
+              }}
+            >
+              <Tldraw
+                // Use the sync store instead of local store
+                store={syncStore}
+                // Pass in the array of custom tool classes
+                tools={customTools}
+                // Pass in custom shape utilities
+                shapeUtils={customShapeUtils}
+                // Pass in our ui overrides
+                overrides={uiOverrides}
+                // Pass in our custom components
+                components={{
+                  ...components,
+                  // You can add a custom UI slot here if needed
+                }}
+                // Pass in our custom asset urls
+                assetUrls={customAssetUrls}
+                // Enable built-in grid
+                onMount={handleMount}
+              >
+              </Tldraw>
+            </div>
+          </div>
+        </CanvasContext.Provider>
+      </div>
+    </>
   );
 };

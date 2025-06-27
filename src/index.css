@@ -2,9 +2,44 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  /* Custom color variables */
+  --color-primary: #885050;
+  --color-primary-light: rgba(136, 80, 80, 0.8);
+  --color-primary-dark: #6b3f3f;
+  --color-secondary: #BD8F8E;
+  
+  /* Background colors */
+  --bg-glass: rgba(255, 255, 255, 0.1);
+  --bg-glass-hover: rgba(255, 255, 255, 0.15);
+  --bg-glass-active: rgba(255, 255, 255, 0.2);
+  
+  /* Canvas background color - subtle yellow-white like yellowed paper */
+  --canvas-bg: hsl(39, 88%, 97%);
+  --canvas-bg-alt: #fdfbf5;
+  
+  /* Neumorphic shadows */
+  --shadow-neumorphic: -2px -2px 10px rgba(255, 248, 220, 1), 3px 3px 10px rgba(255, 69, 0, 0.4);
+  --shadow-neumorphic-inset: inset -2px -2px 5px rgba(255, 248, 220, 0.7), inset 3px 3px 5px rgba(255, 69, 0, 0.3);
+  --shadow-neumorphic-complex: rgba(0, 0, 0, 0.17) 0px -23px 25px 0px inset, rgba(0, 0, 0, 0.15) 0px -36px 30px 0px inset, rgba(0, 0, 0, 0.1) 0px -79px 40px 0px inset, rgba(0, 0, 0, 0.06) 0px 2px 1px, rgba(0, 0, 0, 0.09) 0px 4px 2px, rgba(0, 0, 0, 0.09) 0px 8px 4px, rgba(0, 0, 0, 0.09) 0px 16px 8px, rgba(0, 0, 0, 0.09) 0px 32px 16px;
+  
+  /* Common transitions */
+  --transition-fast: all 0.1s ease;
+  --transition-normal: all 0.2s ease;
+  
+  /* Common font stack */
+  --font-system: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  
+  /* Legacy text color variables (keeping only essential ones) */
+  --color-text: #885050;
+  --color-text-2: #885050;
+  --color-text-3: #885050;
+}
+
 @layer base {
   * {
     border-color: hsl(var(--border, 214.3 31.8% 91.4%));
+    font-family: var(--font-system) !important;
   }
   body {
     background-color: hsl(var(--background, 0 0% 100%));
@@ -12,6 +47,149 @@
     margin: 0;
     min-width: 320px;
     min-height: 100vh;
+    font-family: var(--font-system) !important;
+  }
+  
+  /* Ensure all text elements use system font */
+  h1, h2, h3, h4, h5, h6, p, span, div, button, input, textarea, select, label {
+    font-family: var(--font-system) !important;
+  }
+}
+
+@layer components {
+  /* Common button styles */
+  .btn-primary {
+    width: 100%;
+    padding: 6px 12px;
+    background-color: var(--bg-glass);
+    color: var(--color-primary);
+    border: none;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    font-family: var(--font-system);
+    text-align: left;
+    cursor: pointer;
+    transition: var(--transition-fast);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    height: 40px;
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+  
+  .btn-primary:hover {
+    background-color: var(--bg-glass-hover);
+  }
+  
+  .btn-primary:active {
+    background-color: var(--bg-glass-active);
+    transform: scale(0.95);
+  }
+  
+  /* Common input styles */
+  .input-primary {
+    width: 100%;
+    padding: 6px 10px;
+    font-size: 12px;
+    background-color: var(--bg-glass);
+    color: var(--color-primary);
+    border: none;
+    border-radius: 6px;
+    box-sizing: border-box;
+    transition: var(--transition-fast);
+    font-family: var(--font-system);
+  }
+  
+  /* Common text styles */
+  .text-primary {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--color-primary);
+    font-family: var(--font-system);
+  }
+  
+  .text-primary-bold {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-primary);
+    font-family: var(--font-system);
+  }
+  
+  /* Common container styles */
+  .glass-container {
+    background-color: var(--bg-glass);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-radius: 12px;
+    box-shadow: var(--shadow-neumorphic);
+  }
+  
+  .glass-container-inset {
+    background-color: var(--bg-glass);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-radius: 12px;
+    box-shadow: var(--shadow-neumorphic-inset);
+  }
+}
+
+@layer utilities {
+  /* Custom colors */
+  .text-primary {
+    color: var(--color-primary);
+  }
+  
+  .text-secondary {
+    color: var(--color-secondary);
+  }
+  
+  .bg-glass {
+    background-color: var(--bg-glass);
+  }
+  
+  .bg-glass-hover {
+    background-color: var(--bg-glass-hover);
+  }
+  
+  .bg-glass-active {
+    background-color: var(--bg-glass-active);
+  }
+  
+  /* Custom shadows */
+  .shadow-neumorphic {
+    box-shadow: var(--shadow-neumorphic);
+  }
+  
+  .shadow-neumorphic-inset {
+    box-shadow: var(--shadow-neumorphic-inset);
+  }
+  
+  .shadow-neumorphic-complex {
+    box-shadow: var(--shadow-neumorphic-complex);
+  }
+  
+  /* Custom transitions */
+  .transition-fast {
+    transition: var(--transition-fast);
+  }
+  
+  .transition-normal {
+    transition: var(--transition-normal);
+  }
+  
+  /* Custom font */
+  .font-system {
+    font-family: var(--font-system);
+  }
+  
+  /* Placeholder color */
+  input::placeholder {
+    color: var(--color-secondary) !important;
   }
 }
 
@@ -29,15 +207,33 @@
   display: none !important;
 }
 
-/* Style the background wrapper with border-radius and thicker stroke */
+/* Style the background wrapper with border-radius, thicker stroke, and neumorphic shadow */
 .tl-background__wrapper {
   border-radius: 12px !important;
   stroke-width: 3px !important;
+  box-shadow: var(--shadow-neumorphic) !important;
+}
+
+/* Apply neumorphic shadow to the main tldraw canvas container */
+.tldraw__editor {
+  box-shadow: var(--shadow-neumorphic) !important;
+  border-radius: 12px !important;
+  overflow: hidden !important;
+}
+
+/* Style the tldraw canvas background to yellow-white */
+.tl-background {
+  background-color: hsla(39, 88%, 97%, 0.5) !important;
+}
+
+/* Style the tldraw canvas background pattern to match the yellow-white theme */
+.tl-background__pattern {
+  background-color: hsla(39, 88%, 97%, 0.5) !important;
 }
 
 /* Ensure page menu title uses system font */
 .tlui-page-menu__header__title {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+  font-family: var(--font-system) !important;
   font-size: 12px !important;
   font-weight: 500 !important;
 }
@@ -57,5 +253,5 @@
 .tlui-select,
 .tlui-checkbox,
 .tlui-radio {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+  font-family: var(--font-system) !important;
 }

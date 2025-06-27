@@ -317,20 +317,44 @@ Building a yoga flow planner with multi-canvas support, auto-save, and user auth
 **File**: `src/shapes/yoga-pose-svg-shape.ts`, `src/utils/svg-pose-parser.ts`
 
 **Requirements**:
-- ✅ Fix color detection from style panel when pasting poses
-- ✅ Update `createPoseFromSVG` to get current style from selected shapes or editor state
-- ✅ Fix nested color property access in editor's next styles
-- ✅ Update `toSvg` method to use tldraw's `DefaultColorThemePalette` for accurate export colors
-- ✅ Add comprehensive color mapping for all tldraw color variants
-- ✅ Ensure export colors match exactly what's displayed in the app
+- ✅ **NEW**: Optimize Cloudflare Workers for multiple tabs/rooms
+- ✅ **NEW**: Add connection pooling and hibernation
+- ✅ **NEW**: Implement LRU cache for canvas management
+- ✅ **NEW**: Add canvas preloading and memory management
+- ✅ **NEW**: Optimize persistence with change detection
+- ✅ **NEW**: Reduce bundle size with proper imports
+- ✅ **NEW**: Add room stats monitoring endpoint
 
 **Acceptance Criteria**:
-- ✅ Poses appear in the selected color from style panel immediately
-- ✅ Color selector shows in style panel when yoga pose tool is active
-- ✅ Export colors match exactly what's displayed in the app
-- ✅ All tldraw color variants (light-green, light-blue, etc.) work correctly
-- ✅ Color detection works from both selected shapes and editor state
-- ✅ Export uses tldraw's actual color theme values
+- ✅ **NEW**: Multiple tabs/rooms handled efficiently
+- ✅ **NEW**: Reduced Cloudflare Workers usage
+- ✅ **NEW**: Better memory management for multiple canvases
+- ✅ **NEW**: Faster hibernation for free tier
+- ✅ **NEW**: Optimized persistence frequency
+- ✅ **NEW**: Smaller bundle size maintained
+
+---
+
+### ✅ UI-001: Implement Neumorphic Design System
+**Status**: ✅ COMPLETE  
+**Files**: `src/index.css`, `src/components/FlowPlanner.tsx`, `src/components/EditableCanvasTitle.tsx`
+
+**Requirements**:
+- ✅ Add neumorphic box shadows to canvas container
+- ✅ Implement warm, paper-like canvas background (`hsla(39, 88%, 97%, 0.5)`)
+- ✅ Update grid dots to match background theme (`rgba(139, 69, 19, 0.15)`)
+- ✅ Remove canvas border styling in favor of neumorphic shadows
+- ✅ Increase sidebar-to-canvas gap to 16px for better spacing
+- ✅ Make canvas title input transparent when editing (no background/padding)
+- ✅ Apply consistent neumorphic shadows across UI elements
+
+**Acceptance Criteria**:
+- ✅ Canvas has neumorphic shadow effect matching sidebar buttons
+- ✅ Canvas background is warm cream color with 50% opacity
+- ✅ Grid dots are visible and complement the background
+- ✅ Layout has proper spacing and visual hierarchy
+- ✅ Canvas title editing is seamless and unobtrusive
+- ✅ Overall design is cohesive and warm
 
 ---
 

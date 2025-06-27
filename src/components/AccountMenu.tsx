@@ -73,7 +73,7 @@ export function AccountMenu({ isOpen, onClose }: AccountMenuProps) {
           backgroundColor: '#ffffff',
           border: '1px solid var(--color-divider)',
           borderRadius: '12px',
-          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+          boxShadow: '0px 0px 2px hsl(0, 0%, 0%, 16%), 0px 2px 3px hsl(0, 0%, 0%, 24%), 0px 2px 6px hsl(0, 0%, 0%, 0.1), inset 0px 0px 0px 1px hsl(0, 0%, 100%)',
           position: 'fixed',
           bottom: '0px',
           left: '0px'
@@ -162,18 +162,6 @@ export function AccountMenu({ isOpen, onClose }: AccountMenuProps) {
 
           {/* Email (read-only) */}
           <div style={{ marginBottom: '12px' }}>
-            <label 
-              className="tlui-text"
-              style={{
-                display: 'block',
-                fontSize: '10px',
-                fontWeight: '500',
-                color: 'var(--color-text-3)',
-                marginBottom: '4px'
-              }}
-            >
-              Email
-            </label>
             <input
               type="email"
               value={profile?.email || user?.email || ''}
