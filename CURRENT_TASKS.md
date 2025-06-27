@@ -5,9 +5,9 @@
 > **Sprint Goal**: Production-ready features and optimizations
 
 ## 🆕 DB-002: User-Linked Canvases & Folder Organization
-- [ ] Update Supabase schema: add folders table, folder_id to canvases, RLS
-- [ ] Update TypeScript types for new schema
-- [ ] Implement folder CRUD in canvasService
+- [x] Update Supabase schema: add folders table, folder_id to canvases, RLS
+- [x] Update TypeScript types for new schema
+- [x] Implement folder CRUD in canvasService
 - [ ] Add folder management UI (FolderPanel)
 - [ ] Update canvas CRUD to support folder assignment
 - [ ] Update useCanvasManager/useAutoSave to sync with Supabase
