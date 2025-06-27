@@ -18,7 +18,13 @@ if (!supabaseAnonKey) {
   supabase = createClient('https://dummy.supabase.co', 'dummy-key')
 } else {
   try {
-    supabase = createClient(supabaseUrl, supabaseAnonKey)
+    supabase = createClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        autoRefreshToken: true,
+        persistSession: true,
+        detectSessionInUrl: true
+      }
+    })
     console.log('Supabase client created successfully')
   } catch (error) {
     console.error('Error creating Supabase client:', error)
@@ -36,18 +42,59 @@ export interface Database {
         Row: {
           id: string
           email: string
+          display_name: string | null
+          avatar_url: string | null
+          preferences: any
           created_at: string
           updated_at: string
         }
         Insert: {
           id?: string
           email: string
+          display_name?: string | null
+          avatar_url?: string | null
+          preferences?: any
           created_at?: string
           updated_at?: string
         }
         Update: {
           id?: string
           email?: string
+          display_name?: string | null
+          avatar_url?: string | null
+          preferences?: any
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      folders: {
+        Row: {
+          id: string
+          user_id: string
+          name: string
+          description: string | null
+          color: string
+          parent_folder_id: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          name: string
+          description?: string | null
+          color?: string
+          parent_folder_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          name?: string
+          description?: string | null
+          color?: string
+          parent_folder_id?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -56,24 +103,36 @@ export interface Database {
         Row: {
           id: string
           user_id: string
+          folder_id: string | null
           title: string
+          description: string | null
           data: any
+          thumbnail: string | null
+          is_public: boolean
           created_at: string
           updated_at: string
         }
         Insert: {
           id?: string
           user_id: string
-          title: string
-          data: any
+          folder_id?: string | null
+          title?: string
+          description?: string | null
+          data?: any
+          thumbnail?: string | null
+          is_public?: boolean
           created_at?: string
           updated_at?: string
         }
         Update: {
           id?: string
           user_id?: string
+          folder_id?: string | null
           title?: string
+          description?: string | null
           data?: any
+          thumbnail?: string | null
+          is_public?: boolean
           created_at?: string
           updated_at?: string
         }
@@ -92,6 +151,13 @@ export interface Database {
 }
 
 export type User = Database['public']['Tables']['users']['Row']
-export type Canvas = Database['public']['Tables']['canvases']['Row']
 export type NewUser = Database['public']['Tables']['users']['Insert']
-export type NewCanvas = Database['public']['Tables']['canvases']['Insert'] 
+export type UpdateUser = Database['public']['Tables']['users']['Update']
+
+export type Folder = Database['public']['Tables']['folders']['Row']
+export type NewFolder = Database['public']['Tables']['folders']['Insert']
+export type UpdateFolder = Database['public']['Tables']['folders']['Update']
+
+export type Canvas = Database['public']['Tables']['canvases']['Row']
+export type NewCanvas = Database['public']['Tables']['canvases']['Insert']
+export type UpdateCanvas = Database['public']['Tables']['canvases']['Update'] 
