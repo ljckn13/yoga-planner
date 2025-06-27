@@ -461,6 +461,79 @@ Building a yoga flow planner with multi-canvas support, auto-save, and user auth
 - [ ] CI/CD pipeline includes testing
 - [ ] Test coverage meets standards
 
+---
+
+### 🆕 DB-002: User-Linked Canvases & Folder Organization
+
+**Goal:**  
+Upgrade the data model and app logic so that:
+- Each canvas is owned by a user (user_id)
+- Canvases can optionally belong to folders (folder_id, nullable)
+- Folders are user-specific and can be nested
+- All canvas CRUD and listing is user- and folder-aware
+- All data is persisted and synced via Supabase (not just localStorage)
+- Real-time sync (Cloudflare) and offline support are preserved
+
+---
+
+#### **DB-002: User-Linked Canvases & Folders**
+
+**Files:**  
+- `supabase/schema.sql`  
+- `src/lib/supabase.ts`  
+- `src/services/canvasService.ts` (new or updated)  
+- `src/hooks/useCanvasManager.ts`  
+- `src/hooks/useAutoSave.ts`  
+- `src/components/FlowPlanner.tsx`  
+- `src/components/FolderPanel.tsx` (new, for folder UI)
+
+**Requirements:**
+- [ ] Add `folders` table to Supabase schema (with user_id, parent_folder_id, etc.)
+- [ ] Add `folder_id` to `canvases` table (nullable, with FK)
+- [ ] Update Supabase RLS policies for folders/canvases
+- [ ] Update TypeScript types for new schema
+- [ ] Create folder CRUD API (create, rename, delete, move)
+- [ ] Update canvas CRUD to support folder assignment
+- [ ] Update UI to allow folder creation, renaming, deletion, and drag/drop or move canvases between folders
+- [ ] On login, load user's folders and canvases from Supabase
+- [ ] On canvas/folder change, sync to Supabase (and localStorage for offline)
+- [ ] Ensure all queries are user-specific (no cross-user data leaks)
+- [ ] Preserve real-time sync and offline support
+
+**Acceptance Criteria:**
+- [ ] Users see only their own canvases and folders
+- [ ] Users can create, rename, delete, and organize folders
+- [ ] Users can move canvases between folders (or leave them ungrouped)
+- [ ] All canvas/folder changes persist to Supabase and sync across devices
+- [ ] Real-time collaboration and offline support still work
+- [ ] UI is intuitive for folder/canvas management
+
+---
+
+#### **Example Task Breakdown**
+
+##### **DB-002a: Supabase Schema & Types**
+- [ ] Update `supabase/schema.sql` with folders table and folder_id on canvases
+- [ ] Update RLS policies
+- [ ] Regenerate/update TypeScript types in `src/lib/supabase.ts`
+
+##### **DB-002b: Folder CRUD Service**
+- [ ] Implement folder CRUD in `canvasService.ts`
+- [ ] Add folder management UI (`FolderPanel.tsx`)
+
+##### **DB-002c: Canvas CRUD & Sync**
+- [ ] Update canvas CRUD to support folder assignment
+- [ ] Update `useCanvasManager` and `useAutoSave` to sync with Supabase
+
+##### **DB-002d: UI Integration**
+- [ ] Add folder sidebar/panel to `FlowPlanner.tsx`
+- [ ] Allow drag/drop or move canvases between folders
+- [ ] Update canvas list to show folders
+
+##### **DB-002e: Testing & Migration**
+- [ ] Migrate existing localStorage canvases to Supabase for logged-in users
+- [ ] Test multi-device sync, folder operations, and RLS
+
 ## 🗂️ Future Considerations (Long List)
 
 ### Performance Optimizations

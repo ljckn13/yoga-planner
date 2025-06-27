@@ -25,7 +25,7 @@ import { getPoseState } from '../utils/pose-state';
 import { yogaCategories } from '../assets/yoga-flows';
 import { useCloudSync } from '../hooks/useCloudSync';
 import { useAuthContext } from './AuthProvider';
-import { ArrowUpLeft, ArrowDownRight, Plus, X, MoreVertical } from 'lucide-react';
+import { ArrowUpLeft, ArrowDownRight, Plus, X, MoreVertical, Download } from 'lucide-react';
 
 // Temporary debug function to clear localStorage
 const clearLocalStorage = () => {
@@ -568,6 +568,417 @@ export const customAssetUrls: TLUiAssetUrlOverrides = {
 const customTools = [YogaPoseTool]
 const customShapeUtils = [YogaPoseShapeUtil, YogaPoseSvgShapeUtil]
 
+// Canvas Export Button Component
+function CanvasExportButton() {
+  const editor = useEditor();
+
+  const handleExport = async () => {
+    // Get all shapes on the current page
+    const ids = [...editor.getCurrentPageShapeIds()];
+    if (!ids.length) {
+      alert('Nothing to export!');
+      return;
+    }
+
+    try {
+      const { blob } = await editor.toImage(ids, {
+        format: 'png',
+        background: false, // transparent background
+        scale: 2, // higher quality
+      });
+
+      // Create download link
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      
+      // Get canvas title for filename
+      const canvasList = localStorage.getItem('yoga_flow_canvas_list');
+      let filename = 'yoga-flow.png';
+      if (canvasList) {
+        try {
+          const canvases = JSON.parse(canvasList);
+          const currentCanvasId = localStorage.getItem('yoga_flow_current_canvas_id');
+          const currentCanvas = canvases.find((canvas: any) => canvas.id === currentCanvasId);
+          if (currentCanvas?.title) {
+            filename = `${currentCanvas.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.png`;
+          }
+        } catch (err) {
+          console.error('Error getting canvas title for filename:', err);
+        }
+      }
+      
+      link.download = filename;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Export failed:', error);
+      alert('Export failed. Please try again.');
+    }
+  };
+
+  return (
+    <button
+      onClick={handleExport}
+      style={{
+        padding: '8px 12px',
+        borderRadius: '8px',
+        background: 'var(--color-panel)',
+        color: 'var(--color-text)',
+        fontSize: '12px',
+        fontWeight: '500',
+        border: '1px solid var(--color-divider)',
+        cursor: 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '6px',
+        transition: 'all 0.1s ease',
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.background = 'var(--color-hover)';
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.background = 'var(--color-panel)';
+      }}
+      title="Export canvas as PNG"
+    >
+      <Download size={14} />
+      Export
+    </button>
+  );
+}
+
+// Floating Export Button Component that uses editor reference
+function FloatingExportButton({ editor }: { editor: Editor | null }) {
+  const [exportFormat, setExportFormat] = React.useState<'png' | 'svg'>('png');
+
+  const handleExport = async () => {
+    if (!editor) {
+      alert('Editor not ready. Please try again.');
+      return;
+    }
+
+    console.log('Editor instance:', editor);
+    console.log('Current page:', editor.getCurrentPageId());
+    
+    // Try different methods to get shapes
+    const currentPageShapes = editor.getCurrentPageShapeIds();
+    const selectedShapes = editor.getSelectedShapeIds();
+    
+    console.log('Current page shapes:', currentPageShapes);
+    console.log('Selected shapes:', selectedShapes);
+    
+    // Use current page shapes or selected shapes
+    let ids = [...currentPageShapes];
+    if (!ids.length) {
+      ids = [...selectedShapes];
+      console.log('Using selected shapes instead:', ids);
+    }
+    
+    if (!ids.length) {
+      alert('Nothing to export! No shapes found on canvas.');
+      return;
+    }
+
+    try {
+      const { blob } = await editor.toImage(ids, {
+        format: exportFormat,
+        background: false, // transparent background
+        scale: exportFormat === 'png' ? 2 : 1, // higher quality for PNG, normal for SVG
+      });
+
+      // Create download link
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      
+      // Get canvas title for filename
+      const canvasList = localStorage.getItem('yoga_flow_canvas_list');
+      let filename = `yoga-flow.${exportFormat}`;
+      if (canvasList) {
+        try {
+          const canvases = JSON.parse(canvasList);
+          const currentCanvasId = localStorage.getItem('yoga_flow_current_canvas_id');
+          const currentCanvas = canvases.find((canvas: any) => canvas.id === currentCanvasId);
+          if (currentCanvas?.title) {
+            filename = `${currentCanvas.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.${exportFormat}`;
+          }
+        } catch (err) {
+          console.error('Error getting canvas title for filename:', err);
+        }
+      }
+      
+      link.download = filename;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Export failed:', error);
+      alert('Export failed. Please try again.');
+    }
+  };
+
+  const toggleFormat = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent triggering the main export
+    setExportFormat(exportFormat === 'png' ? 'svg' : 'png');
+  };
+
+  return (
+    <div style={{ position: 'relative' }}>
+      {/* Main Export Button with Integrated Toggle */}
+      <button
+        onClick={handleExport}
+        style={{
+          position: 'fixed',
+          top: '40px',
+          left: '50%',
+          height: '40px',
+          transform: 'translateX(-50%)',
+          zIndex: 1000,
+          padding: '8px 12px',
+          borderRadius: '0 0 8px 8px',
+          background: '##EFF1F3',
+          color: '#000000',
+          fontSize: '12px',
+          fontWeight: '500',
+          fontFamily: 'var(--font-system)',
+          border: '1px solid var(--color-divider)',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          transition: 'all 0.1s ease',
+          minWidth: '140px',
+          marginBottom: '0px',
+        }}
+        title={`Export as ${exportFormat.toUpperCase()}`}
+      >
+        <span>Export</span>
+        
+        {/* Toggle Switch */}
+        <div
+          onClick={toggleFormat}
+          style={{
+            position: 'relative',
+            width: '74px',
+            height: '28px',
+            background: '#e5e6e6',
+            borderRadius: '8px',
+            cursor: 'pointer',
+            transition: 'all 0.3s ease',
+            display: 'flex',
+            alignItems: 'center',
+            padding: '2px',
+            boxSizing: 'border-box',
+          }}
+          title={`Switch to ${exportFormat === 'png' ? 'SVG' : 'PNG'}`}
+        >
+          {/* Toggle Slider */}
+          <div
+            style={{
+              width: '34px',
+              height: '24px',
+              background: '#fff',
+              borderRadius: '6px',
+              transform: exportFormat === 'svg' ? 'translateX(36px)' : 'translateX(0px)',
+              transition: 'transform 0.3s ease',
+              boxShadow: '0 1px 2px rgba(0, 0, 0, 0.1)',
+            }}
+          />
+          
+          {/* Format Labels */}
+          <div
+            style={{
+              position: 'absolute',
+              left: '8px',
+              fontSize: '8px',
+              fontWeight: '700',
+              color: exportFormat === 'png' ? '#000000' : 'rgb(102, 102, 102)',
+              transition: 'color 0.3s ease',
+              pointerEvents: 'none',
+            }}
+          >
+            PNG
+          </div>
+          <div
+            style={{
+              position: 'absolute',
+              right: '8px',
+              fontSize: '8px',
+              fontWeight: '700',
+              color: exportFormat === 'svg' ? '#000000' : 'rgb(102, 102, 102)',
+              transition: 'color 0.3s ease',
+              pointerEvents: 'none',
+            }}
+          >
+            SVG
+          </div>
+        </div>
+      </button>
+    </div>
+  );
+}
+
+// SharePanel Export Button Component
+function SharePanelExportButton() {
+  const editor = useEditor();
+  const [exportFormat, setExportFormat] = React.useState<'png' | 'svg'>('png');
+
+  const handleExport = async () => {
+    if (!editor) {
+      alert('Editor not ready. Please try again.');
+      return;
+    }
+
+    // Get all shapes on the current page
+    const ids = [...editor.getCurrentPageShapeIds()];
+    if (!ids.length) {
+      alert('Nothing to export!');
+      return;
+    }
+
+    try {
+      const { blob } = await editor.toImage(ids, {
+        format: exportFormat,
+        background: false, // transparent background
+        scale: exportFormat === 'png' ? 2 : 1, // higher quality for PNG, normal for SVG
+      });
+
+      // Create download link
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      
+      // Get canvas title for filename
+      const canvasList = localStorage.getItem('yoga_flow_canvas_list');
+      let filename = `yoga-flow.${exportFormat}`;
+      if (canvasList) {
+        try {
+          const canvases = JSON.parse(canvasList);
+          const currentCanvasId = localStorage.getItem('yoga_flow_current_canvas_id');
+          const currentCanvas = canvases.find((canvas: any) => canvas.id === currentCanvasId);
+          if (currentCanvas?.title) {
+            filename = `${currentCanvas.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.${exportFormat}`;
+          }
+        } catch (err) {
+          console.error('Error getting canvas title for filename:', err);
+        }
+      }
+      
+      link.download = filename;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Export failed:', error);
+      alert('Export failed. Please try again.');
+    }
+  };
+
+  const toggleFormat = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent triggering the main export
+    setExportFormat(exportFormat === 'png' ? 'svg' : 'png');
+  };
+
+  return (
+    <div style={{ 
+      display: 'flex', 
+      alignItems: 'center', 
+      gap: '8px',
+      padding: '4px',
+      width: '100%',
+    }}>
+      <button
+        onClick={handleExport}
+        style={{
+          padding: '8px 12px',
+          borderRadius: '8px',
+          background: 'var(--color-panel)',
+          color: 'var(--color-text)',
+          fontSize: '12px',
+          fontWeight: '500',
+          border: '1px solid var(--color-divider)',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          transition: 'all 0.1s ease',
+          width: '100%',
+          justifyContent: 'space-between',
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.background = 'var(--color-hover)';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.background = 'var(--color-panel)';
+        }}
+        title={`Export as ${exportFormat.toUpperCase()}`}
+      >
+        <span>Export</span>
+        
+        {/* Toggle Switch */}
+        <div
+          onClick={toggleFormat}
+          style={{
+            position: 'relative',
+            width: '64px',
+            height: '24px',
+            background: exportFormat === 'png' ? '#885050' : '#ccc',
+            borderRadius: '8px',
+            cursor: 'pointer',
+            transition: 'all 0.3s ease',
+            display: 'flex',
+            alignItems: 'center',
+            padding: '2px',
+            boxSizing: 'border-box',
+            flexShrink: 0,
+          }}
+          title={`Switch to ${exportFormat === 'png' ? 'SVG' : 'PNG'}`}
+        >
+          {/* Toggle Slider */}
+          <div
+            style={{
+              width: '20px',
+              height: '20px',
+              background: '#fff',
+              borderRadius: '50%',
+              transform: exportFormat === 'png' ? 'translateX(40px)' : 'translateX(0px)',
+              transition: 'transform 0.3s ease',
+              boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)',
+            }}
+          />
+          
+          {/* Format Labels */}
+          <div
+            style={{
+              position: 'absolute',
+              left: '8px',
+              fontSize: '8px',
+              fontWeight: '700',
+              color: exportFormat === 'png' ? '#fff' : '#666',
+              transition: 'color 0.3s ease',
+              pointerEvents: 'none',
+            }}
+          >
+            PNG
+          </div>
+          <div
+            style={{
+              position: 'absolute',
+              right: '8px',
+              fontSize: '8px',
+              fontWeight: '700',
+              color: exportFormat === 'svg' ? '#fff' : '#666',
+              transition: 'color 0.3s ease',
+              pointerEvents: 'none',
+            }}
+          >
+            SVG
+          </div>
+        </div>
+      </button>
+    </div>
+  );
+}
+
 export const FlowPlanner: React.FC = () => {
   // Simple state for canvas list - shared between menu and left panel
   const [canvases, setCanvases] = React.useState<Array<{id: string, title: string}>>([]);
@@ -695,9 +1106,9 @@ export const FlowPlanner: React.FC = () => {
   };
 
   const handleMount = (mountedEditor: Editor) => {
-    // Store the editor reference for later use
     editorRef.current = mountedEditor;
     
+    // Enable debug logging
     mountedEditor.updateInstanceState({ isGridMode: true });
     
     
@@ -1085,6 +1496,9 @@ export const FlowPlanner: React.FC = () => {
               >
               </Tldraw>
             </div>
+            
+            {/* Floating Export Button - Outside canvas container */}
+            <FloatingExportButton editor={editorRef.current} />
           </div>
         </CanvasContext.Provider>
       </div>

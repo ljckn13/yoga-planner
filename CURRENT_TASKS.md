@@ -4,6 +4,20 @@
 > **Current Task**: PROD-001  
 > **Sprint Goal**: Production-ready features and optimizations
 
+## 🆕 DB-002: User-Linked Canvases & Folder Organization
+- [ ] Update Supabase schema: add folders table, folder_id to canvases, RLS
+- [ ] Update TypeScript types for new schema
+- [ ] Implement folder CRUD in canvasService
+- [ ] Add folder management UI (FolderPanel)
+- [ ] Update canvas CRUD to support folder assignment
+- [ ] Update useCanvasManager/useAutoSave to sync with Supabase
+- [ ] Add folder sidebar/panel to FlowPlanner
+- [ ] Allow drag/drop or move canvases between folders
+- [ ] Migrate existing localStorage canvases to Supabase
+- [ ] Test multi-device sync, folder operations, and RLS
+
+---
+
 ## 🎯 Phase 1 Tasks (In Order)
 
 ### ✅ CANVAS-001: Canvas State Serialization/Deserialization
