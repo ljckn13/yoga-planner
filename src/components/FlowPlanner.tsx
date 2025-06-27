@@ -25,7 +25,7 @@ import { getPoseState } from '../utils/pose-state';
 import { yogaCategories } from '../assets/yoga-flows';
 import { useCloudSync } from '../hooks/useCloudSync';
 import { useAuthContext } from './AuthProvider';
-import { ChevronLeft, ChevronRight, ArrowUpLeft, ArrowDownRight, UserPen, Plus, X, MoreVertical } from 'lucide-react';
+import { ArrowUpLeft, ArrowDownRight, Plus, X, MoreVertical } from 'lucide-react';
 
 // Temporary debug function to clear localStorage
 const clearLocalStorage = () => {
@@ -262,7 +262,9 @@ const SidebarButton: React.FC<SidebarButtonProps> = ({
       onClick={onClick}
       onMouseDown={() => setIsActive(true)}
       onMouseUp={() => setIsActive(false)}
-      onMouseLeave={() => setIsActive(false)}
+      onMouseLeave={() => {
+        // Keep white background when leaving
+      }}
       className="btn-primary w-full mb-2"
       style={{
         borderRadius,
@@ -334,7 +336,7 @@ const createComponents = (sidebarVisible: boolean): TLComponents => ({
     const editor = useEditor()
     const isYogaPoseSelected = useIsToolSelected(tools['yogaPose'])
     const [activeCategory, setActiveCategory] = React.useState<number>(0) // Use number for Category enum
-    const [isHoveringPoseTool, setIsHoveringPoseTool] = React.useState(false)
+    const [isHoveringPoseTool] = React.useState(false)
     const { user: _user } = useAuthContext()
     
     return (
@@ -426,10 +428,10 @@ const createComponents = (sidebarVisible: boolean): TLComponents => ({
             {/* Custom Yoga Pose Tool Button - Always visible */}
             <div style={{ padding: '0 4px' }}>
               <button
-                onMouseEnter={(e) => {
+                onMouseEnter={() => {
                   // Keep white background on hover
                 }}
-                onMouseLeave={(e) => {
+                onMouseLeave={() => {
                   // Keep white background when leaving
                 }}
                 onClick={() => {
@@ -822,19 +824,6 @@ export const FlowPlanner: React.FC = () => {
                   .map((canvas) => {
                     const isEditing = editingCanvasId === canvas.id;
                     
-                    const handleSaveTitle = (newTitle: string) => {
-                      console.log('Renaming canvas from', canvas.title, 'to', newTitle);
-                      setCanvases(prev => {
-                        const updated = prev.map(c => 
-                          c.id === canvas.id 
-                            ? { ...c, title: newTitle }
-                            : c
-                        );
-                        console.log('Updated canvases after rename:', updated);
-                        return updated;
-                      });
-                    };
-
                     return (
                       <div
                         key={canvas.id}
