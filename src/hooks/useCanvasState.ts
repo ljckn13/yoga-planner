@@ -74,7 +74,7 @@ export function useCanvasState(
   }, [editor, version]);
 
   const deserializeCanvas = useCallback(async (state: CanvasState): Promise<boolean> => {
-    console.log('🔍 [DEBUG] deserializeCanvas called with state:', state);
+
     if (!editor) {
       setError('Editor not available');
       console.error('❌ [DEBUG] Editor not available for deserialization');
@@ -93,11 +93,11 @@ export function useCanvasState(
     try {
       // Use the new loadSnapshot function instead of the deprecated editor.store.loadSnapshot
       loadSnapshot(editor.store, state.snapshot);
-      console.log('✅ [DEBUG] Snapshot loaded into editor store.');
+
       
       // Force a re-render of the editor
       editor.updateInstanceState({});
-      console.log('✅ [DEBUG] Editor instance state updated.');
+
       
       return true;
     } catch (err) {
@@ -120,7 +120,7 @@ export function useCanvasState(
       const snapshot = getSnapshot(editor.store);
       const serializedState = JSON.stringify(snapshot);
       localStorage.setItem('yoga-flow-canvas-state', serializedState);
-      console.log('Canvas state saved successfully');
+
       return true;
     } catch (error) {
       console.error('Error saving canvas state:', error);
@@ -137,13 +137,13 @@ export function useCanvasState(
     try {
       const savedState = localStorage.getItem('yoga-flow-canvas-state');
       if (!savedState) {
-        console.log('No saved canvas state found');
+  
         return false;
       }
 
       const snapshot = JSON.parse(savedState);
       loadSnapshot(editor.store, snapshot);
-      console.log('Canvas state loaded successfully');
+
       return true;
     } catch (error) {
       console.error('Error loading canvas state:', error);
@@ -154,7 +154,7 @@ export function useCanvasState(
   const clearCanvasState = useCallback(() => {
     try {
       localStorage.removeItem('yoga-flow-canvas-state');
-      console.log('Canvas state cleared successfully');
+
       return true;
     } catch (error) {
       console.error('Error clearing canvas state:', error);

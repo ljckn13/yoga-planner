@@ -9,12 +9,12 @@ export default function SupabaseTest() {
   useEffect(() => {
     async function testConnection() {
       try {
-        console.log('Testing Supabase connection...')
+    
         
         // Test basic connection
         const { data, error } = await supabase.from('users').select('count').limit(1)
         
-        console.log('Supabase response:', { data, error })
+    
         
         if (error) {
           console.error('Supabase error:', error)

@@ -9,7 +9,7 @@ interface CategoryMenuProps {
 }
 
 export const CategoryMenu: React.FC<CategoryMenuProps> = ({ onPoseSelect }) => {
-  console.log('CategoryMenu rendering...');
+
   
   const {
     activeCategory,
@@ -20,7 +20,7 @@ export const CategoryMenu: React.FC<CategoryMenuProps> = ({ onPoseSelect }) => {
     setActiveSubCategory,
   } = usePoseFilter();
   
-  console.log('CategoryMenu state:', { activeCategory, activeSubCategory, filteredPoses: filteredPoses.length });
+
 
   const handleCategoryClick = (category: Category) => {
     setActiveCategory(category);

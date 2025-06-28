@@ -3,11 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://lmwbfbnduhijqmoqhxpi.supabase.co'
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
-// Debug logging
-console.log('Supabase URL:', supabaseUrl)
-console.log('Supabase Anon Key exists:', !!supabaseAnonKey)
-console.log('Anon Key length:', supabaseAnonKey?.length)
-console.log('Anon Key starts with:', supabaseAnonKey?.substring(0, 20))
+
 
 let supabase: any
 
@@ -25,7 +21,7 @@ if (!supabaseAnonKey) {
         detectSessionInUrl: true
       }
     })
-    console.log('Supabase client created successfully')
+    
   } catch (error) {
     console.error('Error creating Supabase client:', error)
     supabase = createClient('https://dummy.supabase.co', 'dummy-key')

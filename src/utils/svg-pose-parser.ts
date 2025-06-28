@@ -15,13 +15,7 @@ export async function createPoseFromSVG(
   targetX: number, 
   targetY: number
 ): Promise<void> {
-  console.log('🎯 Creating pose from SVG:', {
-    poseName: poseData.name,
-    targetX,
-    targetY,
-    originalSvgLength: poseData.svg.length,
-    originalSvgPreview: poseData.svg.substring(0, 100) + '...'
-  });
+
 
   // Get current style state from selected shapes or editor state
   let currentColor = 'black';
@@ -30,17 +24,11 @@ export async function createPoseFromSVG(
 
   // First try to get style from selected shapes
   const selectedShapes = editor.getSelectedShapes();
-  console.log('🔍 Selected shapes count:', selectedShapes.length);
+
   
   if (selectedShapes.length > 0) {
     const firstSelected = selectedShapes[0];
-    console.log('🔍 First selected shape:', {
-      type: firstSelected.type,
-      props: firstSelected.props,
-      hasColor: 'color' in firstSelected.props,
-      hasFill: 'fill' in firstSelected.props,
-      hasOpacity: 'opacity' in firstSelected.props
-    });
+
     
     // Check if the shape has color, fill, and opacity properties
     if ('color' in firstSelected.props && typeof firstSelected.props.color === 'string') {
@@ -52,11 +40,11 @@ export async function createPoseFromSVG(
     if ('opacity' in firstSelected.props && typeof firstSelected.props.opacity === 'number') {
       currentOpacity = firstSelected.props.opacity;
     }
-    console.log('🎨 Got style from selected shape:', { currentColor, currentFill, currentOpacity });
+
   } else {
     // Fallback to editor's next shape styles
     const nextStyles = editor.getInstanceState().stylesForNextShape;
-    console.log('🔍 Editor next styles:', nextStyles);
+
     
     if (nextStyles) {
       // Handle nested color property (e.g., {tldraw:color: 'light-green'})
@@ -97,10 +85,10 @@ export async function createPoseFromSVG(
         currentOpacity = (nextStyles.opacity as number) || 1;
       }
     }
-    console.log('🎨 Got style from editor state:', { currentColor, currentFill, currentOpacity });
+
   }
 
-  console.log('🎨 Final style state:', { currentColor, currentFill, currentOpacity });
+
 
   // Create SVG shape using our custom shape utility
   const svgShapeId = createShapeId();
@@ -118,7 +106,7 @@ export async function createPoseFromSVG(
     }
   }
   
-  console.log('📏 SVG dimensions:', { width, height });
+
   
   const svgShape: TLShape = {
     id: svgShapeId,
@@ -142,16 +130,11 @@ export async function createPoseFromSVG(
     },
   };
   
-  console.log('📝 Created SVG shape:', {
-    shapeId: svgShapeId,
-    type: svgShape.type,
-    position: { x: targetX, y: targetY },
-    props: svgShape.props
-  });
+
   
   // Create SVG shape first
   editor.createShape(svgShape);
-  console.log('✅ SVG shape created in editor');
+
   
   // Create text shapes using putExternalContent (safer for sync)
   await editor.putExternalContent({
@@ -166,7 +149,7 @@ export async function createPoseFromSVG(
     point: { x: targetX + (width / 2), y: targetY + height + 45 },
   });
   
-  console.log('✅ Text shapes created for pose:', poseData.name);
+  
 }
 
 // Keep the old function for backward compatibility but mark as deprecated

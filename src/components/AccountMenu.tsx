@@ -22,14 +22,13 @@ export function AccountMenu({ isOpen, onClose }: AccountMenuProps) {
     }
   }, [user, profile])
 
-  console.log('AccountMenu render - isOpen:', isOpen, 'user:', user?.email)
+  
 
   if (!isOpen) {
-    console.log('AccountMenu not rendering - isOpen is false')
-    return null
+          return null
   }
 
-  console.log('AccountMenu rendering modal')
+  
 
   const handleSignOut = async () => {
     const result = await signOut()
@@ -41,7 +40,7 @@ export function AccountMenu({ isOpen, onClose }: AccountMenuProps) {
 
   const handleDeleteAccount = async () => {
     // TODO: Implement account deletion
-    console.log('Account deletion not implemented yet')
+    
     setShowDeleteConfirm(false)
     onClose()
   }

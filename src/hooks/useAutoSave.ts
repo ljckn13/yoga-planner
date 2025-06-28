@@ -46,7 +46,7 @@ export function useAutoSave(
 
   const saveToLocalStorage = useCallback((snapshot: any) => {
     if (!canvasId) {
-      console.log('⚠️ [AutoSave] No canvas ID, skipping save');
+
       return;
     }
 
@@ -54,11 +54,11 @@ export function useAutoSave(
       const data = { snapshot, lastSaved: new Date().toISOString() };
       const storageKey = `${STORAGE_KEY_PREFIX}${canvasId}`;
       
-      console.log(`💾 [AutoSave] Saving canvas ${canvasId} to localStorage key: ${storageKey}`);
+  
       
       localStorage.setItem(storageKey, JSON.stringify(data));
       setLastSaved(new Date());
-      console.log(`✅ [AutoSave] Successfully saved canvas ${canvasId}`);
+
     } catch (error) {
       console.error(`❌ [AutoSave] Failed to save canvas ${canvasId}:`, error);
     }
@@ -68,7 +68,7 @@ export function useAutoSave(
     if (!editor || !canvasId) return;
     const storageKey = `${STORAGE_KEY_PREFIX}${canvasId}`;
 
-    console.log(`💾 [DEBUG] Saving canvas: ${canvasId}`);
+    
 
     try {
       setSaveStatus('saving');
@@ -77,7 +77,7 @@ export function useAutoSave(
       if (!canvasState) {
         throw new Error('Failed to serialize canvas');
       }
-      console.log(`💾 [DEBUG] Saving canvas: ${canvasId}`, { snapshot: canvasState.snapshot });
+      
       localStorage.setItem(storageKey, JSON.stringify(canvasState));
       setLastSaved(new Date());
       setSaveStatus('saved');
@@ -106,11 +106,11 @@ export function useAutoSave(
 
   useEffect(() => {
     if (!editor || !canvasId || canvasId.trim() === '') {
-      console.log(`⚠️ [AutoSave] Missing editor (${!!editor}) or invalid canvasId (${canvasId}), not setting up auto-save`);
+
       return;
     }
 
-    console.log(`🔧 [AutoSave] Setting up auto-save for canvas: ${canvasId}`);
+
     setSaveStatus('saving');
 
     // Save current state immediately when switching to a new canvas
@@ -118,7 +118,7 @@ export function useAutoSave(
     saveToLocalStorage(currentSnapshot);
 
     const handleStoreChange = () => {
-      console.log(`🎯 [AutoSave] Store change detected for canvas ${canvasId}`);
+
       
       if (autoSaveTimeoutRef.current) {
         clearTimeout(autoSaveTimeoutRef.current);
@@ -127,7 +127,7 @@ export function useAutoSave(
       setSaveStatus('saving');
       autoSaveTimeoutRef.current = setTimeout(() => {
         const snapshot = getSnapshot(editor.store);
-        console.log(`📸 [AutoSave] Auto-saving canvas ${canvasId} after changes`);
+  
         saveToLocalStorage(snapshot);
         setSaveStatus('saved');
       }, autoSaveDelay);
@@ -137,7 +137,7 @@ export function useAutoSave(
     const unsubscribe = editor.store.listen(handleStoreChange);
 
     return () => {
-      console.log(`🔄 [AutoSave] Cleaning up auto-save for canvas: ${canvasId}`);
+  
       if (autoSaveTimeoutRef.current) {
         clearTimeout(autoSaveTimeoutRef.current);
       }

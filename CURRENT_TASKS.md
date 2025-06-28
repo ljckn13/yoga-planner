@@ -592,6 +592,51 @@ node test-worker.js
 
 ---
 
+### ✅ SCROLLBAR-001: Replace mac-scrollbar with SimpleBar
+**Status**: ✅ COMPLETE  
+**Files**: `src/components/FlowPlanner.tsx`, `src/index.css`, `src/simplebar.css`
+
+**Dependencies**: UI-001 ✅ complete
+
+**Implementation Steps**:
+1. ✅ Uninstall mac-scrollbar and install SimpleBar
+2. ✅ Replace MacScrollbar component with SimpleBar
+3. ✅ Copy SimpleBar CSS locally for proper Vite import
+4. ✅ Implement hover-only scrollbar visibility with CSS
+5. ✅ Add proper opacity and styling (60% black)
+6. ✅ Fix gap between scrollable content and account settings
+7. ✅ Remove max-height constraint for better flexibility
+
+**Code Requirements**:
+```typescript
+// Expected SimpleBar implementation
+<SimpleBar style={{ height: '100%' }}>
+  <div style={{ paddingTop: '8px' }}>
+    {/* Scrollable content */}
+  </div>
+</SimpleBar>
+
+// Expected CSS overrides
+.simplebar-track.simplebar-vertical {
+  opacity: 0.4;
+  transition: opacity 0.2s ease;
+}
+
+.simplebar-wrapper:hover .simplebar-track.simplebar-vertical {
+  opacity: 1;
+}
+```
+
+**Acceptance Criteria**:
+- ✅ SimpleBar replaces mac-scrollbar completely
+- ✅ Scrollbar only visible on hover with smooth fade-in
+- ✅ Higher opacity (60% black) for better visibility
+- ✅ No extra gap between content and account settings
+- ✅ Consistent 8px width with no hover effects
+- ✅ Local CSS import works properly with Vite
+
+---
+
 ### 🔄 PROD-001: Add Comprehensive Error Handling
 **Status**: 🔄 IN PROGRESS  
 **Files**: `src/components/ErrorBoundary.tsx`, `src/hooks/useErrorHandler.ts`

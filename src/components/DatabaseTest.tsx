@@ -18,7 +18,7 @@ export default function DatabaseTest() {
           return
         }
 
-        console.log('Testing database for user:', user.id)
+    
 
         // Test users table with new columns
         const { data, error } = await supabase
@@ -34,7 +34,7 @@ export default function DatabaseTest() {
           return
         }
 
-        console.log('User data from database:', data)
+  
         setUserData(data)
         setStatus('success')
         setMessage('✅ Database migration successful! User profile loaded.')

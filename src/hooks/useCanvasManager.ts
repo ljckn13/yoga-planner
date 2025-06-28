@@ -72,10 +72,7 @@ export function useCanvasManager(
   // Temporary: Use test user ID if no real user ID is available
   const effectiveUserId = userId || '550e8400-e29b-41d4-a716-446655440000';
   
-  // Only log once per hook instance
-  React.useEffect(() => {
-    console.log('🔧 useCanvasManager - Effective user ID:', effectiveUserId, 'Real user ID:', userId);
-  }, [effectiveUserId, userId]);
+
 
   const {
     defaultCanvasTitle = DEFAULT_CANVAS_TITLE,
@@ -145,14 +142,11 @@ export function useCanvasManager(
           ? topLevelCanvas.metadata.id 
           : transformedCanvases[0].metadata.id;
         
-        console.log('🚀 [DEBUG] Setting initial current canvas from Supabase to:', initialCanvasId);
+
         setCurrentCanvasId(initialCanvasId);
       }
       
-      console.log('📥 Loaded user data from Supabase:', {
-        folders: userFolders.length,
-        canvases: transformedCanvases.length
-      });
+
     } catch (err) {
       console.error('Error loading user data from Supabase:', err);
       setError('Failed to load user data');
@@ -180,7 +174,7 @@ export function useCanvasManager(
         });
         
         setFolders(prev => [...prev, newFolder]);
-        console.log('📁 Created folder in Supabase:', newFolder.name);
+        
         return newFolder.id;
       } else {
         // Localhost: Try Supabase first, fallback to localStorage
@@ -193,10 +187,10 @@ export function useCanvasManager(
             });
             
             setFolders(prev => [...prev, newFolder]);
-            console.log('📁 Created folder in Supabase:', newFolder.name);
+
             return newFolder.id;
           } catch (supabaseError) {
-            console.log('⚠️ [DEBUG] Supabase folder create failed, using localStorage:', supabaseError);
+    
             // Fall through to localStorage logic below
           }
         }
@@ -220,7 +214,7 @@ export function useCanvasManager(
         const updatedFolders = [...folders, newFolder];
         localStorage.setItem('yoga_flow_folders', JSON.stringify(updatedFolders));
         
-        console.log('📁 Created folder in localStorage (fallback):', newFolder.name);
+        
         return newFolder.id;
       }
     } catch (err) {
@@ -258,7 +252,7 @@ export function useCanvasManager(
         setFolders(prev => prev.map(folder => 
           folder.id === id ? updatedFolder : folder
         ));
-        console.log('📁 Updated folder:', updatedFolder.name);
+        
         return true;
       } else {
         // Localhost: Try Supabase first, fallback to localStorage
@@ -268,10 +262,10 @@ export function useCanvasManager(
             setFolders(prev => prev.map(folder => 
               folder.id === id ? updatedFolder : folder
             ));
-            console.log('📁 Updated folder:', updatedFolder.name);
+
             return true;
           } catch (supabaseError) {
-            console.log('⚠️ [DEBUG] Supabase folder update failed, using localStorage:', supabaseError);
+    
           }
         }
         
@@ -286,7 +280,7 @@ export function useCanvasManager(
         );
         localStorage.setItem('yoga_flow_folders', JSON.stringify(updatedFolders));
         
-        console.log('📁 Updated folder in localStorage:', updates.name || id);
+        
         return true;
       }
     } catch (err) {
@@ -318,7 +312,7 @@ export function useCanvasManager(
         }
         
         await CanvasService.deleteFolder(id);
-        console.log('🗑️ Deleted folder from Supabase:', id);
+        
         
         // Only update state after successful Supabase operation
         setFolders(prev => prev.filter(folder => folder.id !== id));
@@ -332,9 +326,9 @@ export function useCanvasManager(
         if (effectiveUserId && enableSupabase) {
           try {
             await CanvasService.deleteFolder(id);
-            console.log('🗑️ Deleted folder from Supabase:', id);
+
           } catch (supabaseError) {
-            console.log('⚠️ [DEBUG] Supabase folder delete failed, using localStorage:', supabaseError);
+    
           }
         }
         
@@ -350,7 +344,7 @@ export function useCanvasManager(
         localStorage.setItem('yoga_flow_folders', JSON.stringify(updatedFolders));
       }
       
-      console.log('🗑️ Deleted folder:', id);
+      
       return true;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to delete folder';
@@ -385,7 +379,7 @@ export function useCanvasManager(
           : canvas
       ));
       
-      console.log('📦 Moved canvas to folder:', { canvasId, folderId });
+
       return true;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to move canvas';
@@ -434,7 +428,7 @@ export function useCanvasManager(
           : canvas
       ));
       
-      console.log(`🗑️ Unloaded canvas ${oldestCanvasId} due to LRU cache limit`);
+      
     }
   }, [maxLoadedCanvases, currentCanvasId]);
 
@@ -459,7 +453,6 @@ export function useCanvasManager(
   const saveCanvasList = useCallback((canvasList: CanvasListItem[]) => {
     try {
       localStorage.setItem(CANVAS_LIST_KEY, JSON.stringify(canvasList));
-      console.log('💾 Canvas list saved to localStorage:', canvasList.length, 'canvases');
     } catch (err) {
       console.error('Error saving canvas list:', err);
       setError('Failed to save canvas list');
@@ -492,7 +485,7 @@ export function useCanvasManager(
         
         // Set current canvas to the first one if none selected
         if (validCanvases.length > 0 && !currentCanvasId) {
-          console.log('🚀 [DEBUG] Setting initial current canvas to:', validCanvases[0].metadata.id);
+  
           setCurrentCanvasId(validCanvases[0].metadata.id);
         }
       }
@@ -507,7 +500,7 @@ export function useCanvasManager(
       if (savedFolders) {
         const parsedFolders = JSON.parse(savedFolders);
         setFolders(parsedFolders);
-        console.log('📁 Loaded folders from localStorage:', parsedFolders.length);
+
       }
     } catch (err) {
       console.error('Error loading canvas list:', err);
@@ -517,14 +510,14 @@ export function useCanvasManager(
 
   // Load canvas state from localStorage or Supabase
   const loadCanvasState = useCallback(async (canvasId: string): Promise<boolean> => {
-    console.log(`🔍 [DEBUG] loadCanvasState called for canvasId: ${canvasId}`);
+
     if (!editor) {
-      console.log('🔍 [DEBUG] Editor not available for loading canvas state');
+
       return false;
     }
 
     if (isLoadingRef.current) {
-      console.log('🔍 [DEBUG] Already loading canvas state, skipping');
+
       return false;
     }
 
@@ -535,16 +528,16 @@ export function useCanvasManager(
     try {
       const storageKey = `${STORAGE_KEY_PREFIX}${canvasId}`;
       const savedData = localStorage.getItem(storageKey);
-      console.log(`🔍 [DEBUG] Retrieved savedData for ${canvasId}:`, savedData ? 'exists' : 'none');
+
 
       if (savedData) {
         const canvasState = JSON.parse(savedData);
-        console.log(`🔍 [DEBUG] Parsed canvasState for ${canvasId}:`, canvasState);
+
         
         if (canvasState.snapshot) {
           // Load the snapshot into the editor
           loadSnapshot(editor.store, canvasState.snapshot);
-          console.log('✅ [DEBUG] Canvas state loaded successfully');
+
           return true;
         } else {
           console.warn(`⚠️ [DEBUG] Canvas state for ${canvasId} has no snapshot. Creating blank canvas.`);
@@ -557,7 +550,7 @@ export function useCanvasManager(
         }
       } else {
         // No saved state found, create a blank canvas
-        console.log('🔍 [DEBUG] No saved state found, creating blank canvas');
+
         // Clear all shapes to create a truly blank canvas
         const shapeIds = editor.getCurrentPageShapeIds();
         if (shapeIds.size > 0) {
@@ -602,7 +595,7 @@ export function useCanvasManager(
         // Evict LRU if needed
         evictLeastRecentlyUsed();
         
-        console.log(`📦 Preloaded canvas ${canvasId}`);
+  
       }
     } catch (err) {
       console.error('Error preloading canvas:', err);
@@ -626,7 +619,7 @@ export function useCanvasManager(
         : canvas
     ));
     
-    console.log(`🗑️ Unloaded canvas ${canvasId}`);
+
   }, [currentCanvasId]); // Removed currentCanvasId from dependencies
 
   // Generate canvas thumbnail
@@ -686,9 +679,9 @@ export function useCanvasManager(
             isLoaded: false,
           };
           
-          console.log('📝 Created canvas in Supabase:', supabaseCanvas.title);
+          
         } catch (supabaseError) {
-          console.log('⚠️ [DEBUG] Supabase create failed, using localStorage:', supabaseError);
+  
           // Fall back to localStorage
           id = `canvas_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
           newCanvas = {
@@ -706,7 +699,7 @@ export function useCanvasManager(
             isLoaded: false,
           };
           
-          console.log('📝 Created canvas in localStorage (fallback):', newCanvas.metadata.title);
+  
         }
       } else {
         // Use localStorage directly
@@ -726,7 +719,7 @@ export function useCanvasManager(
           isLoaded: false,
         };
         
-        console.log('📝 Created canvas in localStorage:', newCanvas.metadata.title);
+        
       }
 
       // Use functional update to avoid dependency on canvases
@@ -797,7 +790,7 @@ export function useCanvasManager(
         
         if (Object.keys(supabaseUpdates).length > 0) {
           await CanvasService.updateCanvas(id, supabaseUpdates);
-          console.log('📝 Updated canvas in Supabase:', id);
+          
         }
       }
       
@@ -828,7 +821,7 @@ export function useCanvasManager(
       // Delete from Supabase if available
       if (effectiveUserId && enableSupabase) {
         await CanvasService.deleteCanvas(id);
-        console.log('🗑️ Deleted canvas from Supabase:', id);
+        
       }
 
       // If we deleted the current canvas, switch to another one
@@ -871,7 +864,7 @@ export function useCanvasManager(
           version: '1.0.0',
         };
         localStorage.setItem(storageKey, JSON.stringify(canvasState));
-        console.log('💾 [DEBUG] Saved current canvas before switch:', currentCanvasId);
+
       } catch (err) {
         console.warn('Failed to save current canvas before switch:', err);
       }
@@ -892,7 +885,6 @@ export function useCanvasManager(
       // Production: Supabase only
       if (effectiveUserId && enableSupabase) {
         loadUserData().then(() => {
-          console.log('✅ [DEBUG] Supabase load completed');
           setIsInitialized(true);
         }).catch((error) => {
           console.error('❌ [PROD] Supabase connection failed:', error);
@@ -907,11 +899,10 @@ export function useCanvasManager(
       // Localhost: Try Supabase first, fallback to localStorage
       if (effectiveUserId && enableSupabase) {
         loadUserData().then(() => {
-          console.log('✅ [DEBUG] Supabase load completed');
           setIsInitialized(true);
         }).catch((error) => {
           // Fallback to localStorage if Supabase fails
-          console.log('⚠️ [DEBUG] Supabase failed, falling back to localStorage:', error);
+
           loadCanvasList();
           setIsInitialized(true);
         });
@@ -943,7 +934,7 @@ export function useCanvasManager(
         try {
           const parsedCanvases = JSON.parse(savedCanvases);
           if (Array.isArray(parsedCanvases) && parsedCanvases.length > 0) {
-            console.log('🔍 [DEBUG] Found existing canvases in localStorage, skipping auto-create');
+  
             return false;
           }
         } catch (err) {
@@ -956,12 +947,12 @@ export function useCanvasManager(
         // If we have a user but no canvases loaded yet, we should wait for Supabase load to complete
         // The hasLoadedCanvasesRef.current tracks if we've ever successfully loaded from Supabase
         if (!hasLoadedCanvasesRef.current) {
-          console.log('🔍 [DEBUG] Supabase user but data not loaded yet, waiting...');
+
           return false;
         }
       }
       
-      console.log('🎨 [DEBUG] Workspace confirmed empty, creating default canvas...');
+
       return true;
     };
     
@@ -988,12 +979,12 @@ export function useCanvasManager(
     
     // If Supabase loaded but we have no canvases/folders, check localStorage as fallback (localhost only)
     if (canvases.length === 0 && folders.length === 0) {
-      console.log('🔍 [DEBUG] Supabase returned empty data, checking localStorage fallback...');
+
       const savedCanvases = localStorage.getItem(CANVAS_LIST_KEY);
       const savedFolders = localStorage.getItem('yoga_flow_folders');
       
       if (savedCanvases || savedFolders) {
-        console.log('📦 [DEBUG] Found localStorage data, loading it...');
+
         loadCanvasList();
       }
     }
@@ -1002,7 +993,7 @@ export function useCanvasManager(
   // NEW: Load canvas content when currentCanvasId is set
   useEffect(() => {
     if (currentCanvasId && editor && isInitialized) {
-      console.log(`🔍 [DEBUG] Loading content for current canvas: ${currentCanvasId}`);
+
       loadCanvasState(currentCanvasId);
     }
   }, [currentCanvasId, editor, isInitialized, loadCanvasState]);

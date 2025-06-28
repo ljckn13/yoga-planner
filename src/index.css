@@ -255,3 +255,50 @@
 .tlui-radio {
   font-family: var(--font-system) !important;
 }
+
+/* SimpleBar overrides - ensure scrollbar is visible and properly styled */
+.simplebar-track.simplebar-vertical {
+  width: 8px !important;
+  right: 0 !important;
+  background: transparent !important;
+  opacity: 0.4 !important;
+  transition: opacity 0.2s ease !important;
+}
+
+/* Show scrollbar only on hover */
+.simplebar-wrapper:hover .simplebar-track.simplebar-vertical {
+  opacity: 1 !important;
+}
+
+.simplebar-thumb {
+  background: rgba(0,0,0,.6) !important;
+  border-radius: 6px !important;
+  width: 8px !important;
+  min-width: 8px !important;
+  max-width: 8px !important;
+  transition: none !important;
+}
+
+.simplebar-thumb:hover {
+  background: rgba(0,0,0,.6) !important;
+  width: 8px !important;
+  min-width: 8px !important;
+  max-width: 8px !important;
+}
+
+/* Ensure the scrollbar container has proper height and is visible */
+.simplebar-content-wrapper {
+  height: 100% !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+}
+
+.simplebar-content {
+  height: 100% !important;
+}
+
+/* Remove bottom padding that causes cutoff */
+.simplebar-track {
+  padding-bottom: 0 !important;
+  margin-bottom: 0 !important;
+}

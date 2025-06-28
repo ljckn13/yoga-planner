@@ -87,15 +87,7 @@ export class YogaPoseSvgShapeUtil extends ShapeUtil<YogaPoseSvgShape> {
     const colorValue = theme[props.color].solid;
     const fillValue = props.fill === 'none' ? 'none' : theme[props.color].solid;
     
-    console.log('🎨 Yoga pose component rendering:', {
-      color: props.color,
-      colorValue,
-      fill: props.fill,
-      fillValue,
-      opacity: props.opacity,
-      svgPreview: props.svg.substring(0, 100) + '...',
-      originalSvgHasColors: props.svg.includes('#450D59') || props.svg.includes('stroke="#') || props.svg.includes('fill="#')
-    });
+
     
     // Apply style properties to the SVG content
     const styledSvg = props.svg
@@ -111,15 +103,7 @@ export class YogaPoseSvgShapeUtil extends ShapeUtil<YogaPoseSvgShape> {
       .replace(/stroke="currentColor"/g, `stroke="${colorValue}"`)
       .replace(/fill="currentColor"/g, `fill="${colorValue}"`);
 
-    console.log('🎨 Styled SVG preview:', styledSvg.substring(0, 200) + '...');
-    console.log('🎨 Color replacements made:', {
-      originalStrokeCount: (props.svg.match(/stroke="[^"]*"/g) || []).length,
-      styledStrokeCount: (styledSvg.match(/stroke="[^"]*"/g) || []).length,
-      originalFillCount: (props.svg.match(/fill="[^"]*"/g) || []).length,
-      styledFillCount: (styledSvg.match(/fill="[^"]*"/g) || []).length,
-      finalColorValue: colorValue,
-      finalFillValue: fillValue
-    });
+
 
     // Parse the SVG to get the viewBox
     const parser = new DOMParser();
@@ -157,16 +141,7 @@ export class YogaPoseSvgShapeUtil extends ShapeUtil<YogaPoseSvgShape> {
   toSvg(shape: YogaPoseSvgShape) {
     const { svg, w, h, color, fill, opacity } = shape.props;
     
-    console.log('🔍 toSvg called for yoga pose shape:', {
-      shapeId: shape.id,
-      width: w,
-      height: h,
-      color,
-      fill,
-      opacity,
-      svgLength: svg.length,
-      svgPreview: svg.substring(0, 100) + '...'
-    });
+
     
     // Use tldraw's actual color theme values instead of hardcoded hex values
     const getColorValue = (colorName: string): string => {
@@ -209,13 +184,7 @@ export class YogaPoseSvgShapeUtil extends ShapeUtil<YogaPoseSvgShape> {
     const colorValue = getColorValue(color);
     const fillValue = fill === 'none' ? 'none' : colorValue;
     
-    console.log('🎨 toSvg color mapping:', {
-      originalColor: color,
-      mappedColor: colorValue,
-      originalFill: fill,
-      mappedFill: fillValue,
-      themeColor: DefaultColorThemePalette.lightMode[color as keyof typeof DefaultColorThemePalette.lightMode]
-    });
+
     
     // Apply style properties to the SVG content (same logic as component)
     const styledSvg = svg
@@ -231,7 +200,7 @@ export class YogaPoseSvgShapeUtil extends ShapeUtil<YogaPoseSvgShape> {
       .replace(/stroke="currentColor"/g, `stroke="${colorValue}"`)
       .replace(/fill="currentColor"/g, `fill="${fillValue}"`);
     
-    console.log('🎨 toSvg styled SVG preview:', styledSvg.substring(0, 200) + '...');
+  
     
     // Parse the SVG to get the viewBox
     const parser = new DOMParser();
@@ -241,9 +210,9 @@ export class YogaPoseSvgShapeUtil extends ShapeUtil<YogaPoseSvgShape> {
     let viewBox = `0 0 ${w} ${h}`;
     if (originalSvg && originalSvg.getAttribute('viewBox')) {
       viewBox = originalSvg.getAttribute('viewBox')!;
-      console.log('📐 Found viewBox in original SVG:', viewBox);
+  
     } else {
-      console.log('📐 Using default viewBox:', viewBox);
+  
     }
     
     // Check for parsing errors
@@ -254,12 +223,7 @@ export class YogaPoseSvgShapeUtil extends ShapeUtil<YogaPoseSvgShape> {
     
     // Log the SVG content structure
     if (originalSvg) {
-      console.log('🔍 Original SVG structure:', {
-        tagName: originalSvg.tagName,
-        attributes: Array.from(originalSvg.attributes).map(attr => `${attr.name}="${attr.value}"`),
-        childCount: originalSvg.children.length,
-        innerHTML: originalSvg.innerHTML.substring(0, 200) + '...'
-      });
+
     }
     
     // Create a wrapper SVG element that contains the pose SVG
@@ -273,17 +237,7 @@ export class YogaPoseSvgShapeUtil extends ShapeUtil<YogaPoseSvgShape> {
       dangerouslySetInnerHTML: { __html: styledSvg },
     });
     
-    console.log('✅ toSvg returning element:', {
-      type: result.type,
-      props: {
-        width: result.props.width,
-        height: result.props.height,
-        viewBox: result.props.viewBox,
-        preserveAspectRatio: result.props.preserveAspectRatio,
-        xmlns: result.props.xmlns,
-        hasInnerHTML: !!result.props.dangerouslySetInnerHTML
-      }
-    });
+
     
     return result;
   }

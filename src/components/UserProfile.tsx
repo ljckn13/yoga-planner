@@ -21,9 +21,9 @@ export function UserProfile() {
 
   // Load profile data when user changes
   useEffect(() => {
-    console.log('UserProfile: user or profile changed', { user: user?.email, profile })
+
     if (user && profile) {
-      console.log('Setting form values from profile:', profile)
+
       setDisplayName(profile.display_name || '')
       setDefaultCanvasTitle(getPreference('default_canvas_title', 'Untitled Canvas'))
       setAutoSaveDelay(getPreference('auto_save_delay', 200))
@@ -32,18 +32,17 @@ export function UserProfile() {
 
   const handleSaveProfile = async () => {
     if (!profile) {
-      console.log('No profile found, cannot update')
+
       return
     }
 
-    console.log('Saving profile with display name:', displayName)
+
     const result = await updateProfile({
       display_name: displayName.trim() || undefined
     })
 
-    console.log('Profile update result:', result)
-    if (result.success) {
-      console.log('Profile updated successfully')
+    
+          if (result.success) {
       setIsEditing(false)
       setSaveSuccess(true)
       // The profile state should be updated by the useUser hook
@@ -55,19 +54,18 @@ export function UserProfile() {
 
   const handleSavePreferences = async () => {
     if (!profile) {
-      console.log('No profile found, cannot update preferences')
+
       return
     }
 
-    console.log('Saving preferences:', { defaultCanvasTitle, autoSaveDelay })
+
     const result = await updatePreferences({
       default_canvas_title: defaultCanvasTitle.trim() || 'Untitled Canvas',
       auto_save_delay: autoSaveDelay
     })
 
-    console.log('Preferences update result:', result)
-    if (result.success) {
-      console.log('Preferences updated successfully')
+    
+          if (result.success) {
       setIsEditing(false)
       setSaveSuccess(true)
       // The profile state should be updated by the useUser hook
@@ -78,10 +76,10 @@ export function UserProfile() {
   }
 
   const handleSave = async () => {
-    console.log('Saving both profile and preferences...')
+
     await handleSaveProfile()
     await handleSavePreferences()
-    console.log('Save operations completed')
+
   }
 
   if (isLoading) {

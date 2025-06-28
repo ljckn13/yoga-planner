@@ -6,7 +6,7 @@ export const useSidebarStore = create<{
 }>((set: (fn: (state: { sidebarVisible: boolean }) => { sidebarVisible: boolean }) => void) => ({
   sidebarVisible: true,
   setSidebarVisible: (v: boolean) => {
-    console.log('setSidebarVisible called with', v);
+  
     set(() => ({ sidebarVisible: v }));
   },
 })); 

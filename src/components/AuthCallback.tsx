@@ -18,11 +18,11 @@ export function AuthCallback() {
         }
 
         if (data.session) {
-          console.log('Authentication successful:', data.session.user.email)
+  
           // Redirect to the main app
           window.location.href = '/'
         } else {
-          console.log('No session found')
+  
           setError('Authentication failed')
           setIsLoading(false)
         }

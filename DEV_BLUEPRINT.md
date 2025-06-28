@@ -317,10 +317,7 @@ Building a yoga flow planner with multi-canvas support, auto-save, and user auth
 
 ---
 
-### ✅ COLOR-001: Fix Yoga Pose Color System
-**File**: `src/shapes/yoga-pose-svg-shape.ts`, `src/utils/svg-pose-parser.ts`
-
-**Requirements**:
+### ✅ COLOR-001: Fix Yoga Pose Color System *(style panel integration + accurate exports)*
 - ✅ **NEW**: Optimize Cloudflare Workers for multiple tabs/rooms
 - ✅ **NEW**: Add connection pooling and hibernation
 - ✅ **NEW**: Implement LRU cache for canvas management
@@ -339,26 +336,25 @@ Building a yoga flow planner with multi-canvas support, auto-save, and user auth
 
 ---
 
-### ✅ UI-001: Implement Neumorphic Design System
+### ✅ SCROLLBAR-001: Replace mac-scrollbar with SimpleBar
 **Status**: ✅ COMPLETE  
-**Files**: `src/index.css`, `src/components/FlowPlanner.tsx`, `src/components/EditableCanvasTitle.tsx`
+**Files**: `src/components/FlowPlanner.tsx`, `src/index.css`, `src/simplebar.css`
 
 **Requirements**:
-- ✅ Add neumorphic box shadows to canvas container
-- ✅ Implement warm, paper-like canvas background (`hsla(39, 88%, 97%, 0.5)`)
-- ✅ Update grid dots to match background theme (`rgba(139, 69, 19, 0.15)`)
-- ✅ Remove canvas border styling in favor of neumorphic shadows
-- ✅ Increase sidebar-to-canvas gap to 16px for better spacing
-- ✅ Make canvas title input transparent when editing (no background/padding)
-- ✅ Apply consistent neumorphic shadows across UI elements
+- ✅ Replace problematic mac-scrollbar with SimpleBar
+- ✅ Implement hover-only scrollbar visibility
+- ✅ Add proper opacity and styling
+- ✅ Fix gap between scrollable content and account settings
+- ✅ Ensure consistent 8px width with no hover effects
+- ✅ Copy SimpleBar CSS locally for proper Vite import
 
 **Acceptance Criteria**:
-- ✅ Canvas has neumorphic shadow effect matching sidebar buttons
-- ✅ Canvas background is warm cream color with 50% opacity
-- ✅ Grid dots are visible and complement the background
-- ✅ Layout has proper spacing and visual hierarchy
-- ✅ Canvas title editing is seamless and unobtrusive
-- ✅ Overall design is cohesive and warm
+- ✅ SimpleBar replaces mac-scrollbar completely
+- ✅ Scrollbar only visible on hover with smooth fade-in
+- ✅ Higher opacity (60% black) for better visibility
+- ✅ No extra gap between content and account settings
+- ✅ Consistent 8px width with no hover effects
+- ✅ Local CSS import works properly with Vite
 
 ---
 

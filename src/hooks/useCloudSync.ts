@@ -29,10 +29,6 @@ export function useCloudSync({ roomId, userId }: UseCloudSyncOptions) {
 
   // Only log once per roomId
   if (!hasLoggedRef.current || currentRoomIdRef.current !== roomId) {
-    console.log('🔗 [DEBUG] useCloudSync: Creating sync connection');
-    console.log('🔗 [DEBUG] useCloudSync: roomId:', roomId);
-    console.log('🔗 [DEBUG] useCloudSync: userId:', userId);
-    console.log('🔗 [DEBUG] useCloudSync: uri:', memoizedUri);
     hasLoggedRef.current = true;
     currentRoomIdRef.current = roomId;
   }
@@ -45,7 +41,7 @@ export function useCloudSync({ roomId, userId }: UseCloudSyncOptions) {
     bindingUtils: defaultBindingUtils,
   });
 
-  console.log('🔗 [DEBUG] useCloudSync: Sync store created, status:', syncResult.status);
+
 
   return {
     store: syncResult.store,
