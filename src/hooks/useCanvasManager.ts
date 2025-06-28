@@ -2,7 +2,6 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { type Editor, loadSnapshot, getSnapshot } from 'tldraw';
 import { CanvasService } from '../services/canvasService';
 import type { Folder } from '../lib/supabase';
-import React from 'react';
 
 export interface CanvasMetadata {
   id: string;
@@ -886,8 +885,8 @@ export function useCanvasManager(
       if (effectiveUserId && enableSupabase) {
         loadUserData().then(() => {
           setIsInitialized(true);
-        }).catch((error) => {
-          console.error('❌ [PROD] Supabase connection failed:', error);
+        }).catch((_error) => {
+          console.error('❌ [PROD] Supabase connection failed:', _error);
           setError('Database connection failed. Please try again later.');
           setIsInitialized(true);
         });
@@ -900,7 +899,7 @@ export function useCanvasManager(
       if (effectiveUserId && enableSupabase) {
         loadUserData().then(() => {
           setIsInitialized(true);
-        }).catch((error) => {
+        }).catch((_error) => {
           // Fallback to localStorage if Supabase fails
 
           loadCanvasList();
@@ -961,8 +960,8 @@ export function useCanvasManager(
         defaultCanvasCreatedRef.current = true;
         // Use setTimeout to avoid calling createCanvas during render
         setTimeout(() => {
-          createCanvas(defaultCanvasTitle).catch((error) => {
-            console.error('Failed to create default canvas:', error);
+          createCanvas(defaultCanvasTitle).catch((_error) => {
+            console.error('Failed to create default canvas:', _error);
             // Reset the flag if creation failed so it can be retried
             defaultCanvasCreatedRef.current = false;
           });

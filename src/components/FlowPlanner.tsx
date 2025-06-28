@@ -1,4 +1,4 @@
-import React, { useLayoutEffect, useRef, createContext, useContext, useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useLayoutEffect, useRef, createContext, useContext } from 'react';
 import {
   Tldraw,
   TldrawUiMenuItem,
@@ -16,17 +16,6 @@ import {
   DefaultToolbar,
   DefaultToolbarContent,
   type Editor,
-  createShapeId,
-  hardResetEditor,
-  type TLShape,
-  DefaultKeyboardShortcutsDialog,
-  DefaultKeyboardShortcutsDialogContent,
-  useActions,
-  exportToBlob,
-  getSvgAsImage,
-  MediaHelpers,
-  getSnapshot,
-  loadSnapshot,
 } from 'tldraw';
 import 'tldraw/tldraw.css';
 import SimpleBar from 'simplebar-react';
