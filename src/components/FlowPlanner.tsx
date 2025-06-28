@@ -673,7 +673,7 @@ export const FlowPlanner: React.FC = () => {
   const [editingFolderId, setEditingFolderId] = React.useState<string | null>(null);
   const [editingFolderName, setEditingFolderName] = React.useState<string>('');
   const [openFolders, setOpenFolders] = React.useState<Set<string>>(new Set());
-  const [manuallyOpenedFolders, setManuallyOpenedFolders] = React.useState<Set<string>>(new Set());
+  const [_manuallyOpenedFolders, setManuallyOpenedFolders] = React.useState<Set<string>>(new Set());
   const [isCreatingFolder, setIsCreatingFolder] = React.useState(false);
   const [newFolderName, setNewFolderName] = React.useState('');
   const [newlyCreatedCanvases, setNewlyCreatedCanvases] = React.useState<Set<string>>(new Set());
@@ -845,7 +845,7 @@ export const FlowPlanner: React.FC = () => {
       await cleanupEmptyCanvases();
       
       // Apply rules when opening the folder for canvas creation
-      setOpenFolders(prev => {
+      setOpenFolders(_ => {
         const newSet = new Set<string>();
         const currentCanvas = canvases.find(c => c.id === currentCanvasId);
         const currentCanvasFolderId = currentCanvas?.folderId;
@@ -928,7 +928,7 @@ export const FlowPlanner: React.FC = () => {
       const newFolderId = await createFolder(newFolderName.trim());
       
       // Apply rules when opening the newly created folder
-      setOpenFolders(prev => {
+      setOpenFolders(_ => {
         const newSet = new Set<string>();
         const currentCanvas = canvases.find(c => c.id === currentCanvasId);
         const currentCanvasFolderId = currentCanvas?.folderId;
