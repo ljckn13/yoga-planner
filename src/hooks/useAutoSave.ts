@@ -1,6 +1,6 @@
 import { useEffect, useCallback, useState, useRef } from 'react';
 import { type Editor, getSnapshot } from 'tldraw';
-import { useCanvasState, type CanvasState } from './useCanvasState';
+import { useCanvasState } from './useCanvasState';
 
 export interface UseAutoSaveReturn {
   saveStatus: 'saved' | 'saving' | 'error' | 'unsaved';
@@ -26,10 +26,9 @@ export function useAutoSave(
   const {
     canvasId = 'default',
     autoSaveDelay = 1000, // 1 second delay for auto-save
-    enableAutoSave = true,
   } = options;
 
-  const { serializeCanvas, deserializeCanvas, error: serializeError } = useCanvasState(editor);
+  const { serializeCanvas, error: serializeError } = useCanvasState(editor);
   
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'error' | 'unsaved'>('saved');
   const [lastSaved, setLastSaved] = useState<Date | null>(null);

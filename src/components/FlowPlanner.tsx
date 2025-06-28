@@ -1,4 +1,4 @@
-import React, { useLayoutEffect, useRef, createContext, useContext, useCallback } from 'react';
+import React, { useLayoutEffect, useRef, createContext, useContext } from 'react';
 import {
   Tldraw,
   TldrawUiMenuItem,
@@ -25,7 +25,7 @@ import { getPoseState } from '../utils/pose-state';
 import { yogaCategories } from '../assets/yoga-flows';
 import { useAutoSave } from '../hooks/useAutoSave';
 import { useAuthContext } from './AuthProvider';
-import { ArrowUpLeft, ArrowDownRight, Plus, X, MoreVertical, Folder, FolderOpen, Trash } from 'lucide-react';
+import { ArrowUpLeft, ArrowDownRight, X, MoreVertical, Trash } from 'lucide-react';
 import { useCanvasManager } from '../hooks/useCanvasManager';
 
 // Temporary debug function to clear localStorage
@@ -139,7 +139,6 @@ function useCurrentCanvasTitle() {
 
 // Custom page menu that shows canvas title and main menu side by side
 function CustomPageMenu({ sidebarVisible }: { sidebarVisible: boolean }) {
-  const editor = useEditor();
   const canvasTitle = useCurrentCanvasTitle();
   return (
     <div className="tlui-page-menu">
@@ -206,54 +205,7 @@ function CustomMainMenu() {
   );
 }
 
-// Reusable Sidebar Button Component
-interface SidebarButtonProps {
-  onClick: () => void;
-  icon: React.ReactNode;
-  text: string;
-  title?: string;
-  borderRadius?: string;
-  marginBottom?: string;
-  boxShadow?: string;
-  activeBoxShadow?: string;
-  backgroundColor?: string;
-}
 
-const SidebarButton: React.FC<SidebarButtonProps> = ({ 
-  onClick, 
-  icon, 
-  text, 
-  title, 
-  borderRadius = '8px',
-  marginBottom = '8px',
-  boxShadow = 'var(--shadow-neumorphic-complex)',
-  activeBoxShadow = 'var(--shadow-neumorphic-inset)',
-  backgroundColor = 'var(--bg-glass)'
-}) => {
-  const [isActive, setIsActive] = React.useState(false);
-  
-  return (
-    <button
-      onClick={onClick}
-      onMouseDown={() => setIsActive(true)}
-      onMouseUp={() => setIsActive(false)}
-      onMouseLeave={() => {
-        // Keep white background when leaving
-      }}
-      className="btn-primary w-full mb-2"
-      style={{
-        borderRadius,
-        marginBottom,
-        backgroundColor,
-        boxShadow: isActive ? activeBoxShadow : boxShadow,
-      }}
-      title={title}
-    >
-      <span className="flex-1 text-left">{text}</span>
-      <span className="flex items-center">{icon}</span>
-    </button>
-  );
-};
 
 // [1] UI Overrides to add yoga pose tool to the context and remove unwanted tools
 const uiOverrides: TLUiOverrides = {
@@ -716,10 +668,8 @@ function FloatingExportButton({ editor }: { editor: Editor | null }) {
 export const FlowPlanner: React.FC = () => {
   // Simple state for canvas list - shared between menu and left panel
   const [currentCanvasId, setCurrentCanvasId] = React.useState<string>('');
-  const [isInitialized, setIsInitialized] = React.useState(false);
   const [isAccountMenuOpen, setIsAccountMenuOpen] = React.useState(false);
   const [editingCanvasId, setEditingCanvasId] = React.useState<string | null>(null);
-  const [folderMenuOpen, setFolderMenuOpen] = React.useState<string | null>(null);
   const [editingFolderId, setEditingFolderId] = React.useState<string | null>(null);
   const [editingFolderName, setEditingFolderName] = React.useState<string>('');
   const [openFolders, setOpenFolders] = React.useState<Set<string>>(new Set());
@@ -773,10 +723,7 @@ export const FlowPlanner: React.FC = () => {
     canvasId: currentCanvasId,
   });
 
-  // Stabilize the roomId to prevent unnecessary useCloudSync recreations
-  const stableRoomId = React.useMemo(() => {
-    return currentCanvasId || 'default';
-  }, [currentCanvasId]);
+
 
   // Update current canvas ID when manager's current canvas changes
   React.useEffect(() => {
@@ -866,7 +813,7 @@ export const FlowPlanner: React.FC = () => {
           });
         } else {
           // Rule 2: Top-level canvas is active - close ALL folders
-          setOpenFolders(prev => {
+          setOpenFolders(_ => {
             const newSet = new Set<string>();
             
             // When top-level canvas is active, close all folders completely
@@ -888,13 +835,7 @@ export const FlowPlanner: React.FC = () => {
 
 
 
-  // Set initialized when manager loads data
-  React.useEffect(() => {
-    if (managerCanvases.length > 0) {
-      console.log('📊 [DEBUG] FlowPlanner: Setting initialized to true');
-      setIsInitialized(true);
-    }
-  }, [managerCanvases]);
+
 
   // Handle creating a new canvas within a folder
   const handleCreateCanvasInFolder = async (folderId: string) => {
@@ -1019,18 +960,7 @@ export const FlowPlanner: React.FC = () => {
     }
   };
 
-  const handleUpdateFolder = async (folderId: string, newName: string) => {
-    if (!newName.trim()) return;
-    
-    try {
-      await updateFolder(folderId, { name: newName.trim() });
-      setEditingFolderId(null);
-      setEditingFolderName('');
-    } catch (error) {
-      console.error('Failed to update folder:', error);
-      alert('Failed to update folder');
-    }
-  };
+
 
   const handleStartFolderEdit = (folderId: string, currentName: string) => {
     setEditingFolderId(folderId);

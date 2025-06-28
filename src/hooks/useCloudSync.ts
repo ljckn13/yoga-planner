@@ -1,5 +1,5 @@
 import { useSync } from '@tldraw/sync'
-import { useMemo, useRef, useEffect } from 'react'
+import { useMemo, useRef } from 'react'
 import { assetStore } from '../services/assetStore'
 import { YogaPoseShapeUtil, YogaPoseSvgShapeUtil } from '../shapes'
 import { defaultShapeUtils, defaultBindingUtils } from 'tldraw'
