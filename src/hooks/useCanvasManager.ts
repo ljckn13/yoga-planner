@@ -65,6 +65,10 @@ export function useCanvasManager(
 ): UseCanvasManagerReturn {
   const { userId, enableSupabase = false } = options;
   
+  // Detect environment
+  const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  const isProduction = !isLocalhost;
+  
   // Temporary: Use test user ID if no real user ID is available
   const effectiveUserId = userId || '550e8400-e29b-41d4-a716-446655440000';
   
@@ -163,108 +167,207 @@ export function useCanvasManager(
     setError(null);
     
     try {
-      if (effectiveUserId && enableSupabase) {
-        // Try Supabase first
-        try {
-          const newFolder = await CanvasService.createFolder({
-            user_id: effectiveUserId,
-            name,
-            description,
-          });
-          
-          setFolders(prev => [...prev, newFolder]);
-          console.log('📁 Created folder in Supabase:', newFolder.name);
-          return newFolder.id;
-        } catch (supabaseError) {
-          console.log('⚠️ [DEBUG] Supabase folder create failed, using localStorage:', supabaseError);
-          // Fall through to localStorage logic below
+      if (isProduction) {
+        // Production: Supabase only
+        if (!effectiveUserId || !enableSupabase) {
+          throw new Error('Database connection required for folder operations');
         }
+        
+        const newFolder = await CanvasService.createFolder({
+          user_id: effectiveUserId,
+          name,
+          description,
+        });
+        
+        setFolders(prev => [...prev, newFolder]);
+        console.log('📁 Created folder in Supabase:', newFolder.name);
+        return newFolder.id;
+      } else {
+        // Localhost: Try Supabase first, fallback to localStorage
+        if (effectiveUserId && enableSupabase) {
+          try {
+            const newFolder = await CanvasService.createFolder({
+              user_id: effectiveUserId,
+              name,
+              description,
+            });
+            
+            setFolders(prev => [...prev, newFolder]);
+            console.log('📁 Created folder in Supabase:', newFolder.name);
+            return newFolder.id;
+          } catch (supabaseError) {
+            console.log('⚠️ [DEBUG] Supabase folder create failed, using localStorage:', supabaseError);
+            // Fall through to localStorage logic below
+          }
+        }
+        
+        // localStorage fallback
+        const id = `folder_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const newFolder = {
+          id,
+          name,
+          description: description || null,
+          user_id: effectiveUserId || 'local',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          color: '',
+          parent_folder_id: null,
+        };
+        
+        setFolders(prev => [...prev, newFolder]);
+        
+        // Save folders to localStorage
+        const updatedFolders = [...folders, newFolder];
+        localStorage.setItem('yoga_flow_folders', JSON.stringify(updatedFolders));
+        
+        console.log('📁 Created folder in localStorage (fallback):', newFolder.name);
+        return newFolder.id;
       }
-      
-      // localStorage fallback (either by choice or after Supabase failure)
-      const id = `folder_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      const newFolder = {
-        id,
-        name,
-        description: description || null,
-        user_id: effectiveUserId || 'local',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        color: '',
-        parent_folder_id: null,
-      };
-      
-      setFolders(prev => [...prev, newFolder]);
-      
-      // Save folders to localStorage
-      const updatedFolders = [...folders, newFolder];
-      localStorage.setItem('yoga_flow_folders', JSON.stringify(updatedFolders));
-      
-      console.log('📁 Created folder in localStorage (fallback):', newFolder.name);
-      return newFolder.id;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to create folder';
       setError(errorMessage);
+      
+      if (isProduction) {
+        // Show helpful error message for production
+        if (errorMessage.includes('does not exist') || errorMessage.includes('schema cache')) {
+          setError('Database not properly configured. Please contact support.');
+        }
+      }
+      
       throw new Error(errorMessage);
     } finally {
       setIsLoading(false);
     }
-  }, [effectiveUserId, enableSupabase, folders]);
+  }, [effectiveUserId, enableSupabase, folders, isProduction]);
 
   const updateFolder = useCallback(async (
     id: string, 
     updates: { name?: string; description?: string; color?: string }
   ): Promise<boolean> => {
-    if (!enableSupabase) return false;
-    
     setIsLoading(true);
     setError(null);
     
     try {
-      const updatedFolder = await CanvasService.updateFolder(id, updates);
-      setFolders(prev => prev.map(folder => 
-        folder.id === id ? updatedFolder : folder
-      ));
-      console.log('📁 Updated folder:', updatedFolder.name);
-      return true;
+      if (isProduction) {
+        // Production: Supabase only
+        if (!effectiveUserId || !enableSupabase) {
+          throw new Error('Database connection required for folder operations');
+        }
+        
+        const updatedFolder = await CanvasService.updateFolder(id, updates);
+        setFolders(prev => prev.map(folder => 
+          folder.id === id ? updatedFolder : folder
+        ));
+        console.log('📁 Updated folder:', updatedFolder.name);
+        return true;
+      } else {
+        // Localhost: Try Supabase first, fallback to localStorage
+        if (effectiveUserId && enableSupabase) {
+          try {
+            const updatedFolder = await CanvasService.updateFolder(id, updates);
+            setFolders(prev => prev.map(folder => 
+              folder.id === id ? updatedFolder : folder
+            ));
+            console.log('📁 Updated folder:', updatedFolder.name);
+            return true;
+          } catch (supabaseError) {
+            console.log('⚠️ [DEBUG] Supabase folder update failed, using localStorage:', supabaseError);
+          }
+        }
+        
+        // localStorage fallback
+        setFolders(prev => prev.map(folder => 
+          folder.id === id ? { ...folder, ...updates, updated_at: new Date().toISOString() } : folder
+        ));
+        
+        // Update localStorage
+        const updatedFolders = folders.map(folder => 
+          folder.id === id ? { ...folder, ...updates, updated_at: new Date().toISOString() } : folder
+        );
+        localStorage.setItem('yoga_flow_folders', JSON.stringify(updatedFolders));
+        
+        console.log('📁 Updated folder in localStorage:', updates.name || id);
+        return true;
+      }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to update folder';
       setError(errorMessage);
+      
+      if (isProduction) {
+        // Show helpful error message for production
+        if (errorMessage.includes('does not exist') || errorMessage.includes('schema cache')) {
+          setError('Database not properly configured. Please contact support.');
+        }
+      }
+      
       return false;
     } finally {
       setIsLoading(false);
     }
-  }, [enableSupabase]);
+  }, [effectiveUserId, enableSupabase, folders, isProduction]);
 
   const deleteFolder = useCallback(async (id: string): Promise<boolean> => {
-    if (!enableSupabase) return false;
-    
     setIsLoading(true);
     setError(null);
     
     try {
-      await CanvasService.deleteFolder(id);
-      
-      // Remove folder from state
-      setFolders(prev => prev.filter(folder => folder.id !== id));
-      
-      // Update canvases that were in this folder (move to root)
-      setCanvases(prev => prev.map(canvas => 
-        canvas.metadata.folderId === id 
-          ? { ...canvas, metadata: { ...canvas.metadata, folderId: null } }
-          : canvas
-      ));
+      if (isProduction) {
+        // Production: Supabase only
+        if (!effectiveUserId || !enableSupabase) {
+          throw new Error('Database connection required for folder operations');
+        }
+        
+        await CanvasService.deleteFolder(id);
+        console.log('🗑️ Deleted folder from Supabase:', id);
+        
+        // Only update state after successful Supabase operation
+        setFolders(prev => prev.filter(folder => folder.id !== id));
+        setCanvases(prev => prev.map(canvas => 
+          canvas.metadata.folderId === id 
+            ? { ...canvas, metadata: { ...canvas.metadata, folderId: null } }
+            : canvas
+        ));
+      } else {
+        // Localhost: Try Supabase first, fallback to localStorage
+        if (effectiveUserId && enableSupabase) {
+          try {
+            await CanvasService.deleteFolder(id);
+            console.log('🗑️ Deleted folder from Supabase:', id);
+          } catch (supabaseError) {
+            console.log('⚠️ [DEBUG] Supabase folder delete failed, using localStorage:', supabaseError);
+          }
+        }
+        
+        // Update state and localStorage
+        setFolders(prev => prev.filter(folder => folder.id !== id));
+        setCanvases(prev => prev.map(canvas => 
+          canvas.metadata.folderId === id 
+            ? { ...canvas, metadata: { ...canvas.metadata, folderId: null } }
+            : canvas
+        ));
+        
+        const updatedFolders = folders.filter(folder => folder.id !== id);
+        localStorage.setItem('yoga_flow_folders', JSON.stringify(updatedFolders));
+      }
       
       console.log('🗑️ Deleted folder:', id);
       return true;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to delete folder';
       setError(errorMessage);
+      
+      if (isProduction) {
+        // Show helpful error message for production
+        if (errorMessage.includes('does not exist') || errorMessage.includes('schema cache')) {
+          setError('Database not properly configured. Please contact support.');
+        }
+      }
+      
       return false;
     } finally {
       setIsLoading(false);
     }
-  }, [enableSupabase]);
+  }, [effectiveUserId, enableSupabase, folders, isProduction]);
 
   const moveCanvasToFolder = useCallback(async (canvasId: string, folderId: string | null): Promise<boolean> => {
     if (!enableSupabase) return false;
@@ -785,23 +888,40 @@ export function useCanvasManager(
       return;
     }
     
-    if (effectiveUserId && enableSupabase) {
-      // Load user data from Supabase
-      loadUserData().then(() => {
-        console.log('✅ [DEBUG] Supabase load completed');
+    if (isProduction) {
+      // Production: Supabase only
+      if (effectiveUserId && enableSupabase) {
+        loadUserData().then(() => {
+          console.log('✅ [DEBUG] Supabase load completed');
+          setIsInitialized(true);
+        }).catch((error) => {
+          console.error('❌ [PROD] Supabase connection failed:', error);
+          setError('Database connection failed. Please try again later.');
+          setIsInitialized(true);
+        });
+      } else {
+        setError('Authentication required');
         setIsInitialized(true);
-      }).catch((error) => {
-        // Fallback to localStorage if Supabase fails
-        console.log('⚠️ [DEBUG] Supabase failed, falling back to localStorage:', error);
+      }
+    } else {
+      // Localhost: Try Supabase first, fallback to localStorage
+      if (effectiveUserId && enableSupabase) {
+        loadUserData().then(() => {
+          console.log('✅ [DEBUG] Supabase load completed');
+          setIsInitialized(true);
+        }).catch((error) => {
+          // Fallback to localStorage if Supabase fails
+          console.log('⚠️ [DEBUG] Supabase failed, falling back to localStorage:', error);
+          loadCanvasList();
+          setIsInitialized(true);
+        });
+      } else {
+        // Load from localStorage
         loadCanvasList();
         setIsInitialized(true);
-      });
-    } else {
-      // Load from localStorage
-      loadCanvasList();
-      setIsInitialized(true);
+      }
     }
-  }, [effectiveUserId, enableSupabase, isInitialized, loadUserData, loadCanvasList]);
+  }, [effectiveUserId, enableSupabase, isInitialized, loadUserData, loadCanvasList, isProduction]);
 
   // ENHANCED: Auto-create default canvas if needed (works for both Supabase and localStorage)
   useEffect(() => {
@@ -860,13 +980,13 @@ export function useCanvasManager(
     });
   }, [isInitialized, autoCreateDefault, canvases.length, defaultCanvasTitle, createCanvas, isLoading, effectiveUserId, enableSupabase]);
 
-  // ENHANCED: Fallback check - if Supabase succeeded but we have no data, check localStorage
+  // ENHANCED: Fallback check - if Supabase succeeded but we have no data, check localStorage (localhost only)
   useEffect(() => {
-    if (!isInitialized || !effectiveUserId || !enableSupabase) {
+    if (!isInitialized || !effectiveUserId || !enableSupabase || isProduction) {
       return;
     }
     
-    // If Supabase loaded but we have no canvases/folders, check localStorage as fallback
+    // If Supabase loaded but we have no canvases/folders, check localStorage as fallback (localhost only)
     if (canvases.length === 0 && folders.length === 0) {
       console.log('🔍 [DEBUG] Supabase returned empty data, checking localStorage fallback...');
       const savedCanvases = localStorage.getItem(CANVAS_LIST_KEY);
@@ -877,7 +997,7 @@ export function useCanvasManager(
         loadCanvasList();
       }
     }
-  }, [isInitialized, canvases.length, folders.length, effectiveUserId, enableSupabase, loadCanvasList]);
+  }, [isInitialized, canvases.length, folders.length, effectiveUserId, enableSupabase, loadCanvasList, isProduction]);
 
   // NEW: Load canvas content when currentCanvasId is set
   useEffect(() => {
