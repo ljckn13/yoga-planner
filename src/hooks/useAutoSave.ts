@@ -1,5 +1,5 @@
 import { useEffect, useCallback, useState, useRef } from 'react';
-import { type Editor } from 'tldraw';
+import { type Editor, getSnapshot } from 'tldraw';
 import { useCanvasState, type CanvasState } from './useCanvasState';
 
 export interface UseAutoSaveReturn {
@@ -25,7 +25,7 @@ export function useAutoSave(
 ): UseAutoSaveReturn {
   const {
     canvasId = 'default',
-    autoSaveDelay = 0, // Instant save (was 2000ms)
+    autoSaveDelay = 1000, // 1 second delay for auto-save
     enableAutoSave = true,
   } = options;
 
@@ -36,9 +36,7 @@ export function useAutoSave(
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
-  const autoSaveTimeoutRef = useRef<number | null>(null);
-  const isOperatingRef = useRef(false); // Flag to prevent infinite loops
-  const storageKey = `${STORAGE_KEY_PREFIX}${canvasId}`;
+  const autoSaveTimeoutRef = useRef<NodeJS.Timeout | number | null>(null);
 
   const clearAutoSaveTimeout = useCallback(() => {
     if (autoSaveTimeoutRef.current) {
@@ -47,10 +45,32 @@ export function useAutoSave(
     }
   }, []);
 
+  const saveToLocalStorage = useCallback((snapshot: any) => {
+    if (!canvasId) {
+      console.log('⚠️ [AutoSave] No canvas ID, skipping save');
+      return;
+    }
+
+    try {
+      const data = { snapshot, lastSaved: new Date().toISOString() };
+      const storageKey = `${STORAGE_KEY_PREFIX}${canvasId}`;
+      
+      console.log(`💾 [AutoSave] Saving canvas ${canvasId} to localStorage key: ${storageKey}`);
+      
+      localStorage.setItem(storageKey, JSON.stringify(data));
+      setLastSaved(new Date());
+      console.log(`✅ [AutoSave] Successfully saved canvas ${canvasId}`);
+    } catch (error) {
+      console.error(`❌ [AutoSave] Failed to save canvas ${canvasId}:`, error);
+    }
+  }, [canvasId]);
+
   const saveToStorage = useCallback(async () => {
-    if (!editor || isOperatingRef.current) return;
-    
-    isOperatingRef.current = true;
+    if (!editor || !canvasId) return;
+    const storageKey = `${STORAGE_KEY_PREFIX}${canvasId}`;
+
+    console.log(`💾 [DEBUG] Saving canvas: ${canvasId}`);
+
     try {
       setSaveStatus('saving');
       setError(null);
@@ -58,6 +78,7 @@ export function useAutoSave(
       if (!canvasState) {
         throw new Error('Failed to serialize canvas');
       }
+      console.log(`💾 [DEBUG] Saving canvas: ${canvasId}`, { snapshot: canvasState.snapshot });
       localStorage.setItem(storageKey, JSON.stringify(canvasState));
       setLastSaved(new Date());
       setSaveStatus('saved');
@@ -66,65 +87,8 @@ export function useAutoSave(
       const errorMessage = err instanceof Error ? err.message : 'Save failed';
       setError(errorMessage);
       setSaveStatus('error');
-    } finally {
-      isOperatingRef.current = false;
     }
-  }, [editor, serializeCanvas, storageKey]);
-
-  const loadFromStorage = useCallback(async () => {
-    if (!editor || isOperatingRef.current) return;
-    
-    isOperatingRef.current = true;
-    try {
-      const savedData = localStorage.getItem(storageKey);
-      if (!savedData) {
-        // No saved data exists for this canvas - clear editor and start with empty state
-        console.log(`No saved data for canvas ${canvasId}, clearing editor and starting with empty state`);
-        
-        // Clear all content from the editor
-        try {
-          // Get all shape IDs and delete them one by one
-          const snapshot = editor.store.getSnapshot();
-          const allShapeIds = Object.keys(snapshot.store).filter(key => key !== 'schema');
-          allShapeIds.forEach(shapeId => {
-            try {
-              editor.deleteShape(shapeId as any);
-            } catch (err) {
-              // Ignore errors for individual shape deletion
-            }
-          });
-          console.log('Editor content cleared for new canvas');
-        } catch (err) {
-          console.error('Error clearing editor content:', err);
-        }
-        
-        setLastSaved(null);
-        setSaveStatus('saved');
-        setHasUnsavedChanges(false);
-        return;
-      }
-      
-      const canvasState: CanvasState = JSON.parse(savedData);
-      if (!canvasState.snapshot || !canvasState.timestamp) {
-        throw new Error('Invalid saved canvas data');
-      }
-      const success = await deserializeCanvas(canvasState);
-      if (success) {
-        setLastSaved(new Date(canvasState.timestamp));
-        setSaveStatus('saved');
-        setHasUnsavedChanges(false);
-      } else {
-        throw new Error('Failed to deserialize canvas');
-      }
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Load failed';
-      setError(errorMessage);
-      setSaveStatus('error');
-      localStorage.removeItem(storageKey);
-    } finally {
-      isOperatingRef.current = false;
-    }
-  }, [editor, deserializeCanvas, storageKey, canvasId]);
+  }, [editor, serializeCanvas, canvasId]);
 
   const manualSave = useCallback(async () => {
     clearAutoSaveTimeout();
@@ -132,50 +96,55 @@ export function useAutoSave(
   }, [clearAutoSaveTimeout, saveToStorage]);
 
   const clearSavedState = useCallback(() => {
+    if (!canvasId) return;
+    const storageKey = `${STORAGE_KEY_PREFIX}${canvasId}`;
     localStorage.removeItem(storageKey);
     setLastSaved(null);
     setSaveStatus('saved');
     setHasUnsavedChanges(false);
     setError(null);
-  }, [storageKey]);
+  }, [canvasId]);
 
   useEffect(() => {
-    if (!editor || !enableAutoSave) return;
-    
-    const handleCanvasChange = () => {
-      // Don't trigger auto-save if we're in the middle of a save/load operation
-      if (isOperatingRef.current) return;
+    if (!editor || !canvasId || canvasId.trim() === '') {
+      console.log(`⚠️ [AutoSave] Missing editor (${!!editor}) or invalid canvasId (${canvasId}), not setting up auto-save`);
+      return;
+    }
+
+    console.log(`🔧 [AutoSave] Setting up auto-save for canvas: ${canvasId}`);
+    setSaveStatus('saving');
+
+    // Save current state immediately when switching to a new canvas
+    const currentSnapshot = getSnapshot(editor.store);
+    saveToLocalStorage(currentSnapshot);
+
+    const handleStoreChange = () => {
+      console.log(`🎯 [AutoSave] Store change detected for canvas ${canvasId}`);
       
-      setHasUnsavedChanges(true);
-      setSaveStatus('unsaved');
-      clearAutoSaveTimeout();
-      autoSaveTimeoutRef.current = window.setTimeout(() => {
-        saveToStorage();
+      if (autoSaveTimeoutRef.current) {
+        clearTimeout(autoSaveTimeoutRef.current);
+      }
+
+      setSaveStatus('saving');
+      autoSaveTimeoutRef.current = setTimeout(() => {
+        const snapshot = getSnapshot(editor.store);
+        console.log(`📸 [AutoSave] Auto-saving canvas ${canvasId} after changes`);
+        saveToLocalStorage(snapshot);
+        setSaveStatus('saved');
       }, autoSaveDelay);
     };
-    
-    const unsubscribe = editor.store.listen(() => {
-      handleCanvasChange();
-    });
-    
+
+    // Listen to all store changes to ensure we capture user edits
+    const unsubscribe = editor.store.listen(handleStoreChange);
+
     return () => {
+      console.log(`🔄 [AutoSave] Cleaning up auto-save for canvas: ${canvasId}`);
+      if (autoSaveTimeoutRef.current) {
+        clearTimeout(autoSaveTimeoutRef.current);
+      }
       unsubscribe();
-      clearAutoSaveTimeout();
     };
-  }, [editor, enableAutoSave, autoSaveDelay, clearAutoSaveTimeout]);
-
-  useEffect(() => {
-    if (editor) {
-      loadFromStorage();
-    }
-  }, [editor]);
-
-  // Load canvas state when canvasId changes
-  useEffect(() => {
-    if (editor && canvasId) {
-      loadFromStorage();
-    }
-  }, [editor, canvasId, loadFromStorage]);
+  }, [editor, canvasId, saveToLocalStorage, autoSaveDelay]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -198,4 +167,4 @@ export function useAutoSave(
     clearSavedState,
     error: combinedError,
   };
-} 
+}

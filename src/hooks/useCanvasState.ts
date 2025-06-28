@@ -74,13 +74,16 @@ export function useCanvasState(
   }, [editor, version]);
 
   const deserializeCanvas = useCallback(async (state: CanvasState): Promise<boolean> => {
+    console.log('🔍 [DEBUG] deserializeCanvas called with state:', state);
     if (!editor) {
       setError('Editor not available');
+      console.error('❌ [DEBUG] Editor not available for deserialization');
       return false;
     }
 
     if (!state.snapshot) {
       setError('Invalid canvas state: missing snapshot');
+      console.error('❌ [DEBUG] Invalid canvas state: missing snapshot', state);
       return false;
     }
 
@@ -90,15 +93,17 @@ export function useCanvasState(
     try {
       // Use the new loadSnapshot function instead of the deprecated editor.store.loadSnapshot
       loadSnapshot(editor.store, state.snapshot);
+      console.log('✅ [DEBUG] Snapshot loaded into editor store.');
       
       // Force a re-render of the editor
       editor.updateInstanceState({});
+      console.log('✅ [DEBUG] Editor instance state updated.');
       
       return true;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to deserialize canvas';
       setError(errorMessage);
-      console.error('Canvas deserialization error:', err);
+      console.error('❌ [DEBUG] Canvas deserialization error:', err);
       return false;
     } finally {
       setIsLoading(false);

@@ -1,0 +1,22 @@
+# Query: Trash2
+# ContextLines: 1
+
+4 results - 2 files
+
+src/components/FlowPlanner.tsx:
+    27  import { useAuthContext } from './AuthProvider';
+    28: import { ArrowUpLeft, ArrowDownRight, Plus, X, MoreVertical, Folder, FolderOpen, Trash } from 'lucide-react';
+    29  import { useCanvasManager } from '../hooks/useCanvasManager';
+
+  1239                                    >
+  1240:                                     <Trash size={16} style={{ opacity: 0.5 }} />
+  1241                                    </button>
+
+src/components/FolderPanel.tsx:
+    1  import React, { useState } from 'react';
+    2: import { Plus, Edit, Trash, Folder as FolderIcon, FolderOpen } from 'lucide-react';
+    3  import type { Folder } from '../lib/supabase';
+
+  456                  >
+  457:                   <Trash size={12} />
+  458                  </button>

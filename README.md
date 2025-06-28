@@ -1,167 +1,183 @@
-# Yoga Flow Planner
+# Supabase CLI
 
-A collaborative yoga flow planning app built with React, TypeScript, and tldraw.
+[![Coverage Status](https://coveralls.io/repos/github/supabase/cli/badge.svg?branch=main)](https://coveralls.io/github/supabase/cli?branch=main) [![Bitbucket Pipelines](https://img.shields.io/bitbucket/pipelines/supabase-cli/setup-cli/master?style=flat-square&label=Bitbucket%20Canary)](https://bitbucket.org/supabase-cli/setup-cli/pipelines) [![Gitlab Pipeline Status](https://img.shields.io/gitlab/pipeline-status/sweatybridge%2Fsetup-cli?label=Gitlab%20Canary)
+](https://gitlab.com/sweatybridge/setup-cli/-/pipelines)
 
-## Features
+[Supabase](https://supabase.io) is an open source Firebase alternative. We're building the features of Firebase using enterprise-grade open source tools.
 
-- Real-time collaborative canvas editing
-- Cloud sync with Cloudflare Workers
-- Custom yoga pose shapes and tools
-- Multi-canvas management
-- User authentication with Supabase
+This repository contains all the functionality for Supabase CLI.
 
----
+- [x] Running Supabase locally
+- [x] Managing database migrations
+- [x] Creating and deploying Supabase Functions
+- [x] Generating types directly from your database schema
+- [x] Making authenticated HTTP requests to [Management API](https://supabase.com/docs/reference/api/introduction)
 
-## 🚀 Local Development: Start & Debug Guide
+## Getting started
 
-### Quick Start
+### Install the CLI
 
-1. **Install dependencies (root):**
-   ```sh
-   npm install
-   ```
-2. **Install dependencies for Cloudflare Worker:**
-   ```sh
-   cd tldraw-sync-cloudflare && npm install && cd ..
-   ```
-3. **Start the Cloudflare Worker (in a separate terminal):**
-   ```sh
-   cd tldraw-sync-cloudflare && npm run dev
-   ```
-   - This runs both the worker and a test client. The worker will listen on port `8787`.
-4. **Start the main app (in another terminal):**
-   ```sh
-   npm run dev
-   ```
-   - The app will run on port `5173` (or `5174` if 5173 is busy).
-5. **Open the app:**
-   - Visit the URL shown in the terminal (e.g. [http://localhost:5173](http://localhost:5173) or [http://localhost:5174](http://localhost:5174)).
-
-### Debugging Tips
-
-- **Cloudflare Worker not running?**
-  - Make sure you see `Ready on http://127.0.0.1:8787` in the worker terminal.
-  - If you get `curl: (7) Failed to connect`, the worker is not running or is on a different port.
-- **WebSocket errors in browser?**
-  - Ensure the worker is running and listening on port `8787`.
-  - The app should connect to `ws://localhost:8787/connect/...`.
-  - If you see a port like `5172`, update `tldraw-sync-cloudflare/vite.config.ts` to use `8787`.
-- **Port already in use?**
-  - The app will try the next available port (e.g. `5174`).
-  - Always check the terminal output for the correct URL.
-- **Worker logs:**
-  - The worker terminal will show connection attempts, errors, and room activity.
-  - Look for `[wrangler:info] GET /connect/... 101 Switching Protocols` for successful WebSocket connections.
-- **Restarting:**
-  - If you change config or see errors, stop both servers and restart them as above.
-
----
-
-## Development
+Available via [NPM](https://www.npmjs.com) as dev dependency. To install:
 
 ```bash
-npm install
-npm run dev
+npm i supabase --save-dev
 ```
 
-## Production
+To install the beta release channel:
 
-The app is automatically deployed to Vercel on push to main branch.
-
-## Tech Stack
-
-- **React 18** with TypeScript
-- **Vite** for fast development and building
-- **tldraw** for the interactive canvas
-- **Tailwind CSS** for styling
-- **Custom SVG Shape Utilities** for yoga pose rendering
-
-## Getting Started
-
-### Prerequisites
-
-- Node.js 18+ 
-- npm or yarn
-
-### Installation
-
-1. Clone the repository:
 ```bash
-git clone <your-repo-url>
-cd yoga-flow-planner-react
+npm i supabase@beta --save-dev
 ```
 
-2. Install dependencies:
+When installing with yarn 4, you need to disable experimental fetch with the following nodejs config.
+
+```
+NODE_OPTIONS=--no-experimental-fetch yarn add supabase
+```
+
+> **Note**
+For Bun versions below v1.0.17, you must add `supabase` as a [trusted dependency](https://bun.sh/guides/install/trusted) before running `bun add -D supabase`.
+
+<details>
+  <summary><b>macOS</b></summary>
+
+  Available via [Homebrew](https://brew.sh). To install:
+
+  ```sh
+  brew install supabase/tap/supabase
+  ```
+
+  To install the beta release channel:
+  
+  ```sh
+  brew install supabase/tap/supabase-beta
+  brew link --overwrite supabase-beta
+  ```
+  
+  To upgrade:
+
+  ```sh
+  brew upgrade supabase
+  ```
+</details>
+
+<details>
+  <summary><b>Windows</b></summary>
+
+  Available via [Scoop](https://scoop.sh). To install:
+
+  ```powershell
+  scoop bucket add supabase https://github.com/supabase/scoop-bucket.git
+  scoop install supabase
+  ```
+
+  To upgrade:
+
+  ```powershell
+  scoop update supabase
+  ```
+</details>
+
+<details>
+  <summary><b>Linux</b></summary>
+
+  Available via [Homebrew](https://brew.sh) and Linux packages.
+
+  #### via Homebrew
+
+  To install:
+
+  ```sh
+  brew install supabase/tap/supabase
+  ```
+
+  To upgrade:
+
+  ```sh
+  brew upgrade supabase
+  ```
+
+  #### via Linux packages
+
+  Linux packages are provided in [Releases](https://github.com/supabase/cli/releases). To install, download the `.apk`/`.deb`/`.rpm`/`.pkg.tar.zst` file depending on your package manager and run the respective commands.
+
+  ```sh
+  sudo apk add --allow-untrusted <...>.apk
+  ```
+
+  ```sh
+  sudo dpkg -i <...>.deb
+  ```
+
+  ```sh
+  sudo rpm -i <...>.rpm
+  ```
+
+  ```sh
+  sudo pacman -U <...>.pkg.tar.zst
+  ```
+</details>
+
+<details>
+  <summary><b>Other Platforms</b></summary>
+
+  You can also install the CLI via [go modules](https://go.dev/ref/mod#go-install) without the help of package managers.
+
+  ```sh
+  go install github.com/supabase/cli@latest
+  ```
+
+  Add a symlink to the binary in `$PATH` for easier access:
+
+  ```sh
+  ln -s "$(go env GOPATH)/bin/cli" /usr/bin/supabase
+  ```
+
+  This works on other non-standard Linux distros.
+</details>
+
+<details>
+  <summary><b>Community Maintained Packages</b></summary>
+
+  Available via [pkgx](https://pkgx.sh/). Package script [here](https://github.com/pkgxdev/pantry/blob/main/projects/supabase.com/cli/package.yml).
+  To install in your working directory:
+
+  ```bash
+  pkgx install supabase
+  ```
+
+  Available via [Nixpkgs](https://nixos.org/). Package script [here](https://github.com/NixOS/nixpkgs/blob/master/pkgs/development/tools/supabase-cli/default.nix).
+</details>
+
+### Run the CLI
+
 ```bash
-npm install
+supabase bootstrap
 ```
 
-3. Start the development server:
+Or using npx:
+
 ```bash
-npm run dev
+npx supabase bootstrap
 ```
 
-4. Open your browser and navigate to `http://localhost:5173`
+The bootstrap command will guide you through the process of setting up a Supabase project using one of the [starter](https://github.com/supabase-community/supabase-samples/blob/main/samples.json) templates.
 
-## Usage
+## Docs
 
-1. **Select the Yoga Pose Tool**: Click the yoga pose icon in the toolbar
-2. **Choose a Category**: Select from the available yoga pose categories
-3. **Browse Poses**: View poses in the floating panel above the toolbar
-4. **Add Poses**: Click on any pose to add it to your canvas
-5. **Organize Your Flow**: Arrange poses to create your yoga sequence
-6. **Use Other Tools**: Switch to select, text, or drawing tools as needed
+Command & config reference can be found [here](https://supabase.com/docs/reference/cli/about).
 
-## Project Structure
+## Breaking changes
 
+We follow semantic versioning for changes that directly impact CLI commands, flags, and configurations.
+
+However, due to dependencies on other service images, we cannot guarantee that schema migrations, seed.sql, and generated types will always work for the same CLI major version. If you need such guarantees, we encourage you to pin a specific version of CLI in package.json.
+
+## Developing
+
+To run from source:
+
+```sh
+# Go >= 1.22
+go run . help
 ```
-src/
-├── components/          # React components
-│   ├── FlowPlanner.tsx # Main application component
-│   └── YogaPosePanel.tsx # Yoga pose selection panel
-├── shapes/             # Custom tldraw shape utilities
-│   ├── yoga-pose-shape.ts
-│   └── yoga-pose-svg-shape.ts
-├── assets/             # Static assets and data
-│   ├── yoga-flows.ts   # Category and pose data
-│   └── sample-svg-poses.ts
-├── utils/              # Utility functions
-│   └── svg-pose-parser.ts
-└── types/              # TypeScript type definitions
-```
-
-## Development
-
-### Available Scripts
-
-- `npm run dev` - Start development server
-- `npm run build` - Build for production
-- `npm run preview` - Preview production build
-- `npm run lint` - Run ESLint
-
-### Adding New Poses
-
-1. Add pose data to `src/assets/sample-svg-poses.ts`
-2. Include SVG content and metadata
-3. The pose will automatically appear in the appropriate category
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Submit a pull request
-
-## License
-
-This project is licensed under the Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License (CC BY-NC-SA 4.0).
-
-This means:
-- ✅ **You can use, modify, and distribute this code**
-- ✅ **You must give credit to the original author**
-- ❌ **You cannot use this code for commercial purposes**
-- ✅ **Any derivatives must use the same license**
-
-For commercial use, please contact the author for licensing terms.
-
-[View full license text](https://creativecommons.org/licenses/by-nc-sa/4.0/)

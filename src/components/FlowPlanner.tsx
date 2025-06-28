@@ -1,4 +1,4 @@
-import React, { useLayoutEffect, useRef, createContext, useContext } from 'react';
+import React, { useLayoutEffect, useRef, createContext, useContext, useCallback } from 'react';
 import {
   Tldraw,
   TldrawUiMenuItem,
@@ -23,9 +23,10 @@ import { YogaPosePanel } from './YogaPosePanel';
 import { EditableCanvasTitle } from './EditableCanvasTitle';
 import { getPoseState } from '../utils/pose-state';
 import { yogaCategories } from '../assets/yoga-flows';
-import { useCloudSync } from '../hooks/useCloudSync';
+import { useAutoSave } from '../hooks/useAutoSave';
 import { useAuthContext } from './AuthProvider';
-import { ArrowUpLeft, ArrowDownRight, Plus, X, MoreVertical } from 'lucide-react';
+import { ArrowUpLeft, ArrowDownRight, Plus, X, MoreVertical, Folder, FolderOpen, Trash } from 'lucide-react';
+import { useCanvasManager } from '../hooks/useCanvasManager';
 
 // Temporary debug function to clear localStorage
 const clearLocalStorage = () => {
@@ -35,16 +36,23 @@ const clearLocalStorage = () => {
   window.location.reload();
 };
 
+// Debug function to log current state
+const logCurrentState = () => {
+  console.log('📊 [DEBUG] Current State Dump:');
+  console.log('📊 [DEBUG] - Canvases in localStorage:', Object.keys(localStorage).filter(key => key.startsWith('yoga_flow_canvas_')));
+  console.log('📊 [DEBUG] - Canvas list in localStorage:', localStorage.getItem('yoga_flow_canvas_list'));
+};
+
 // Add to window for easy access
 if (typeof window !== 'undefined') {
   (window as any).clearLocalStorage = clearLocalStorage;
+  (window as any).logCurrentState = logCurrentState;
 }
 
 // Canvas context to share state between components
 interface CanvasContextType {
-  canvases: Array<{id: string, title: string}>;
+  canvases: Array<{id: string, title: string, folderId?: string | null, createdAt?: Date}>;
   currentCanvasId: string;
-  setCanvases: React.Dispatch<React.SetStateAction<Array<{id: string, title: string}>>>;
   setCurrentCanvasId: React.Dispatch<React.SetStateAction<string>>;
 }
 
@@ -113,53 +121,18 @@ const CustomGrid = ({ size, ...camera }: any) => {
 }
 
 // Custom hook to track current canvas title
-function useCurrentCanvasTitle(editor: Editor | null) {
-  const [canvasTitle, setCanvasTitle] = React.useState('Untitled Canvas');
-  const { currentCanvasId } = useCanvasContext();
+function useCurrentCanvasTitle() {
+  const [canvasTitle, setCanvasTitle] = React.useState('Untitled Flow');
+  const { canvases, currentCanvasId } = useCanvasContext();
   
   React.useEffect(() => {
-    if (!editor) return;
-    
-    const updateCanvasTitle = () => {
-      try {
-        const canvasList = localStorage.getItem('yoga_flow_canvas_list');
-        if (canvasList) {
-          const canvases = JSON.parse(canvasList);
-          // Find the current canvas by currentCanvasId
-          const currentCanvas = canvases.find((canvas: any) => canvas.id === currentCanvasId);
-          
-          if (currentCanvas?.title) {
+    const currentCanvas = canvases.find((canvas) => canvas.id === currentCanvasId);
+    if (currentCanvas && currentCanvas.title) {
             setCanvasTitle(currentCanvas.title);
           } else {
-            setCanvasTitle('Untitled Canvas');
+            setCanvasTitle('Untitled Flow');
           }
-        }
-      } catch (err) {
-        console.error('Error updating canvas title:', err);
-        setCanvasTitle('Untitled Canvas');
-      }
-    };
-    
-    // Update immediately
-    updateCanvasTitle();
-    
-    // Set up an interval to check for changes
-    const interval = setInterval(updateCanvasTitle, 50); // More frequent updates
-    
-    // Also listen for storage events to catch changes from other components
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'yoga_flow_canvas_list') {
-        updateCanvasTitle();
-      }
-    };
-    
-    window.addEventListener('storage', handleStorageChange);
-    
-    return () => {
-      clearInterval(interval);
-      window.removeEventListener('storage', handleStorageChange);
-    };
-  }, [editor, currentCanvasId]); // Add currentCanvasId to dependencies
+  }, [canvases, currentCanvasId]);
   
   return canvasTitle;
 }
@@ -167,7 +140,7 @@ function useCurrentCanvasTitle(editor: Editor | null) {
 // Custom page menu that shows canvas title and main menu side by side
 function CustomPageMenu({ sidebarVisible }: { sidebarVisible: boolean }) {
   const editor = useEditor();
-  const canvasTitle = useCurrentCanvasTitle(editor);
+  const canvasTitle = useCurrentCanvasTitle();
   return (
     <div className="tlui-page-menu">
       <div className="tlui-page-menu__header" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -194,7 +167,7 @@ function CustomPageMenu({ sidebarVisible }: { sidebarVisible: boolean }) {
 
 // Custom main menu with canvas management
 function CustomMainMenu() {
-  const { canvases, currentCanvasId, setCanvases, setCurrentCanvasId } = useCanvasContext();
+  const { canvases, currentCanvasId, setCurrentCanvasId } = useCanvasContext();
 
   const handleDeleteCanvas = async () => {
     if (canvases.length <= 1) {
@@ -207,10 +180,12 @@ function CustomMainMenu() {
     
     if (confirm(`Are you sure you want to delete "${currentCanvas.title}"?`)) {
       console.log('Deleting canvas:', currentCanvas);
-      const newCanvases = canvases.filter(c => c.id !== currentCanvasId);
-      console.log('Updated canvases after delete:', newCanvases);
-      setCanvases(newCanvases);
-      setCurrentCanvasId(newCanvases[0].id);
+      // Note: Canvas deletion is handled by the manager, not local state
+      // The manager will update the canvas list automatically
+      const remainingCanvases = canvases.filter(c => c.id !== currentCanvasId);
+      if (remainingCanvases.length > 0) {
+        setCurrentCanvasId(remainingCanvases[0].id);
+      }
     }
   };
 
@@ -740,132 +715,432 @@ function FloatingExportButton({ editor }: { editor: Editor | null }) {
 
 export const FlowPlanner: React.FC = () => {
   // Simple state for canvas list - shared between menu and left panel
-  const [canvases, setCanvases] = React.useState<Array<{id: string, title: string}>>([]);
   const [currentCanvasId, setCurrentCanvasId] = React.useState<string>('');
   const [isInitialized, setIsInitialized] = React.useState(false);
   const [isAccountMenuOpen, setIsAccountMenuOpen] = React.useState(false);
   const [editingCanvasId, setEditingCanvasId] = React.useState<string | null>(null);
+  const [folderMenuOpen, setFolderMenuOpen] = React.useState<string | null>(null);
+  const [editingFolderId, setEditingFolderId] = React.useState<string | null>(null);
+  const [editingFolderName, setEditingFolderName] = React.useState<string>('');
+  const [openFolders, setOpenFolders] = React.useState<Set<string>>(new Set());
+  const [manuallyOpenedFolders, setManuallyOpenedFolders] = React.useState<Set<string>>(new Set());
+  const [isCreatingFolder, setIsCreatingFolder] = React.useState(false);
+  const [newFolderName, setNewFolderName] = React.useState('');
+  const [newlyCreatedCanvases, setNewlyCreatedCanvases] = React.useState<Set<string>>(new Set());
   const editorRef = React.useRef<Editor | null>(null);
+  const previousCanvasFolderRef = React.useRef<string | null | undefined>(undefined);
   const { user: _user, signOut } = useAuthContext();
   // Use local state for sidebar
   const [sidebarVisible, setSidebarVisible] = React.useState(true);
 
-  // Use cloud sync for the current canvas
-  const { store: syncStore } = useCloudSync({
-    roomId: currentCanvasId || 'default',
+  // Track the editor instance in state to prevent useCanvasManager from being recreated
+  const [editorInstance, setEditorInstance] = React.useState<Editor | null>(null);
+
+  // Stabilize the options object to prevent useCanvasManager from being recreated
+  const canvasManagerOptions = React.useMemo(() => ({
     userId: _user?.id,
+    enableSupabase: !!_user, // Enable Supabase when user is signed in, with localStorage fallback
+  }), [_user?.id, !!_user]);
+
+  // Use canvas manager for folder and canvas operations
+  const {
+    folders,
+    canvases: managerCanvases,
+    currentCanvas,
+    createFolder,
+    updateFolder,
+    deleteFolder,
+    createCanvas: createCanvasInManager,
+    updateCanvas: updateCanvasInManager,
+    switchCanvas: switchCanvasInManager,
+    deleteCanvas: deleteCanvasInManager,
+  } = useCanvasManager(editorInstance, canvasManagerOptions);
+
+  // Convert manager canvases to the format expected by the UI
+  const canvases = React.useMemo(() => {
+    const converted = managerCanvases.map(canvas => ({
+      id: canvas.metadata.id,
+      title: canvas.metadata.title,
+      folderId: canvas.metadata.folderId || null,
+      createdAt: canvas.metadata.createdAt
+    }));
+    
+    return converted;
+  }, [managerCanvases]);
+
+  // Auto-save for the current canvas
+  useAutoSave(editorInstance, {
+    canvasId: currentCanvasId,
   });
-  
-  // Load canvases from localStorage on mount
+
+  // Stabilize the roomId to prevent unnecessary useCloudSync recreations
+  const stableRoomId = React.useMemo(() => {
+    return currentCanvasId || 'default';
+  }, [currentCanvasId]);
+
+  // Update current canvas ID when manager's current canvas changes
   React.useEffect(() => {
-    console.log('Loading canvases from localStorage...');
-    const savedCanvases = localStorage.getItem('yoga_flow_canvas_list');
-    console.log('Saved canvases:', savedCanvases);
-    
-    if (savedCanvases) {
-      try {
-        const parsed = JSON.parse(savedCanvases);
-        console.log('Parsed canvases:', parsed);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          // Migrate existing canvases to remove emoji
-          const migratedCanvases = parsed.map((canvas: any) => ({
-            id: canvas.id,
-            title: canvas.title || 'Untitled Canvas'
-          }));
-          setCanvases(migratedCanvases);
-          // Set current canvas to the first one, or the last one that was active
-          const lastActiveCanvas = localStorage.getItem('yoga_flow_current_canvas');
-          console.log('Last active canvas:', lastActiveCanvas);
-          if (lastActiveCanvas && migratedCanvases.find(c => c.id === lastActiveCanvas)) {
-            setCurrentCanvasId(lastActiveCanvas);
-          } else {
-            setCurrentCanvasId(migratedCanvases[0].id);
-          }
-        } else {
-          // No valid saved canvases, create default
-          const defaultCanvases = [{ id: 'default', title: 'Yoga Flow' }];
-          setCanvases(defaultCanvases);
-          setCurrentCanvasId('default');
-        }
-      } catch (err) {
-        console.error('Error loading canvases:', err);
-        // Error loading, create default
-        const defaultCanvases = [{ id: 'default', title: 'Yoga Flow' }];
-        setCanvases(defaultCanvases);
-        setCurrentCanvasId('default');
+    if (currentCanvas && currentCanvasId !== currentCanvas.metadata.id) {
+      console.log('🔄 [DEBUG] FlowPlanner: Syncing current canvas ID:', currentCanvas.metadata.id);
+      setCurrentCanvasId(currentCanvas.metadata.id);
+    }
+  }, [currentCanvas, currentCanvasId]);
+
+  // Manage folder open/close state and cleanup when switching between folders
+  React.useEffect(() => {
+    if (currentCanvasId) {
+      const canvas = canvases.find(c => c.id === currentCanvasId);
+      const currentFolderId = canvas?.folderId || null;
+      
+      // Check if we switched from one folder to another folder
+      const previousFolderId = previousCanvasFolderRef.current;
+      const switchedBetweenFolders = 
+        previousFolderId !== undefined && // Not initial load
+        previousFolderId !== currentFolderId && // Actually changed
+        previousFolderId !== null && // Previous was in a folder
+        currentFolderId !== null; // Current is also in a folder
+      
+      // Update the ref for next time
+      previousCanvasFolderRef.current = currentFolderId;
+      
+      if (switchedBetweenFolders) {
+        // Clean up manually opened folders when switching between different folders
+        setManuallyOpenedFolders(prev => {
+          const newManualSet = new Set<string>();
+          
+          // Keep manually opened folders that are either:
+          // 1. The same as the current canvas folder
+          // 2. Empty folders (always allowed to stay open)
+          prev.forEach(folderId => {
+            if (folderId === currentFolderId) {
+              newManualSet.add(folderId); // Keep if same as current canvas folder
+            } else {
+              const folderCanvases = canvases.filter(c => c.folderId === folderId);
+              if (folderCanvases.length === 0) {
+                newManualSet.add(folderId); // Keep empty folders
+              }
+              // Non-empty folders in different location get removed when canvas switches
+            }
+          });
+          
+          console.log('📁 [DEBUG] Cleaned up manually opened folders on folder switch:', {
+            from: previousFolderId,
+            to: currentFolderId,
+            before: Array.from(prev),
+            after: Array.from(newManualSet)
+          });
+          
+          return newManualSet;
+        });
       }
-    } else {
-      // No saved data, create default
-      const defaultCanvases = [{ id: 'default', title: 'Yoga Flow' }];
-      setCanvases(defaultCanvases);
-      setCurrentCanvasId('default');
+      
+      // Apply folder display rules (using setTimeout to ensure manual cleanup happens first)
+      setTimeout(() => {
+        if (canvas && canvas.folderId) {
+          // Canvas is in a folder - apply folder opening rules
+          setOpenFolders(prev => {
+            const newSet = new Set<string>();
+            
+            // Rule 1: Always keep the current canvas's folder open
+            newSet.add(canvas.folderId!);
+            
+            // Keep manually opened folders open (user might be browsing)
+            setManuallyOpenedFolders(currentManual => {
+              currentManual.forEach(folderId => {
+                newSet.add(folderId);
+              });
+              return currentManual; // Don't change manual state
+            });
+            
+            // Exception: Keep empty folders open regardless
+            prev.forEach(folderId => {
+              if (!newSet.has(folderId)) {
+                const folderCanvases = canvases.filter(c => c.folderId === folderId);
+                if (folderCanvases.length === 0) {
+                  newSet.add(folderId); // Keep empty folders open
+                }
+              }
+            });
+            
+            return newSet;
+          });
+        } else {
+          // Rule 2: Top-level canvas is active - close ALL folders
+          setOpenFolders(prev => {
+            const newSet = new Set<string>();
+            
+            // When top-level canvas is active, close all folders completely
+            // Clear manually opened tracking as well since folders should be closed
+            setManuallyOpenedFolders(prev => {
+              if (prev.size > 0) {
+                console.log('📁 [DEBUG] Top-level canvas active - closing all folders and clearing manual tracking');
+              }
+              return new Set<string>();
+            });
+            
+            console.log('📁 [DEBUG] Top-level canvas active - all folders closed');
+            return newSet;
+          });
+        }
+      }, 0);
     }
-    
-    setIsInitialized(true);
-  }, []);
+  }, [currentCanvasId, canvases]);
 
-  // Save canvases to localStorage whenever they change (but only after initialization)
+
+
+  // Set initialized when manager loads data
   React.useEffect(() => {
-    if (isInitialized) {
-      console.log('Saving canvases to localStorage:', canvases);
-      localStorage.setItem('yoga_flow_canvas_list', JSON.stringify(canvases));
+    if (managerCanvases.length > 0) {
+      console.log('📊 [DEBUG] FlowPlanner: Setting initialized to true');
+      setIsInitialized(true);
     }
-  }, [canvases, isInitialized]);
+  }, [managerCanvases]);
 
-  // Save current canvas ID whenever it changes (but only after initialization)
-  React.useEffect(() => {
-    if (isInitialized) {
-      console.log('Saving current canvas ID:', currentCanvasId);
-      localStorage.setItem('yoga_flow_current_canvas', currentCanvasId);
+  // Handle creating a new canvas within a folder
+  const handleCreateCanvasInFolder = async (folderId: string) => {
+    console.log('Create New Canvas in Folder button clicked!', folderId);
+    try {
+      // Clean up any existing empty canvases first
+      await cleanupEmptyCanvases();
+      
+      // Apply rules when opening the folder for canvas creation
+      setOpenFolders(prev => {
+        const newSet = new Set<string>();
+        const currentCanvas = canvases.find(c => c.id === currentCanvasId);
+        const currentCanvasFolderId = currentCanvas?.folderId;
+        
+        // Open the target folder
+        newSet.add(folderId);
+        
+        // If current canvas is in a different folder, only keep that folder if it's not empty
+        if (currentCanvasFolderId && currentCanvasFolderId !== folderId) {
+          const currentFolderCanvases = canvases.filter(c => c.folderId === currentCanvasFolderId);
+          if (currentFolderCanvases.length === 0) {
+            newSet.add(currentCanvasFolderId); // Keep empty folder open
+          }
+        }
+        
+        console.log('📁 [DEBUG] Opening folder for canvas creation with rules:', folderId);
+        return newSet;
+      });
+
+      const newCanvasId = await createCanvasInManager('Untitled Flow', folderId);
+      console.log('Created new canvas in folder with ID:', newCanvasId);
+      
+      // Track as newly created for potential cleanup
+      setNewlyCreatedCanvases(prev => {
+        const newSet = new Set(prev);
+        newSet.add(newCanvasId);
+        return newSet;
+      });
+      
+      // Switch to the new canvas immediately
+      await handleSwitchCanvas(newCanvasId);
+      
+      // Activate inline editing for the new canvas
+      setEditingCanvasId(newCanvasId);
+    } catch (error) {
+      console.error('Failed to create canvas in folder:', error);
+      alert('Failed to create canvas in folder');
     }
-  }, [currentCanvasId, isInitialized]);
-
-  // Listen for createNewCanvas events from the main menu
-  React.useEffect(() => {
-    const handleCreateNewCanvas = () => {
-      handleCreateCanvas();
-    };
-
-    window.addEventListener('createNewCanvas', handleCreateNewCanvas);
-    return () => {
-      window.removeEventListener('createNewCanvas', handleCreateNewCanvas);
-    };
-  }, []);
-
-  // Handle creating a new canvas
-  const handleCreateCanvas = async () => {
-    console.log('Create New Canvas button clicked!');
-    const newCanvas = {
-      id: `canvas_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      title: 'Untitled Canvas'
-    };
-    console.log('Creating new canvas:', newCanvas);
-    
-    // Update the canvas list
-    setCanvases(prev => {
-      const updated = [...prev, newCanvas];
-      console.log('Updated canvases after create:', updated);
-      return updated;
-    });
-    
-    // Switch to new canvas
-    setCurrentCanvasId(newCanvas.id);
-    
-    // Activate inline editing for the new canvas
-    setEditingCanvasId(newCanvas.id);
   };
 
   // Handle updating canvas title
-  const updateCanvas = (canvasId: string, updates: { title?: string }) => {
-    setCanvases(prev => prev.map(canvas => 
-      canvas.id === canvasId 
-        ? { ...canvas, ...updates }
-        : canvas
-    ));
+  const updateCanvas = async (canvasId: string, updates: { title?: string }) => {
+    try {
+      await updateCanvasInManager(canvasId, updates);
+    } catch (error) {
+      console.error('Failed to update canvas:', error);
+      alert('Failed to update canvas');
+    }
+  };
+
+  // Handle deleting canvas
+  const handleDeleteCanvas = async (canvasId: string) => {
+    if (!confirm('Are you sure you want to delete this canvas?')) {
+      return;
+    }
+    
+    try {
+      await deleteCanvasInManager(canvasId);
+      
+      // Clear editing state if we were editing this canvas
+      if (editingCanvasId === canvasId) {
+        setEditingCanvasId(null);
+      }
+    } catch (error) {
+      console.error('Failed to delete canvas:', error);
+      alert('Failed to delete canvas');
+    }
+  };
+
+  // Folder management functions
+  const handleCreateFolder = async () => {
+    if (folders.length >= 10) {
+      alert('Max 10 folders per workspace');
+      return;
+    }
+    
+    if (!newFolderName.trim()) return;
+    
+    try {
+      const newFolderId = await createFolder(newFolderName.trim());
+      
+      // Apply rules when opening the newly created folder
+      setOpenFolders(prev => {
+        const newSet = new Set<string>();
+        const currentCanvas = canvases.find(c => c.id === currentCanvasId);
+        const currentCanvasFolderId = currentCanvas?.folderId;
+        
+        // Always open the new folder
+        newSet.add(newFolderId);
+        
+        // Keep current canvas folder open if it exists
+        if (currentCanvasFolderId) {
+          newSet.add(currentCanvasFolderId);
+        }
+        
+        console.log('📁 [DEBUG] Auto-opening newly created folder with rules:', newFolderId);
+        return newSet;
+      });
+      
+      // Track as manually opened
+      setManuallyOpenedFolders(prev => {
+        const newSet = new Set(prev);
+        newSet.add(newFolderId);
+        return newSet;
+      });
+      
+      setNewFolderName('');
+      setIsCreatingFolder(false);
+    } catch (error) {
+      console.error('Failed to create folder:', error);
+      alert('Failed to create folder');
+    }
+  };
+
+  const handleUpdateFolder = async (folderId: string, newName: string) => {
+    if (!newName.trim()) return;
+    
+    try {
+      await updateFolder(folderId, { name: newName.trim() });
+      setEditingFolderId(null);
+      setEditingFolderName('');
+    } catch (error) {
+      console.error('Failed to update folder:', error);
+      alert('Failed to update folder');
+    }
+  };
+
+  const handleStartFolderEdit = (folderId: string, currentName: string) => {
+    setEditingFolderId(folderId);
+    setEditingFolderName(currentName);
+  };
+
+  const handleCancelFolderEdit = () => {
+    setEditingFolderId(null);
+    setEditingFolderName('');
+  };
+
+  const handleSaveFolderEdit = async (folderId: string) => {
+    if (!editingFolderName.trim()) return;
+    
+    try {
+      await updateFolder(folderId, { name: editingFolderName.trim() });
+      setEditingFolderId(null);
+      setEditingFolderName('');
+    } catch (error) {
+      console.error('Failed to update folder:', error);
+      alert('Failed to update folder');
+    }
+  };
+
+  const handleDeleteFolder = async (folderId: string) => {
+    // Check if folder is empty
+    const folderCanvases = canvases.filter(canvas => canvas.folderId === folderId);
+    if (folderCanvases.length > 0) {
+      alert('Only empty folders can be deleted');
+      return;
+    }
+    
+    if (confirm('Are you sure you want to delete this folder?')) {
+      try {
+        await deleteFolder(folderId);
+      } catch (error) {
+        console.error('Failed to delete folder:', error);
+        alert('Failed to delete folder');
+      }
+    }
+  };
+
+  const toggleFolder = (folderId: string) => {
+    // Clean up empty canvases when user opens/closes folders
+    cleanupEmptyCanvases();
+    
+    setOpenFolders(prev => {
+      const newSet = new Set(prev);
+      
+      if (newSet.has(folderId)) {
+        // Closing a folder
+        newSet.delete(folderId);
+        
+        // Remove from manually opened tracking
+        setManuallyOpenedFolders(prevManual => {
+          const newManualSet = new Set(prevManual);
+          newManualSet.delete(folderId);
+          return newManualSet;
+        });
+        
+        console.log('📁 [DEBUG] Manually closed folder:', folderId);
+      } else {
+        // Opening a folder
+        newSet.add(folderId);
+        
+        // Track as manually opened
+        setManuallyOpenedFolders(prevManual => {
+          const newManualSet = new Set(prevManual);
+          newManualSet.add(folderId);
+          return newManualSet;
+        });
+        
+        console.log('📁 [DEBUG] Manually opened folder:', folderId);
+      }
+      
+      return newSet;
+    });
+  };
+
+  // Handle creating a new canvas at root level
+  const handleCreateCanvasAtRoot = async () => {
+    console.log('Create New Canvas at Root button clicked!');
+    try {
+      // Clean up any existing empty canvases first
+      await cleanupEmptyCanvases();
+      
+      const newCanvasId = await createCanvasInManager('Untitled Flow');
+      console.log('Created new canvas at root with ID:', newCanvasId);
+    
+      // Track as newly created for potential cleanup
+      setNewlyCreatedCanvases(prev => {
+        const newSet = new Set(prev);
+        newSet.add(newCanvasId);
+        return newSet;
+      });
+      
+      // Switch to the new canvas immediately
+      await handleSwitchCanvas(newCanvasId);
+      
+      // Activate inline editing for the new canvas
+      setEditingCanvasId(newCanvasId);
+    } catch (error) {
+      console.error('Failed to create canvas at root:', error);
+      alert('Failed to create canvas');
+    }
   };
 
   const handleMount = (mountedEditor: Editor) => {
     editorRef.current = mountedEditor;
+    setEditorInstance(mountedEditor);
     
     // Enable debug logging
     mountedEditor.updateInstanceState({ isGridMode: true });
@@ -892,7 +1167,6 @@ export const FlowPlanner: React.FC = () => {
   const canvasContextValue: CanvasContextType = {
     canvases,
     currentCanvasId,
-    setCanvases,
     setCurrentCanvasId,
   };
 
@@ -902,9 +1176,134 @@ export const FlowPlanner: React.FC = () => {
     return () => window.removeEventListener('toggleSidebar', handler);
   }, []);
 
+  // Cleanup on unmount
+  React.useEffect(() => {
+    return () => {
+      // Clear editor instance on unmount
+      setEditorInstance(null);
+    };
+  }, []);
+
   // Calculate button position
   const left = sidebarVisible ? 220 : 52; // 40px padding + 8px gap + 4px offset
   const top = 44;
+
+  // Debug panel state
+  const [showDebugPanel, setShowDebugPanel] = React.useState(false);
+
+  // Helper function to check if a canvas is empty
+  const isCanvasEmpty = React.useCallback((canvasId: string): boolean => {
+    if (!editorInstance || currentCanvasId !== canvasId) {
+      // For non-current canvases, check localStorage
+      const storageKey = `yoga_flow_canvas_${canvasId}`;
+      const savedData = localStorage.getItem(storageKey);
+      if (!savedData) return true; // No saved data = empty
+      
+      try {
+        const canvasState = JSON.parse(savedData);
+        if (!canvasState.snapshot || !canvasState.snapshot.store) return true;
+        
+        // Check if there are any shapes in the store
+        const shapes = Object.values(canvasState.snapshot.store).filter((record: any) => 
+          record && record.typeName === 'shape'
+        );
+        return shapes.length === 0;
+      } catch {
+        return true; // Error parsing = treat as empty
+      }
+    }
+    
+    // For current canvas, check editor directly
+    const shapeIds = editorInstance.getCurrentPageShapeIds();
+    return shapeIds.size === 0;
+  }, [editorInstance, currentCanvasId]);
+
+  // Clean up empty canvases when user takes other actions
+  const cleanupEmptyCanvases = React.useCallback(async (excludeCanvasId?: string) => {
+    const canvasesToCleanup: string[] = [];
+    
+    // Check all newly created canvases
+    newlyCreatedCanvases.forEach(canvasId => {
+      if (canvasId !== excludeCanvasId && isCanvasEmpty(canvasId)) {
+        canvasesToCleanup.push(canvasId);
+      }
+    });
+    
+    // Clean them up
+    for (const canvasId of canvasesToCleanup) {
+      try {
+        console.log('🗑️ [DEBUG] Auto-cleaning up empty canvas:', canvasId);
+        await deleteCanvasInManager(canvasId);
+        
+        // Remove from newly created tracking
+        setNewlyCreatedCanvases(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(canvasId);
+          return newSet;
+        });
+        
+        // Clear editing state if we were editing this canvas
+        if (editingCanvasId === canvasId) {
+          setEditingCanvasId(null);
+        }
+      } catch (error) {
+        console.error('Error cleaning up empty canvas:', error);
+      }
+    }
+  }, [newlyCreatedCanvases, isCanvasEmpty, deleteCanvasInManager, editingCanvasId]);
+
+  // Simplified canvas switching function
+  const handleSwitchCanvas = React.useCallback(async (canvasId: string) => {
+    if (currentCanvasId === canvasId) return;
+    
+    try {
+      // Clean up empty canvases before switching (excluding the target canvas)
+      await cleanupEmptyCanvases(canvasId);
+      
+      await switchCanvasInManager(canvasId);
+      console.log('✅ [DEBUG] FlowPlanner: Successfully switched to canvas:', canvasId);
+      
+      // Remove the target canvas from newly created tracking since it's now being used
+      setNewlyCreatedCanvases(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(canvasId);
+        return newSet;
+      });
+    } catch (error) {
+      console.error('❌ [DEBUG] FlowPlanner: Failed to switch canvas:', error);
+    }
+  }, [currentCanvasId, switchCanvasInManager, cleanupEmptyCanvases]);
+
+  // Remove canvas from newly created tracking when it gets content
+  React.useEffect(() => {
+    if (!editorInstance || !currentCanvasId) return;
+    
+    // Check if current canvas has content and remove from newly created tracking
+    const checkCanvasContent = () => {
+      if (newlyCreatedCanvases.has(currentCanvasId)) {
+        const shapeIds = editorInstance.getCurrentPageShapeIds();
+        if (shapeIds.size > 0) {
+          // Canvas now has content, remove from newly created tracking
+          setNewlyCreatedCanvases(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(currentCanvasId);
+            console.log('✏️ [DEBUG] Canvas now has content, removing from cleanup tracking:', currentCanvasId);
+            return newSet;
+          });
+        }
+      }
+    };
+    
+    // Check immediately and on changes
+    checkCanvasContent();
+    
+    // Listen for changes in the editor
+    const cleanup = editorInstance.store.listen(() => {
+      checkCanvasContent();
+    }, { source: 'user', scope: 'document' });
+    
+    return cleanup;
+  }, [editorInstance, currentCanvasId, newlyCreatedCanvases]);
 
   return (
     <>
@@ -938,6 +1337,98 @@ export const FlowPlanner: React.FC = () => {
               position: 'relative',
             }}
           >
+            {/* Debug Panel Toggle */}
+            <button
+              onClick={() => setShowDebugPanel(!showDebugPanel)}
+              style={{
+                position: 'absolute',
+                right: '20px',
+                top: '20px',
+                zIndex: 1000,
+                padding: '8px 12px',
+                backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                border: '1px solid #885050',
+                borderRadius: '6px',
+                color: '#885050',
+                fontSize: '12px',
+                cursor: 'pointer',
+                fontFamily: 'var(--font-system)',
+              }}
+              title="Toggle Debug Panel"
+            >
+              🐛 Debug
+            </button>
+
+            {/* Debug Panel */}
+            {showDebugPanel && (
+              <div style={{
+                position: 'absolute',
+                right: '20px',
+                top: '60px',
+                zIndex: 1000,
+                width: '300px',
+                maxHeight: '400px',
+                backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                border: '1px solid #885050',
+                borderRadius: '8px',
+                padding: '12px',
+                fontSize: '11px',
+                fontFamily: 'var(--font-system)',
+                overflow: 'auto',
+              }}>
+                <h4 style={{ margin: '0 0 8px 0', color: '#885050', fontSize: '12px' }}>Debug Info</h4>
+                <div style={{ marginBottom: '8px' }}>
+                  <strong>Current Canvas:</strong> {currentCanvasId}
+                </div>
+                <div style={{ marginBottom: '8px' }}>
+                  <strong>Total Canvases:</strong> {canvases.length}
+                </div>
+                <div style={{ marginBottom: '8px' }}>
+                  <strong>Folders:</strong> {folders.length}
+                </div>
+                <div style={{ marginBottom: '12px' }}>
+                  <strong>User:</strong> {_user ? _user.email : 'Not signed in'}
+                </div>
+                
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <button
+                    onClick={() => {
+                      console.log('📊 [DEBUG] Manual state dump triggered');
+                      logCurrentState();
+                    }}
+                    style={{
+                      padding: '4px 8px',
+                      backgroundColor: '#885050',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      fontSize: '10px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Log State
+                  </button>
+                  <button
+                    onClick={() => {
+                      console.log('🧹 [DEBUG] Manual localStorage clear triggered');
+                      clearLocalStorage();
+                    }}
+                    style={{
+                      padding: '4px 8px',
+                      backgroundColor: '#ff6b6b',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      fontSize: '10px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Clear Storage
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Sidebar Toggle Button - Absolutely positioned, invisible */}
             <button
               onClick={() => setSidebarVisible(v => !v)}
@@ -978,19 +1469,225 @@ export const FlowPlanner: React.FC = () => {
             >
               {/* Canvas List and Create Button Container */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
-                {/* Create New Canvas Button - At top */}
-                <SidebarButton
-                  onClick={handleCreateCanvas}
-                  icon={<Plus size={16} style={{ opacity: 0.5 }} />}
-                  text="Add canvas"
-                  title="Add canvas"
-                  boxShadow="var(--shadow-neumorphic)"
-                  activeBoxShadow="var(--shadow-neumorphic-inset)"
-                />
+                {/* Folders Section */}
+                {_user && (
+                  <>
+                    {/* Folders Header */}
+                    <div style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      padding: '4px 0',
+                      marginBottom: '4px',
+                    }}>
+                      <span style={{
+                        fontSize: '11px',
+                        fontWeight: '600',
+                        color: '#885050',
+                        fontFamily: 'var(--font-system)',
+                      }}>
+                        Folders
+                      </span>
+                      <button
+                        onClick={() => setIsCreatingFolder(true)}
+                        disabled={folders.length >= 10}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          width: '16px',
+                          height: '16px',
+                          backgroundColor: 'transparent',
+                          border: 'none',
+                          borderRadius: '4px',
+                          cursor: folders.length >= 10 ? 'not-allowed' : 'pointer',
+                          color: '#885050',
+                          opacity: folders.length >= 10 ? 0.3 : 0.7,
+                          fontSize: '12px',
+                          fontFamily: 'var(--font-system)',
+                        }}
+                        title={folders.length >= 10 ? 'Max 10 folders' : 'Create folder'}
+                      >
+                        ＋
+                      </button>
+                    </div>
 
-                {/* Canvas List - Sorted alphabetically */}
-                {canvases
-                  .sort((a, b) => a.title.localeCompare(b.title))
+                    {/* Create Folder Input */}
+                    {isCreatingFolder && (
+                      <div style={{
+                        marginBottom: '8px',
+                        padding: '6px 8px',
+                        backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                        borderRadius: '6px',
+                        border: '1px solid rgba(255, 255, 255, 0.2)',
+                      }}>
+                        <input
+                          type="text"
+                          placeholder="Folder name"
+                          value={newFolderName}
+                          onChange={(e) => setNewFolderName(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') handleCreateFolder();
+                            if (e.key === 'Escape') {
+                              setIsCreatingFolder(false);
+                              setNewFolderName('');
+                            }
+                          }}
+                          style={{
+                            width: '100%',
+                            padding: '4px 6px',
+                            fontSize: '11px',
+                            backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                            border: 'none',
+                            borderRadius: '4px',
+                            color: '#885050',
+                            fontFamily: 'var(--font-system)',
+                          }}
+                          autoFocus
+                        />
+                      </div>
+                    )}
+
+                    {/* Folders List */}
+                    {folders.length > 0 && folders
+                      .sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()))
+                      .map((folder, index) => {
+                        const isEditing = editingFolderId === folder.id;
+                        const isOpen = openFolders.has(folder.id);
+                        const folderCanvases = canvases.filter(canvas => canvas.folderId === folder.id);
+                        
+                        return (
+                          <div key={folder.id} style={{ 
+                            width: '100%',
+                            borderRadius: '8px',
+                            backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                            backdropFilter: 'blur(10px)',
+                            WebkitBackdropFilter: 'blur(10px)',
+                            boxShadow: '-2px -2px 10px rgba(255, 248, 220, 1), 3px 3px 10px rgba(255, 69, 0, 0.4)',
+                            marginBottom: index < folders.length - 1 ? '10px' : '0px', // 2px more gap
+                            position: 'relative',
+                          }}>
+                            {/* Folder Button */}
+                            <button
+                              onClick={() => {
+                                if (!isEditing) {
+                                  toggleFolder(folder.id);
+                                }
+                              }}
+                              onDoubleClick={() => {
+                                if (!isEditing) {
+                                  handleStartFolderEdit(folder.id, folder.name);
+                                }
+                              }}
+                              style={{
+                                width: '100%',
+                                padding: '6px 12px',
+                                backgroundColor: 'transparent',
+                                color: '#885050',
+                                border: 'none',
+                                borderRadius: isOpen ? '8px 8px 0 0' : '8px',
+                                fontSize: '12px',
+                                fontWeight: '600',
+                                fontFamily: 'var(--font-system)',
+                                textAlign: 'left',
+                                cursor: 'pointer',
+                                transition: 'all 0.1s ease',
+                                whiteSpace: 'nowrap',
+                                textOverflow: 'ellipsis',
+                                height: '40px',
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                marginBottom: '0px',
+                              }}
+                              title={folder.name}
+                            >
+                              <span style={{ flex: '1', textAlign: 'left' }}>
+                                {isEditing ? (
+                                  <input
+                                    type="text"
+                                    value={editingFolderName}
+                                    onChange={(e) => setEditingFolderName(e.target.value)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') handleSaveFolderEdit(folder.id);
+                                      if (e.key === 'Escape') handleCancelFolderEdit();
+                                    }}
+                                    onBlur={() => handleSaveFolderEdit(folder.id)}
+                                    style={{
+                                      width: '100%',
+                                      padding: '2px 4px',
+                                      fontSize: '12px',
+                                      backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                                      border: 'none',
+                                      borderRadius: '4px',
+                                      color: '#885050',
+                                      fontFamily: 'var(--font-system)',
+                                      fontWeight: '600',
+                                    }}
+                                    autoFocus
+                                  />
+                                ) : (
+                                  folder.name
+                                )}
+                              </span>
+                              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                {!isEditing && folderCanvases.length === 0 && (
+                                  <div
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDeleteFolder(folder.id);
+                                    }}
+                                    style={{
+                                      width: '16px',
+                                      height: '16px',
+                                      backgroundColor: 'transparent',
+                                      border: 'none',
+                                      borderRadius: '2px',
+                                      cursor: 'pointer',
+                                      color: '##e2e8f0',
+                                      opacity: 0.5,
+                                      fontSize: '10px',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      padding: 0,
+                                    }}
+                                    title="Delete folder"
+                                  >
+                                    <Trash size={12} style={{ opacity: 0.5 }} />
+                                  </div>
+                                )}
+                                {!isEditing && folderCanvases.length > 0 && (
+                                  <span style={{ fontSize: '12px', opacity: 0.5, fontWeight: 'normal' }}>
+                                    {folderCanvases.length}
+                                  </span>
+                                )}
+                              </span>
+                            </button>
+                            
+                            {/* Folder Content */}
+                            <div
+                              style={{
+                                width: '100%',
+                                maxHeight: isOpen ? '400px' : '0px',
+                                transition: 'max-height 0.3s ease, opacity 0.3s ease, transform 0.3s ease',
+                                opacity: isOpen ? 1 : 0,
+                                transform: isOpen ? 'translateY(0)' : 'translateY(-10px)',
+                                backgroundColor: 'transparent',
+                                border: 'none',
+                                borderRadius: '0 0 8px 8px',
+                              }}
+                            >
+                              {folderCanvases.length > 0 && (
+                                <div style={{ padding: '0px 8px 8px 8px' }}>
+                                  {/* Folder Canvases */}
+                                  {folderCanvases
+                                    .sort((a, b) => {
+                                      // Sort by creation date (newest first) instead of title to maintain consistent order
+                                      const aDate = new Date(a.createdAt || 0);
+                                      const bDate = new Date(b.createdAt || 0);
+                                      return bDate.getTime() - aDate.getTime();
+                                    })
                   .map((canvas) => {
                     const isEditing = editingCanvasId === canvas.id;
                     
@@ -1004,15 +1701,13 @@ export const FlowPlanner: React.FC = () => {
                         }`}
                         style={{
                           width: 'auto',
-                          minWidth: '120px',
-                          maxWidth: '180px',
-                          padding: '8px 12px',
-                          fontSize: '12px',
+                                            padding: '8px 10px',
+                                            fontSize: '11px',
                           fontWeight: '500',
                           fontFamily: 'var(--font-system)',
-                          borderRadius: '8px',
+                                            borderRadius: '6px',
                           border: 'none',
-                          marginBottom: '2px',
+                                            marginBottom: '4px',
                         }}
                         onMouseEnter={(e) => {
                           if (currentCanvasId !== canvas.id && !isEditing) {
@@ -1024,16 +1719,11 @@ export const FlowPlanner: React.FC = () => {
                             e.currentTarget.style.backgroundColor = 'transparent';
                           }
                         }}
-                        onClick={(e) => {
-                          if (!isEditing) {
-                            setCurrentCanvasId(canvas.id);
-                            // Reset any hover state
-                            const element = e.currentTarget as HTMLElement;
-                            if (element && currentCanvasId !== canvas.id) {
-                              element.style.backgroundColor = 'transparent';
+                                                                    onClick={() => {
+                            if (!isEditing) {
+                              handleSwitchCanvas(canvas.id);
                             }
-                          }
-                        }}
+                          }}
                       >
                         <EditableCanvasTitle
                           title={canvas.title}
@@ -1045,9 +1735,244 @@ export const FlowPlanner: React.FC = () => {
                           onCancelEdit={() => setEditingCanvasId(null)}
                           className="text-primary h-7 flex items-center mb-0.5"
                         />
+                                          {currentCanvasId === canvas.id && !isEditing && (
+                                            <div
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleDeleteCanvas(canvas.id);
+                                              }}
+                                              style={{
+                                                width: '16px',
+                                                height: '16px',
+                                                backgroundColor: 'transparent',
+                                                border: 'none',
+                                                borderRadius: '2px',
+                                                cursor: 'pointer',
+                                                color: '#885050',
+                                                opacity: 0.5,
+                                                fontSize: '10px',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                padding: 0,
+                                                marginLeft: '4px',
+                                              }}
+                                              title="Canvas options"
+                                            >
+                                              <MoreVertical size={12} style={{ opacity: 0.5 }} />
+                                            </div>
+                                          )}
                       </div>
                     );
                   })}
+                                  
+                                  {/* Create New Canvas Button */}
+                                  <button
+                                    onClick={() => handleCreateCanvasInFolder(folder.id)}
+                                    style={{
+                                      width: '100%',
+                                      padding: '6px 10px',
+                                      fontSize: '11px',
+                                      fontWeight: '500',
+                                      fontFamily: 'var(--font-system)',
+                                      backgroundColor: 'transparent',
+                                      border: 'none',
+                                      borderRadius: '6px',
+                                      color: '#885050',
+                                      cursor: 'pointer',
+                                      opacity: 0.7,
+                                      marginTop: '4px',
+                                      textAlign: 'left',
+                                    }}
+                                    onMouseEnter={(e) => {
+                                      e.currentTarget.style.backgroundColor = 'var(--bg-glass)';
+                                      e.currentTarget.style.opacity = '1';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      e.currentTarget.style.backgroundColor = 'transparent';
+                                      e.currentTarget.style.opacity = '0.7';
+                                    }}
+                                  >
+                                    + Create canvas
+                                  </button>
+                                </div>
+                              )}
+                              
+                              {/* Create New Canvas Button for Empty Folders */}
+                              {folderCanvases.length === 0 && (
+                                <div style={{ padding: '8px' }}>
+                                  <button
+                                    onClick={() => handleCreateCanvasInFolder(folder.id)}
+                                    style={{
+                                      width: '100%',
+                                      padding: '6px 10px',
+                                      fontSize: '11px',
+                                      fontWeight: '500',
+                                      fontFamily: 'var(--font-system)',
+                                      backgroundColor: 'transparent',
+                                      border: 'none',
+                                      borderRadius: '6px',
+                                      color: '#885050',
+                                      cursor: 'pointer',
+                                      opacity: 0.7,
+                                      textAlign: 'left',
+                                    }}
+                                    onMouseEnter={(e) => {
+                                      e.currentTarget.style.backgroundColor = 'var(--bg-glass)';
+                                      e.currentTarget.style.opacity = '1';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      e.currentTarget.style.backgroundColor = 'transparent';
+                                      e.currentTarget.style.opacity = '0.7';
+                                    }}
+                                  >
+                                    + Create canvas
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+
+                    {/* Separator */}
+                    <div style={{
+                      height: '1px',
+                      backgroundColor: 'var(--color-divider)',
+                      margin: '8px 0',
+                      opacity: 0.3,
+                    }} />
+                  </>
+                )}
+
+                {/* Canvases Section (Top-level) */}
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  padding: '4px 0',
+                  marginBottom: '4px',
+                }}>
+                  <span style={{
+                    fontSize: '11px',
+                    fontWeight: '600',
+                    color: '#885050',
+                    fontFamily: 'var(--font-system)',
+                  }}>
+                    Canvases
+                  </span>
+                  <button
+                    onClick={handleCreateCanvasAtRoot}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: '16px',
+                      height: '16px',
+                      backgroundColor: 'transparent',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      color: '#885050',
+                      opacity: 0.7,
+                          fontSize: '12px',
+                      fontFamily: 'var(--font-system)',
+                    }}
+                    title="Create new canvas"
+                  >
+                    ＋
+                  </button>
+                </div>
+
+                {/* Top-level Canvases */}
+                {(() => {
+                  const topLevelCanvases = canvases.filter(canvas => !canvas.folderId);
+                  
+                  return topLevelCanvases
+                    .sort((a, b) => {
+                      // Sort by creation date (newest first) instead of title to maintain consistent order
+                      const aDate = new Date(a.createdAt || 0);
+                      const bDate = new Date(b.createdAt || 0);
+                      return bDate.getTime() - aDate.getTime();
+                    })
+                    .map((canvas) => {
+                      const isEditing = editingCanvasId === canvas.id;
+                      
+                      return (
+                        <div
+                          key={canvas.id}
+                          className={`text-primary text-left cursor-pointer transition-fast whitespace-nowrap overflow-hidden text-ellipsis h-7 flex justify-start items-center mb-0.5 backdrop-blur-md rounded-lg ${
+                            currentCanvasId === canvas.id 
+                              ? 'bg-glass shadow-neumorphic' 
+                              : 'bg-transparent'
+                          }`}
+                          style={{
+                            width: 'auto',
+                            padding: '8px 10px',
+                            fontSize: '11px',
+                            fontWeight: '500',
+                            fontFamily: 'var(--font-system)',
+                            borderRadius: '6px',
+                            border: 'none',
+                            marginBottom: '4px',
+                          }}
+                          onMouseEnter={(e) => {
+                            if (currentCanvasId !== canvas.id && !isEditing) {
+                              e.currentTarget.style.backgroundColor = 'var(--bg-glass)';
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (currentCanvasId !== canvas.id && !isEditing) {
+                              e.currentTarget.style.backgroundColor = 'transparent';
+                            }
+                          }}
+                          onClick={() => {
+                            if (!isEditing) {
+                              handleSwitchCanvas(canvas.id);
+                            }
+                          }}
+                        >
+                          <EditableCanvasTitle
+                            title={canvas.title}
+                            onSave={(newTitle) => {
+                              updateCanvas(canvas.id, { title: newTitle });
+                            }}
+                            isEditing={editingCanvasId === canvas.id}
+                            onStartEdit={() => setEditingCanvasId(canvas.id)}
+                            onCancelEdit={() => setEditingCanvasId(null)}
+                            className="text-primary h-7 flex items-center mb-0.5"
+                          />
+                          {currentCanvasId === canvas.id && !isEditing && (
+                            <div
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteCanvas(canvas.id);
+                              }}
+                              style={{
+                                width: '16px',
+                                height: '16px',
+                                backgroundColor: 'transparent',
+                                border: 'none',
+                                borderRadius: '2px',
+                                cursor: 'pointer',
+                                color: '#885050',
+                                opacity: 0.5,
+                                fontSize: '10px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                padding: 0,
+                                marginLeft: '4px',
+                              }}
+                              title="Canvas options"
+                            >
+                              <MoreVertical size={12} style={{ opacity: 0.5 }} />
+                            </div>
+                          )}
+                        </div>
+                      );
+                    });
+                })()}
               </div>
 
               {/* Account Settings Button - Expandable */}
@@ -1235,8 +2160,7 @@ export const FlowPlanner: React.FC = () => {
               }}
             >
               <Tldraw
-                // Use the sync store instead of local store
-                store={syncStore}
+                
                 // Pass in the array of custom tool classes
                 tools={customTools}
                 // Pass in custom shape utilities
