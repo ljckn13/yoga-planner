@@ -130,10 +130,11 @@ export function useCanvasManager(
         isLoaded: false,
       }));
       
+      // Always set canvases and mark as loaded, even if empty
+      setCanvases(transformedCanvases);
+      hasLoadedCanvasesRef.current = true; // Mark that we've attempted to load canvases from Supabase
+      
       if (transformedCanvases.length > 0) {
-        setCanvases(transformedCanvases);
-        hasLoadedCanvasesRef.current = true; // Mark that we've loaded canvases
-        
         // Set initial current canvas (prefer top-level canvas)
         const topLevelCanvas = transformedCanvases.find(c => !c.metadata.folderId);
         const initialCanvasId = topLevelCanvas 
@@ -384,16 +385,18 @@ export function useCanvasManager(
             lastAccessed: item.lastAccessed ? new Date(item.lastAccessed) : undefined,
           }));
         setCanvases(validCanvases);
-        
-        if (validCanvases.length > 0) {
-          hasLoadedCanvasesRef.current = true; // Mark that we've loaded canvases
-        }
+        hasLoadedCanvasesRef.current = true; // Mark that we've attempted to load canvases from localStorage
         
         // Set current canvas to the first one if none selected
         if (validCanvases.length > 0 && !currentCanvasId) {
           console.log('🚀 [DEBUG] Setting initial current canvas to:', validCanvases[0].metadata.id);
           setCurrentCanvasId(validCanvases[0].metadata.id);
         }
+      }
+      
+      // Set flag even if no saved data exists
+      if (!savedList) {
+        hasLoadedCanvasesRef.current = true; // Mark that we've attempted to load (no data found)
       }
       
       // Load folders from localStorage
@@ -806,20 +809,56 @@ export function useCanvasManager(
       return;
     }
     
-    // Only auto-create if we have no canvases AND have never loaded any before (initial app load only)
-    if (canvases.length === 0 && !hasLoadedCanvasesRef.current) {
-      console.log('🎨 [DEBUG] Creating default canvas for new user...');
-      defaultCanvasCreatedRef.current = true;
-      // Use setTimeout to avoid calling createCanvas during render
-      setTimeout(() => {
-        createCanvas(defaultCanvasTitle).catch((error) => {
-          console.error('Failed to create default canvas:', error);
-          // Reset the flag if creation failed so it can be retried
-          defaultCanvasCreatedRef.current = false;
-        });
-      }, 100); // Small delay to avoid race conditions
-    }
-  }, [isInitialized, autoCreateDefault, canvases.length, defaultCanvasTitle, createCanvas, isLoading]);
+    // More robust check: Only auto-create if workspace is truly empty
+    // Check both current state AND persisted storage to prevent auto-creation on refresh
+    const checkIfWorkspaceEmpty = async () => {
+      // First check if we have canvases in current state
+      if (canvases.length > 0) {
+        return false;
+      }
+      
+      // Check localStorage for existing canvases
+      const savedCanvases = localStorage.getItem(CANVAS_LIST_KEY);
+      if (savedCanvases) {
+        try {
+          const parsedCanvases = JSON.parse(savedCanvases);
+          if (Array.isArray(parsedCanvases) && parsedCanvases.length > 0) {
+            console.log('🔍 [DEBUG] Found existing canvases in localStorage, skipping auto-create');
+            return false;
+          }
+        } catch (err) {
+          console.warn('Failed to parse saved canvases:', err);
+        }
+      }
+      
+      // For Supabase users, check if we've attempted to load from Supabase
+      if (effectiveUserId && enableSupabase) {
+        // If we have a user but no canvases loaded yet, we should wait for Supabase load to complete
+        // The hasLoadedCanvasesRef.current tracks if we've ever successfully loaded from Supabase
+        if (!hasLoadedCanvasesRef.current) {
+          console.log('🔍 [DEBUG] Supabase user but data not loaded yet, waiting...');
+          return false;
+        }
+      }
+      
+      console.log('🎨 [DEBUG] Workspace confirmed empty, creating default canvas...');
+      return true;
+    };
+    
+    checkIfWorkspaceEmpty().then((shouldCreate) => {
+      if (shouldCreate) {
+        defaultCanvasCreatedRef.current = true;
+        // Use setTimeout to avoid calling createCanvas during render
+        setTimeout(() => {
+          createCanvas(defaultCanvasTitle).catch((error) => {
+            console.error('Failed to create default canvas:', error);
+            // Reset the flag if creation failed so it can be retried
+            defaultCanvasCreatedRef.current = false;
+          });
+        }, 100);
+      }
+    });
+  }, [isInitialized, autoCreateDefault, canvases.length, defaultCanvasTitle, createCanvas, isLoading, effectiveUserId, enableSupabase]);
 
   // ENHANCED: Fallback check - if Supabase succeeded but we have no data, check localStorage
   useEffect(() => {
