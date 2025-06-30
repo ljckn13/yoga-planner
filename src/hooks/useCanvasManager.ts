@@ -125,9 +125,6 @@ export function useCanvasManager(
     setError(null);
     
     try {
-      // Get or create root folder for this user
-      const rootFolderId = await CanvasService.getRootFolder(effectiveUserId);
-      
       // Load folders (excluding root folder)
       const userFolders = await CanvasService.getUserFolders(effectiveUserId);
       setFolders(userFolders);
@@ -1246,8 +1243,6 @@ export function useCanvasManager(
       
       // Insert at the calculated position
       reorderedCanvases.splice(newTargetIndex, 0, sourceItem);
-      
-      const finalPosition = reorderedCanvases.findIndex(c => c.metadata.id === sourceId);
       
       // Update sort_order for all canvases in the folder (use 1-based indexing to match creation)
       const updatedFolderCanvases = reorderedCanvases.map((canvas, index) => ({

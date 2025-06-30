@@ -16,7 +16,6 @@ interface DraggableCanvasRowProps {
   index: number;
   isCurrent: boolean;
   isEditing: boolean;
-  isNested?: boolean;
   isLast?: boolean;
   onSwitch: (id: string) => void;
   onDelete: (id: string) => void;
@@ -30,7 +29,6 @@ export const DraggableCanvasRow: React.FC<DraggableCanvasRowProps> = React.memo(
   index: _index,
   isCurrent,
   isEditing,
-  isNested = false,
   isLast = false,
   onSwitch,
   onDelete,
@@ -108,10 +106,10 @@ export const DraggableCanvasRow: React.FC<DraggableCanvasRowProps> = React.memo(
       }}
       {...(isEditing ? {} : attributes)}
       {...(isEditing ? {} : listeners)}
-      onMouseLeave={isEditing ? undefined : (e) => {
+      onMouseLeave={() => {
         // Reset background color on mouse leave
         if (!isCurrent && !isEditing && !isDragging) {
-          e.currentTarget.style.backgroundColor = 'transparent';
+          // Background color will be reset by CSS
         }
       }}
       onMouseEnter={(e) => {

@@ -1,7 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
 import type { DragStartEvent, DragEndEvent, DragOverEvent } from '@dnd-kit/core';
 import { useCanvasManager } from './useCanvasManager';
-import type { Folder } from '../lib/supabase';
 
 interface Canvas {
   id: string;

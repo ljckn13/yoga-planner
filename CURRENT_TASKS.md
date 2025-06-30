@@ -41,6 +41,30 @@
 - ✅ Clean workspace maintained automatically
 - ✅ No interference with active work
 
+## ✅ DRAGDROP-001: Drag-and-Drop Improvements and UI Polish
+- [x] Fix canvas click vs drag activation (distance: 15px, delay: 100ms)
+- [x] Remove verbose console logs for cleaner output
+- [x] Fix delete folder button styling to match account settings
+- [x] Add smooth folder open/close animation (0.3s ease)
+- [x] Fix parent div overflow visible for nested canvases
+- [x] Fix RLS policy issue in canvas reordering (individual updates)
+- [x] Auto-switch to dragged canvas on drag start
+- [x] Center text in account settings buttons
+- [x] Move account settings 40px lower in sidebar
+- [x] Remove bottom margin from last canvas in root folder
+- [x] Make drop zone height match single canvas button (36px)
+- [x] Remove SupabaseTest debug UI component
+
+**Current Status**: ✅ COMPLETE - DRAG-AND-DROP SYSTEM POLISHED
+- ✅ Canvas clicks work properly without accidental drags
+- ✅ Canvas dragging works smoothly with proper activation
+- ✅ Dragged canvas automatically becomes active and stays open
+- ✅ Folder animations are smooth and consistent
+- ✅ Delete buttons have consistent styling across the app
+- ✅ Console output is clean with only essential logs
+- ✅ RLS policy issues resolved for canvas reordering
+- ✅ UI spacing and positioning is consistent and polished
+
 ---
 
 ## 🎯 Phase 1 Tasks (In Order)
@@ -873,6 +897,7 @@ To begin PROD-001:
 - ✅ **NEW**: Local development environment working perfectly
 - ✅ **NEW**: Yoga pose color system working perfectly (style panel integration + accurate exports)
 - ✅ **NEW**: Neumorphic design system implemented (warm canvas background, shadows, spacing)
+- ✅ **NEW**: Drag-and-drop improvements and UI polish (canvas activation, smooth animations, consistent styling)
 - 🔄 Moving to Phase 4: Error handling and production polish
 
 **Key Files to Understand**:

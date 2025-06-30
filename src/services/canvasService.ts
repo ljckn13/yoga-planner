@@ -369,9 +369,6 @@ export class CanvasService {
         throw new Error('Canvas not found in folder');
       }
 
-      // Determine movement direction
-      const isMovingForward = sourceIndex < targetIndex;
-
       // Create new order array
       const reorderedCanvases = [...allCanvases];
       const [movedCanvas] = reorderedCanvases.splice(sourceIndex, 1);

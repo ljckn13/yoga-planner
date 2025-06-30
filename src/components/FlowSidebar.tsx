@@ -1,29 +1,31 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useAuthContext } from './AuthProvider';
+import { useCanvasManager } from '../hooks/useCanvasManager';
+import { useSidebarDragAndDrop } from '../hooks/useSidebarDragAndDrop';
+import { DraggableCanvasRow } from './DraggableCanvasRow';
+import { EditableCanvasTitle } from './EditableCanvasTitle';
+import { MoreVertical, X, Plus, Folder, FolderOpen } from 'lucide-react';
 import {
   DndContext,
-  closestCorners,
-  KeyboardSensor,
+  DragOverlay,
   PointerSensor,
+  KeyboardSensor,
   useSensor,
   useSensors,
-  DragOverlay,
   useDroppable,
   rectIntersection,
 } from '@dnd-kit/core';
 import type { DragStartEvent, DragOverEvent, DragEndEvent } from '@dnd-kit/core';
-import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
-import { MoreVertical, Folder, FolderOpen, X } from 'lucide-react';
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  sortableKeyboardCoordinates,
+  useSortable,
+} from '@dnd-kit/sortable';
 import SimpleBar from 'simplebar-react';
-import { DraggableCanvasRow } from './DraggableCanvasRow';
-import { useSidebarDragAndDrop } from '../hooks/useSidebarDragAndDrop';
-import { useCanvasManager } from '../hooks/useCanvasManager';
-import { useAuthContext } from './AuthProvider';
-import type { Folder as FolderType } from '../lib/supabase';
-import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
+import 'simplebar-react/dist/simplebar.min.css';
 import { CanvasService } from '../services/canvasService';
-
-
+import type { Folder as FolderType } from '../lib/supabase';
 
 export interface FlowSidebarProps {
   sidebarVisible: boolean;
@@ -153,7 +155,6 @@ const RootFolderDroppable: React.FC<{
             index={index}
             isCurrent={currentCanvasId === canvas.id}
             isEditing={editingCanvasId === canvas.id}
-            isNested={false}
             isLast={index === rootCanvases.length - 1}
             onSwitch={onSwitchCanvas}
             onDelete={onDeleteCanvas}
@@ -498,7 +499,6 @@ const FolderComponent: React.FC<{
                         index={index}
                         isCurrent={currentCanvasId === canvas.id}
                         isEditing={editingCanvasId === canvas.id}
-                        isNested={true}
                         isLast={index === folderCanvases.length - 1}
                         onSwitch={handleSwitchCanvas}
                         onDelete={handleDeleteCanvas}
@@ -983,8 +983,6 @@ export const FlowSidebar: React.FC<FlowSidebarProps> = ({
                       return a.name.localeCompare(b.name);
                     })
                     .map((folder) => {
-                      const isBeingDragged = activeId === folder.id && draggedCanvas;
-                      
                       return (
                         <FolderComponent
                           key={folder.id}

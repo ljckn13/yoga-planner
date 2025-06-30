@@ -21,6 +21,7 @@ Building a yoga flow planner with multi-canvas support, auto-save, and user auth
 - ✅ **NEW**: Cloudflare Workers optimizations for multiple tabs/rooms
 - ✅ **NEW**: Local development environment working perfectly
 - ✅ **NEW**: Yoga pose color system working perfectly (style panel integration + accurate exports)
+- ✅ **NEW**: Drag-and-drop improvements and UI polish (canvas activation, smooth animations, consistent styling)
 
 ## 🏗️ Architecture Decisions
 
@@ -526,29 +527,41 @@ Building a yoga flow planner with multi-canvas support, auto-save, and user auth
 ---
 
 ### ✅ CLEANUP-001: Auto-cleanup of Empty Canvases
-**File**: `src/components/FlowPlanner.tsx`
-
-**Requirements**:
 - ✅ Track newly created empty canvases
-- ✅ Auto-cleanup when user takes other actions
-- ✅ Protect canvases with content from cleanup
-- ✅ Clean workspace organization
-- ✅ Smart cleanup triggers
+- ✅ Implement cleanup triggers (canvas switching, folder actions, new creation)
+- ✅ Add content detection to protect canvases with shapes
+- ✅ Real-time monitoring of canvas content changes
+- ✅ Integration with folder management system
 
-**Cleanup Triggers Implemented**:
-- ✅ Canvas switching - clean up empty canvases before switch
-- ✅ Folder opening/closing - cleanup on folder actions
-- ✅ New canvas creation - cleanup previous empty canvases
-- ✅ Content detection - remove from cleanup when content added
-
-**Acceptance Criteria**:
+**Current Status**: ✅ COMPLETE - AUTO-CLEANUP SYSTEM WORKING
 - ✅ Empty canvases automatically deleted on user actions
-- ✅ Canvases with content protected from cleanup
-- ✅ Clean workspace without abandoned empty canvases
-- ✅ Real-time content monitoring works
-- ✅ Cleanup doesn't interfere with active work
+- ✅ Canvases with content protected from deletion
+- ✅ Clean workspace maintained automatically
+- ✅ No interference with active work
 
----
+### ✅ DRAGDROP-001: Drag-and-Drop Improvements and UI Polish
+- ✅ Fix canvas click vs drag activation (distance: 15px, delay: 100ms)
+- ✅ Remove verbose console logs for cleaner output
+- ✅ Fix delete folder button styling to match account settings
+- ✅ Add smooth folder open/close animation (0.3s ease)
+- ✅ Fix parent div overflow visible for nested canvases
+- ✅ Fix RLS policy issue in canvas reordering (individual updates)
+- ✅ Auto-switch to dragged canvas on drag start
+- ✅ Center text in account settings buttons
+- ✅ Move account settings 40px lower in sidebar
+- ✅ Remove bottom margin from last canvas in root folder
+- ✅ Make drop zone height match single canvas button (36px)
+- ✅ Remove SupabaseTest debug UI component
+
+**Current Status**: ✅ COMPLETE - DRAG-AND-DROP SYSTEM POLISHED
+- ✅ Canvas clicks work properly without accidental drags
+- ✅ Canvas dragging works smoothly with proper activation
+- ✅ Dragged canvas automatically becomes active and stays open
+- ✅ Folder animations are smooth and consistent
+- ✅ Delete buttons have consistent styling across the app
+- ✅ Console output is clean with only essential logs
+- ✅ RLS policy issues resolved for canvas reordering
+- ✅ UI spacing and positioning is consistent and polished
 
 ## 🗂️ Future Considerations (Long List)
 
