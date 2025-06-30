@@ -181,3 +181,68 @@ To run from source:
 # Go >= 1.22
 go run . help
 ```
+
+# Yoga Flow Planner React
+
+A React-based yoga flow planning application with drag-and-drop functionality for organizing canvases and folders.
+
+## Features
+
+### Drag and Drop Sidebar
+- **Canvas Management**: Drag canvases between folders or to the top-level flows list
+- **Folder Organization**: Reorder folders by dragging them
+- **Canvas Reordering**: Reorder canvases within the same folder or flows list
+- **Visual Feedback**: Smooth animations and visual indicators during drag operations
+- **Auto-scroll**: Automatic scrolling when dragging near container edges
+
+### How to Use Drag and Drop
+
+1. **Move Canvas to Folder**: Drag any canvas and drop it onto a folder to move it inside.
+2. **Reorder Canvases**: Drag a canvas and drop it above or below another canvas to reorder.
+3. **Move Canvas to Flows**: Drag a canvas out of a folder and drop it in the Flows section to make it top-level.
+4. **Reorder Folders**: Drag a folder and drop it above or below another folder to reorder.
+5. **Visual Feedback**: The sidebar provides visual cues (highlight, opacity, and placeholder) during drag and drop.
+
+### Technical Notes
+- The drag-and-drop system is powered by [snapdrag](https://github.com/tldraw/snapdrag).
+- The sidebar uses custom draggable and droppable components (`DraggableCanvasRow`, `DraggableFolderRow`, `DroppableFlowsSection`) that wrap your sidebar rows and sections.
+- The `Overlay` component from snapdrag is rendered at the root of the app for drag previews.
+- All drag and drop logic is handled using the `useDraggable` and `useDroppable` hooks from snapdrag, following the recommended pattern from the [snapdrag-advanced-list](https://github.com/ljckn13/snapdrag-advanced-list) example.
+
+---
+
+For more details, see the code in `src/components/DraggableCanvasRow.tsx`, `DraggableFolderRow.tsx`, and `DroppableFlowsSection.tsx`.
+
+## Development
+
+### Prerequisites
+- Node.js 18+
+- npm or yarn
+
+### Installation
+```bash
+npm install
+```
+
+### Running the Development Server
+```bash
+npm run dev
+```
+
+### Building for Production
+```bash
+npm run build
+```
+
+## Dependencies
+
+- **snapdrag**: Drag and drop functionality
+- **tldraw**: Canvas drawing and editing
+- **React 19**: UI framework
+- **TypeScript**: Type safety
+- **Tailwind CSS**: Styling
+- **SimpleBar**: Custom scrollbars
+
+## License
+
+MIT

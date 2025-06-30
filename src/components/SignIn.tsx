@@ -51,36 +51,23 @@ export function SignIn() {
       <div
         className="sunrise-bg min-h-screen w-screen flex items-center justify-center p-0"
       >
-        <div className="glass-container max-w-md w-full rounded-xl p-8 relative z-2" style={{
+        <div className="max-w-md w-full p-8 relative z-2" style={{
           maxWidth: '400px',
           width: '100%',
-          backgroundColor: 'rgba(255, 255, 255, 0.2)',
-          borderRadius: '12px',
           padding: '32px',
-          boxShadow: '-2px -2px 10px rgba(255, 248, 220, 1), 3px 3px 10px rgba(255, 69, 0, 0.4)',
           position: 'relative',
           zIndex: 2,
-          backdropFilter: 'blur(10px)',
-          WebkitBackdropFilter: 'blur(10px)',
         }}>
           <div className="text-center mb-8" style={{ textAlign: 'center', marginBottom: '32px' }}>
             <h2 className="text-2xl font-semibold text-primary mb-2 font-system" style={{
               fontSize: '24px',
               fontWeight: '600',
-              color: '#885050',
+              color: '#d89468',
               margin: '0 0 8px 0',
               fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
             }}>
-              Sign in to Yoga Flow Planner
+              canvāsana
             </h2>
-            <p className="text-sm text-primary font-system" style={{
-              fontSize: '14px',
-              color: '#885050',
-              margin: '0',
-              fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
-            }}>
-              Enter your email to receive a magic link
-            </p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -181,7 +168,7 @@ export function SignIn() {
                 }
               }}
             >
-              {isSubmitting ? 'Sending...' : 'Continue'}
+              {isSubmitting ? 'Sending...' : 'Sign in'}
             </button>
           </form>
         </div>

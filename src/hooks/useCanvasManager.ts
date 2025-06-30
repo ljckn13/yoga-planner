@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { type Editor, loadSnapshot, getSnapshot } from 'tldraw';
 import { CanvasService } from '../services/canvasService';
+// ROOT_FOLDER_ID no longer needed - using null for top-level canvases
 import type { Folder } from '../lib/supabase';
 
 export interface CanvasMetadata {
@@ -12,6 +13,7 @@ export interface CanvasMetadata {
   version: string;
   folderId?: string | null; // NEW: Folder support
   description?: string; // NEW: Description support
+  sort_order?: number; // NEW: Sort order for drag and drop
 }
 
 export interface CanvasListItem {
@@ -29,19 +31,24 @@ export interface UseCanvasManagerReturn {
   currentCanvas: CanvasListItem | null;
   isLoading: boolean;
   error: string | null;
-  createCanvas: (title?: string, folderId?: string | null) => Promise<string>;
+  createCanvas: (title?: string, folderId?: string | null, insertAtBeginning?: boolean) => Promise<string>;
   updateCanvas: (id: string, updates: Partial<CanvasMetadata>) => Promise<boolean>;
   deleteCanvas: (id: string) => Promise<boolean>;
   switchCanvas: (id: string) => Promise<boolean>;
+  saveCurrentCanvas: () => Promise<boolean>; // NEW: Manual save function
   clearError: () => void;
   preloadCanvas: (id: string) => Promise<void>; // Preload canvas data
   unloadCanvas: (id: string) => void; // Unload canvas from memory
   // NEW: Folder operations
-  createFolder: (name: string, description?: string) => Promise<string>;
+  createFolder: (name: string, description?: string, insertAtBeginning?: boolean) => Promise<string>;
   updateFolder: (id: string, updates: { name?: string; description?: string; color?: string }) => Promise<boolean>;
   deleteFolder: (id: string) => Promise<boolean>;
   moveCanvasToFolder: (canvasId: string, folderId: string | null) => Promise<boolean>;
   loadUserData: () => Promise<void>; // Load user's canvases and folders from Supabase
+  // NEW: Optimistic updates
+  updateCanvasOrderOptimistically: (sourceId: string, targetId: string) => void;
+  reorderCanvas: (sourceId: string, targetId: string) => Promise<void>;
+  reorderFolder: (sourceId: string, targetId: string) => Promise<void>;
 }
 
 export interface UseCanvasManagerOptions {
@@ -68,8 +75,8 @@ export function useCanvasManager(
   const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
   const isProduction = !isLocalhost;
   
-  // Temporary: Use test user ID if no real user ID is available
-  const effectiveUserId = userId || '550e8400-e29b-41d4-a716-446655440000';
+  // Use the actual authenticated user ID - no fallback to hardcoded test user
+  const effectiveUserId = userId;
   
 
 
@@ -86,11 +93,13 @@ export function useCanvasManager(
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [isOptimisticUpdate, setIsOptimisticUpdate] = useState(false);
   
   // Track if we've ever loaded canvases (to prevent auto-create after user deletion)
   const hasLoadedCanvasesRef = useRef(false);
   const defaultCanvasCreatedRef = useRef(false);
   const isLoadingRef = useRef(false);
+  const lastOptimisticOperation = useRef<string>('');
   const loadedCanvasesRef = useRef<Set<string>>(new Set());
   const canvasAccessTimesRef = useRef<Map<string, number>>(new Map());
   
@@ -102,11 +111,24 @@ export function useCanvasManager(
   const loadUserData = useCallback(async () => {
     if (!effectiveUserId || !enableSupabase) return;
     
+    if (isLoadingRef.current) {
+      return;
+    }
+    
+    // Don't load data during optimistic updates
+    if (isOptimisticUpdate) {
+      return;
+    }
+    
+    isLoadingRef.current = true;
     setIsLoading(true);
     setError(null);
     
     try {
-      // Load folders
+      // Get or create root folder for this user
+      const rootFolderId = await CanvasService.getRootFolder(effectiveUserId);
+      
+      // Load folders (excluding root folder)
       const userFolders = await CanvasService.getUserFolders(effectiveUserId);
       setFolders(userFolders);
       
@@ -122,8 +144,10 @@ export function useCanvasManager(
           createdAt: new Date(canvas.created_at),
           thumbnail: canvas.thumbnail || undefined,
           version,
+          // Keep the actual folder_id as assigned by the database (including root folder)
           folderId: canvas.folder_id,
           description: canvas.description || undefined,
+          sort_order: canvas.sort_order || 0,
         },
         hasUnsavedChanges: false,
         saveStatus: 'saved',
@@ -131,18 +155,24 @@ export function useCanvasManager(
       }));
       
       // Always set canvases and mark as loaded, even if empty
-      setCanvases(transformedCanvases);
+      // Check if we're in an optimistic update before setting canvases
+      if (!isOptimisticUpdate) {
+        setCanvases(transformedCanvases);
+      }
       hasLoadedCanvasesRef.current = true; // Mark that we've attempted to load canvases from Supabase
       
       if (transformedCanvases.length > 0) {
-        // Set initial current canvas (prefer top-level canvas)
-        const topLevelCanvas = transformedCanvases.find(c => !c.metadata.folderId);
-        const initialCanvasId = topLevelCanvas 
-          ? topLevelCanvas.metadata.id 
-          : transformedCanvases[0].metadata.id;
-        
-
-        setCurrentCanvasId(initialCanvasId);
+        // Only set initial current canvas if we don't already have one
+        // This prevents overriding the current canvas during drag operations
+        if (!currentCanvasId) {
+          // Set initial current canvas (prefer top-level canvas)
+          const topLevelCanvas = transformedCanvases.find(c => !c.metadata.folderId);
+          const initialCanvasId = topLevelCanvas 
+            ? topLevelCanvas.metadata.id 
+            : transformedCanvases[0].metadata.id;
+          
+          setCurrentCanvasId(initialCanvasId);
+        }
       }
       
 
@@ -150,12 +180,13 @@ export function useCanvasManager(
       console.error('Error loading user data from Supabase:', err);
       setError('Failed to load user data');
     } finally {
+      isLoadingRef.current = false;
       setIsLoading(false);
     }
-  }, [effectiveUserId, enableSupabase, version, currentCanvasId]);
+  }, [effectiveUserId, enableSupabase, version, currentCanvasId, isOptimisticUpdate]);
 
   // NEW: Folder operations
-  const createFolder = useCallback(async (name: string, description?: string): Promise<string> => {
+  const createFolder = useCallback(async (name: string, description?: string, insertAtBeginning: boolean = false): Promise<string> => {
     setIsLoading(true);
     setError(null);
     
@@ -170,7 +201,7 @@ export function useCanvasManager(
           user_id: effectiveUserId,
           name,
           description,
-        });
+        }, insertAtBeginning);
         
         setFolders(prev => [...prev, newFolder]);
         
@@ -183,7 +214,7 @@ export function useCanvasManager(
               user_id: effectiveUserId,
               name,
               description,
-            });
+            }, insertAtBeginning);
             
             setFolders(prev => [...prev, newFolder]);
 
@@ -194,8 +225,8 @@ export function useCanvasManager(
           }
         }
         
-        // localStorage fallback
-        const id = `folder_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        // localStorage fallback with UUID format
+        const id = crypto.randomUUID();
         const newFolder = {
           id,
           name,
@@ -205,6 +236,7 @@ export function useCanvasManager(
           updated_at: new Date().toISOString(),
           color: '',
           parent_folder_id: null,
+          sort_order: insertAtBeginning ? 0 : 999, // 0 for beginning, high number for end
         };
         
         setFolders(prev => [...prev, newFolder]);
@@ -362,32 +394,38 @@ export function useCanvasManager(
     }
   }, [effectiveUserId, enableSupabase, folders, isProduction]);
 
-  const moveCanvasToFolder = useCallback(async (canvasId: string, folderId: string | null): Promise<boolean> => {
-    if (!enableSupabase) return false;
-    
-    setIsLoading(true);
-    setError(null);
+  const moveCanvasToFolder = useCallback(async (canvasId: string, targetFolderId: string | null): Promise<boolean> => {
+    if (!effectiveUserId || !enableSupabase) return false;
     
     try {
-      await CanvasService.moveCanvas(canvasId, folderId);
+      const effectiveFolderId = targetFolderId || await CanvasService.getRootFolder(effectiveUserId);
       
-      // Update canvas in state
-      setCanvases(prev => prev.map(canvas => 
-        canvas.metadata.id === canvasId 
-          ? { ...canvas, metadata: { ...canvas.metadata, folderId } }
-          : canvas
-      ));
+      // Optimistically update the UI
+      setCanvases(prev => {
+        return prev.map(canvas => {
+          if (canvas.metadata.id === canvasId) {
+            return {
+              ...canvas,
+              metadata: {
+                ...canvas.metadata,
+                folderId: effectiveFolderId,
+                sort_order: 1, // Move to top of new folder
+              }
+            };
+          }
+          return canvas;
+        });
+      });
       
-
+      // Perform the actual move
+      await CanvasService.moveCanvas(canvasId, effectiveFolderId);
+      
       return true;
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to move canvas';
-      setError(errorMessage);
+      console.error('Error moving canvas to folder:', err);
       return false;
-    } finally {
-      setIsLoading(false);
     }
-  }, [enableSupabase]);
+  }, [effectiveUserId, enableSupabase]);
 
   // LRU cache management
   const updateCanvasAccess = useCallback((canvasId: string) => {
@@ -433,15 +471,28 @@ export function useCanvasManager(
 
   // Create a blank canvas state
   const createBlankCanvasState = useCallback(() => {
-    if (!editor) return null;
+    if (!editor) {
+      console.warn('No editor available for creating blank canvas state');
+      return null;
+    }
     
     try {
-      const snapshot = getSnapshot(editor.store);
-      return {
-        snapshot,
+      // Clear the editor and get a clean snapshot
+      const currentShapeIds = editor.getCurrentPageShapeIds();
+      if (currentShapeIds.size > 0) {
+        editor.deleteShapes(Array.from(currentShapeIds));
+      }
+      
+      // Get the clean snapshot
+      const blankSnapshot = getSnapshot(editor.store);
+      
+      const blankState = {
+        snapshot: blankSnapshot,
         timestamp: Date.now(),
         version,
       };
+      
+      return blankState;
     } catch (err) {
       console.error('Error creating blank canvas state:', err);
       return null;
@@ -507,16 +558,13 @@ export function useCanvasManager(
     }
   }, [currentCanvasId]); // Removed currentCanvasId from dependencies to prevent infinite loop
 
-  // Load canvas state from localStorage or Supabase
+  // Load canvas state from Supabase or localStorage
   const loadCanvasState = useCallback(async (canvasId: string): Promise<boolean> => {
-
-    if (!editor) {
-
+    if (!canvasId || !editor) {
       return false;
     }
 
     if (isLoadingRef.current) {
-
       return false;
     }
 
@@ -525,48 +573,71 @@ export function useCanvasManager(
     setError(null);
 
     try {
-      const storageKey = `${STORAGE_KEY_PREFIX}${canvasId}`;
-      const savedData = localStorage.getItem(storageKey);
+      let canvasState = null;
+      
+      // Try Supabase first if available
+      if (effectiveUserId && enableSupabase) {
+        try {
+          const canvas = await CanvasService.getCanvasWithFolder(canvasId);
+          
+          if (canvas && canvas.data) {
+            // Handle different data formats
+            if (typeof canvas.data === 'string') {
+              try {
+                canvasState = JSON.parse(canvas.data);
+              } catch (parseError) {
+                console.error('❌ Failed to parse canvas data string:', parseError);
+              }
+            } else if (typeof canvas.data === 'object') {
+              canvasState = canvas.data;
+            }
+          }
+        } catch (supabaseError) {
+          console.error('❌ Failed to load from Supabase:', supabaseError);
+        }
+      }
+      
+      // Fallback to localStorage if Supabase failed or not available
+      if (!canvasState) {
+        const storageKey = `${STORAGE_KEY_PREFIX}${canvasId}`;
+        const savedData = localStorage.getItem(storageKey);
+        if (savedData) {
+          try {
+            canvasState = JSON.parse(savedData);
+          } catch (parseError) {
+            console.error('❌ Failed to parse localStorage data:', parseError);
+          }
+        }
+      }
 
-
-      if (savedData) {
-        const canvasState = JSON.parse(savedData);
-
-        
-        if (canvasState.snapshot) {
-          // Load the snapshot into the editor
-          loadSnapshot(editor.store, canvasState.snapshot);
-
-          return true;
+      if (canvasState && canvasState.snapshot) {
+        // Load the snapshot into the editor
+        loadSnapshot(editor.store, canvasState.snapshot);
+        return true;
+      } else {
+        // Load a blank state instead of just clearing shapes
+        const blankState = createBlankCanvasState();
+        if (blankState && blankState.snapshot) {
+          loadSnapshot(editor.store, blankState.snapshot);
         } else {
-          console.warn(`⚠️ [DEBUG] Canvas state for ${canvasId} has no snapshot. Creating blank canvas.`);
-          // Clear all shapes to create a truly blank canvas
+          // Fallback: Clear all shapes to create a truly blank canvas
           const shapeIds = editor.getCurrentPageShapeIds();
           if (shapeIds.size > 0) {
             editor.deleteShapes(Array.from(shapeIds));
           }
-          return true;
-        }
-      } else {
-        // No saved state found, create a blank canvas
-
-        // Clear all shapes to create a truly blank canvas
-        const shapeIds = editor.getCurrentPageShapeIds();
-        if (shapeIds.size > 0) {
-          editor.deleteShapes(Array.from(shapeIds));
         }
         return true;
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to load canvas state';
       setError(errorMessage);
-      console.error(`❌ [DEBUG] Error loading canvas state for ${canvasId}:`, err);
+      console.error(`❌ Error loading canvas state for ${canvasId}:`, err);
       return false;
     } finally {
       setIsLoading(false);
       isLoadingRef.current = false;
     }
-  }, [editor]);
+  }, [editor, effectiveUserId, enableSupabase, createBlankCanvasState]);
 
   // Preload canvas data without switching to it
   const preloadCanvas = useCallback(async (canvasId: string): Promise<void> => {
@@ -636,7 +707,7 @@ export function useCanvasManager(
   }, [editor]);
 
   // Create a new canvas
-  const createCanvas = useCallback(async (title?: string, folderId?: string | null): Promise<string> => {
+  const createCanvas = useCallback(async (title?: string, folderId?: string | null, insertAtBeginning: boolean = false): Promise<string> => {
     setIsLoading(true);
     setError(null);
 
@@ -646,109 +717,159 @@ export function useCanvasManager(
       let id: string;
       let newCanvas: CanvasListItem;
 
-      // Try Supabase first, fall back to localStorage
-      if (effectiveUserId && enableSupabase) {
-        try {
-          // Create canvas in Supabase
-          const blankState = createBlankCanvasState();
-          const supabaseCanvas = await CanvasService.createCanvas({
-            user_id: effectiveUserId,
-            folder_id: folderId,
-            title: title || defaultCanvasTitle,
-            description: '',
-            data: blankState || {},
-            thumbnail: await generateThumbnail() || null,
-            is_public: false,
-          });
-          
-          id = supabaseCanvas.id;
-          newCanvas = {
-            metadata: {
-              id: supabaseCanvas.id,
-              title: supabaseCanvas.title,
-              lastModified: new Date(supabaseCanvas.updated_at),
-              createdAt: new Date(supabaseCanvas.created_at),
-              thumbnail: supabaseCanvas.thumbnail || undefined,
-              version,
-              folderId: supabaseCanvas.folder_id,
-              description: supabaseCanvas.description || undefined,
-            },
-            hasUnsavedChanges: false,
-            saveStatus: 'saved',
-            isLoaded: false,
-          };
-          
-          
-        } catch (supabaseError) {
-  
-          // Fall back to localStorage
-          id = `canvas_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      if (isProduction) {
+        // Production: Supabase only - no localStorage fallback for data consistency
+        if (!effectiveUserId || !enableSupabase) {
+          throw new Error('Database connection required for canvas operations');
+        }
+        
+        const blankState = createBlankCanvasState();
+        const supabaseCanvas = await CanvasService.createCanvas({
+          user_id: effectiveUserId,
+          folder_id: folderId, // Pass folderId as is (null for top-level)
+          title: title || defaultCanvasTitle,
+          description: '',
+          data: blankState || {},
+          thumbnail: await generateThumbnail() || null,
+          is_public: false,
+        }, insertAtBeginning);
+        
+        id = supabaseCanvas.id;
+        newCanvas = {
+          metadata: {
+            id: supabaseCanvas.id,
+            title: supabaseCanvas.title,
+            lastModified: new Date(supabaseCanvas.updated_at),
+            createdAt: new Date(supabaseCanvas.created_at),
+            thumbnail: supabaseCanvas.thumbnail || undefined,
+            version,
+            // Keep the actual folder_id as assigned by the database (including root folder)
+            folderId: supabaseCanvas.folder_id,
+            description: supabaseCanvas.description || undefined,
+            sort_order: supabaseCanvas.sort_order || 0,
+          },
+          hasUnsavedChanges: false,
+          saveStatus: 'saved',
+          isLoaded: false,
+        };
+      } else {
+        // Development: Try Supabase first, fall back to localStorage
+        if (effectiveUserId && enableSupabase) {
+          try {
+            // Create canvas in Supabase
+            const blankState = createBlankCanvasState();
+            const supabaseCanvas = await CanvasService.createCanvas({
+              user_id: effectiveUserId,
+              folder_id: folderId, // Pass folderId as is (null for top-level)
+              title: title || defaultCanvasTitle,
+              description: '',
+              data: blankState || {},
+              thumbnail: await generateThumbnail() || null,
+              is_public: false,
+            }, insertAtBeginning);
+            
+            id = supabaseCanvas.id;
+            newCanvas = {
+              metadata: {
+                id: supabaseCanvas.id,
+                title: supabaseCanvas.title,
+                lastModified: new Date(supabaseCanvas.updated_at),
+                createdAt: new Date(supabaseCanvas.created_at),
+                thumbnail: supabaseCanvas.thumbnail || undefined,
+                version,
+                // Keep the actual folder_id as assigned by the database (including root folder)
+                folderId: supabaseCanvas.folder_id,
+                description: supabaseCanvas.description || undefined,
+                sort_order: supabaseCanvas.sort_order || 0,
+              },
+              hasUnsavedChanges: false,
+              saveStatus: 'saved',
+              isLoaded: false,
+            };
+          } catch (supabaseError) {
+            console.error('Failed to create canvas in Supabase:', supabaseError);
+            // Fall back to localStorage
+            id = crypto.randomUUID();
+            newCanvas = {
+              metadata: {
+                id,
+                title: title || defaultCanvasTitle,
+                lastModified: now,
+                createdAt: now,
+                version,
+                folderId: folderId || null,
+                sort_order: 0,
+              },
+              hasUnsavedChanges: false,
+              saveStatus: 'saved',
+              isLoaded: false,
+            };
+            
+            // Save to localStorage
+            const blankState = createBlankCanvasState();
+            const storageKey = `${STORAGE_KEY_PREFIX}${id}`;
+            localStorage.setItem(storageKey, JSON.stringify(blankState));
+          }
+        } else {
+          // LocalStorage only
+          id = crypto.randomUUID();
           newCanvas = {
             metadata: {
               id,
               title: title || defaultCanvasTitle,
               lastModified: now,
               createdAt: now,
-              thumbnail: await generateThumbnail(),
               version,
-              folderId,
+              folderId: folderId || null,
+              sort_order: 0,
             },
             hasUnsavedChanges: false,
             saveStatus: 'saved',
             isLoaded: false,
           };
           
-  
+          // Save to localStorage
+          const blankState = createBlankCanvasState();
+          const storageKey = `${STORAGE_KEY_PREFIX}${id}`;
+          localStorage.setItem(storageKey, JSON.stringify(blankState));
         }
-      } else {
-        // Use localStorage directly
-        id = `canvas_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        newCanvas = {
-          metadata: {
-            id,
-            title: title || defaultCanvasTitle,
-            lastModified: now,
-            createdAt: now,
-            thumbnail: await generateThumbnail(),
-            version,
-            folderId,
-          },
-          hasUnsavedChanges: false,
-          saveStatus: 'saved',
-          isLoaded: false,
-        };
-        
-        
       }
 
-      // Use functional update to avoid dependency on canvases
-      setCanvases(prevCanvases => {
-        const updatedCanvases = [...prevCanvases, newCanvas];
-        // Save to localStorage
-        saveCanvasList(updatedCanvases);
-        return updatedCanvases;
+      // Add the new canvas to the list
+      setCanvases(prev => {
+        const newList = [...prev, newCanvas];
+        
+        // Sort by creation date (newest first) if not inserting at beginning
+        if (!insertAtBeginning) {
+          newList.sort((a, b) => b.metadata.createdAt.getTime() - a.metadata.createdAt.getTime());
+        } else {
+          // Insert at beginning
+          newList.sort((a, b) => {
+            if (a.metadata.id === id) return -1;
+            if (b.metadata.id === id) return 1;
+            return b.metadata.createdAt.getTime() - a.metadata.createdAt.getTime();
+          });
+        }
+        
+        return newList;
       });
-      
-      // Switch to the new canvas and clear it
+
+      // Set as current canvas
       setCurrentCanvasId(id);
       
-      // Ensure the new canvas is blank by clearing any existing content
-      if (editor) {
-        const shapeIds = editor.getCurrentPageShapeIds();
-        if (shapeIds.size > 0) {
-          editor.deleteShapes(Array.from(shapeIds));
-        }
-      }
-      
+      // Load the new canvas state
+      await loadCanvasState(id);
+
       return id;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to create canvas';
       setError(errorMessage);
-      throw new Error(errorMessage);
+      console.error('Error creating canvas:', err);
+      throw err;
     } finally {
       setIsLoading(false);
     }
-  }, [defaultCanvasTitle, version, generateThumbnail, saveCanvasList, effectiveUserId, enableSupabase, createBlankCanvasState]);
+  }, [effectiveUserId, enableSupabase, isProduction, createBlankCanvasState, generateThumbnail, loadCanvasState, version, defaultCanvasTitle]);
 
   // Update canvas metadata
   const updateCanvas = useCallback(async (
@@ -848,31 +969,92 @@ export function useCanvasManager(
     }
   }, [currentCanvasId, loadCanvasState, saveCanvasList, effectiveUserId, enableSupabase]);
 
-  // Switch to a different canvas - SIMPLIFIED
+  // Switch to a different canvas - ENHANCED with Supabase support
   const switchCanvas = useCallback(async (id: string): Promise<boolean> => {
-    if (currentCanvasId === id) return true;
-    
+    if (currentCanvasId === id) {
+      return true;
+    }
+
     // Save current canvas state before switching (if editor exists and current canvas is set)
     if (editor && currentCanvasId) {
       try {
         const currentSnapshot = getSnapshot(editor.store);
-        const storageKey = `${STORAGE_KEY_PREFIX}${currentCanvasId}`;
         const canvasState = {
           snapshot: currentSnapshot,
           timestamp: Date.now(),
-          version: '1.0.0',
+          version: version,
         };
-        localStorage.setItem(storageKey, JSON.stringify(canvasState));
-
+        
+        // Save to both Supabase and localStorage for reliability
+        if (effectiveUserId && enableSupabase) {
+          try {
+            await CanvasService.updateCanvas(currentCanvasId, { data: canvasState });
+          } catch (supabaseError) {
+            console.error('Failed to save to Supabase:', supabaseError);
+            // Fallback to localStorage
+            const storageKey = `${STORAGE_KEY_PREFIX}${currentCanvasId}`;
+            localStorage.setItem(storageKey, JSON.stringify(canvasState));
+          }
+        } else {
+          // Fallback to localStorage
+          const storageKey = `${STORAGE_KEY_PREFIX}${currentCanvasId}`;
+          localStorage.setItem(storageKey, JSON.stringify(canvasState));
+        }
       } catch (err) {
-        console.warn('Failed to save current canvas before switch:', err);
+        console.error('Failed to save current canvas before switch:', err);
+        // Continue with switch even if save failed
       }
     }
     
+    // Switch the current canvas ID
     setCurrentCanvasId(id);
+    
+    // Load the new canvas state
     const success = await loadCanvasState(id);
+    
+    if (!success) {
+      console.error('Failed to switch to canvas:', id);
+    }
+    
     return success;
-  }, [currentCanvasId, loadCanvasState, editor]);
+  }, [currentCanvasId, loadCanvasState, editor, effectiveUserId, enableSupabase, version]);
+
+  // NEW: Manual save function for current canvas
+  const saveCurrentCanvas = useCallback(async (): Promise<boolean> => {
+    if (!editor || !currentCanvasId) {
+      return false;
+    }
+
+    try {
+      const currentSnapshot = getSnapshot(editor.store);
+      const canvasState = {
+        snapshot: currentSnapshot,
+        timestamp: Date.now(),
+        version: version,
+      };
+      
+      // Save to both Supabase and localStorage for reliability
+      if (effectiveUserId && enableSupabase) {
+        try {
+          await CanvasService.updateCanvas(currentCanvasId, { data: canvasState });
+        } catch (supabaseError) {
+          console.error('Failed to save to Supabase:', supabaseError);
+          // Fallback to localStorage
+          const storageKey = `${STORAGE_KEY_PREFIX}${currentCanvasId}`;
+          localStorage.setItem(storageKey, JSON.stringify(canvasState));
+        }
+      } else {
+        // Fallback to localStorage
+        const storageKey = `${STORAGE_KEY_PREFIX}${currentCanvasId}`;
+        localStorage.setItem(storageKey, JSON.stringify(canvasState));
+      }
+      
+      return true;
+    } catch (err) {
+      console.error('Failed to save current canvas:', err);
+      return false;
+    }
+  }, [editor, currentCanvasId, effectiveUserId, enableSupabase, version]);
 
   // Initialize on mount
   useEffect(() => {
@@ -913,81 +1095,69 @@ export function useCanvasManager(
     }
   }, [effectiveUserId, enableSupabase, isInitialized, loadUserData, loadCanvasList, isProduction]);
 
-  // ENHANCED: Auto-create default canvas if needed (works for both Supabase and localStorage)
+  // SIMPLIFIED: Auto-create default canvas if needed
   useEffect(() => {
     if (!isInitialized || !autoCreateDefault || defaultCanvasCreatedRef.current || isLoading) {
       return;
     }
     
-    // More robust check: Only auto-create if workspace is truly empty
-    // Check both current state AND persisted storage to prevent auto-creation on refresh
+    // Simple check: Only auto-create if workspace is truly empty
     const checkIfWorkspaceEmpty = async () => {
-      // First check if we have canvases in current state
+      // Check if we have canvases in current state
       if (canvases.length > 0) {
         return false;
       }
       
-      // Check localStorage for existing canvases
-      const savedCanvases = localStorage.getItem(CANVAS_LIST_KEY);
-      if (savedCanvases) {
-        try {
-          const parsedCanvases = JSON.parse(savedCanvases);
-          if (Array.isArray(parsedCanvases) && parsedCanvases.length > 0) {
-  
-            return false;
+      // For localStorage users (no Supabase), check localStorage
+      if (!effectiveUserId || !enableSupabase) {
+        const savedCanvases = localStorage.getItem(CANVAS_LIST_KEY);
+        if (savedCanvases) {
+          try {
+            const parsedCanvases = JSON.parse(savedCanvases);
+            if (Array.isArray(parsedCanvases) && parsedCanvases.length > 0) {
+              return false;
+            }
+          } catch (err) {
+            console.warn('Failed to parse saved canvases:', err);
           }
-        } catch (err) {
-          console.warn('Failed to parse saved canvases:', err);
         }
       }
       
-      // For Supabase users, check if we've attempted to load from Supabase
+      // For Supabase users, only check if we've successfully loaded from Supabase
       if (effectiveUserId && enableSupabase) {
-        // If we have a user but no canvases loaded yet, we should wait for Supabase load to complete
-        // The hasLoadedCanvasesRef.current tracks if we've ever successfully loaded from Supabase
         if (!hasLoadedCanvasesRef.current) {
-
-          return false;
+          return false; // Wait for Supabase load to complete
         }
       }
       
-
       return true;
     };
     
     checkIfWorkspaceEmpty().then((shouldCreate) => {
       if (shouldCreate) {
+        console.log('🎨 Auto-creating default canvas - workspace is empty');
         defaultCanvasCreatedRef.current = true;
         // Use setTimeout to avoid calling createCanvas during render
         setTimeout(() => {
-          createCanvas(defaultCanvasTitle).catch((_error) => {
+          // Ensure auto-created canvas goes to root folder and uses proper parameters
+          createCanvas(defaultCanvasTitle, null, false).catch((_error) => {
             console.error('Failed to create default canvas:', _error);
+            
+            // In production, this is a critical error - reset flag and show error
+            if (isProduction && effectiveUserId && enableSupabase) {
+              setError('Failed to create default canvas. Please check your connection and try again.');
+            }
+            
             // Reset the flag if creation failed so it can be retried
             defaultCanvasCreatedRef.current = false;
           });
         }, 100);
       }
     });
-  }, [isInitialized, autoCreateDefault, canvases.length, defaultCanvasTitle, createCanvas, isLoading, effectiveUserId, enableSupabase]);
+  }, [isInitialized, autoCreateDefault, canvases.length, defaultCanvasTitle, createCanvas, isLoading, effectiveUserId, enableSupabase, isProduction]);
 
-  // ENHANCED: Fallback check - if Supabase succeeded but we have no data, check localStorage (localhost only)
-  useEffect(() => {
-    if (!isInitialized || !effectiveUserId || !enableSupabase || isProduction) {
-      return;
-    }
-    
-    // If Supabase loaded but we have no canvases/folders, check localStorage as fallback (localhost only)
-    if (canvases.length === 0 && folders.length === 0) {
-
-      const savedCanvases = localStorage.getItem(CANVAS_LIST_KEY);
-      const savedFolders = localStorage.getItem('yoga_flow_folders');
-      
-      if (savedCanvases || savedFolders) {
-
-        loadCanvasList();
-      }
-    }
-  }, [isInitialized, canvases.length, folders.length, effectiveUserId, enableSupabase, loadCanvasList, isProduction]);
+  // REMOVED: Fallback check that was causing double canvas creation
+  // The auto-creation logic above already handles empty workspace scenarios
 
   // NEW: Load canvas content when currentCanvasId is set
   useEffect(() => {
@@ -1000,6 +1170,151 @@ export function useCanvasManager(
   // Get current canvas
   const currentCanvas = canvases.find(canvas => canvas.metadata.id === currentCanvasId) || null;
 
+  // NEW: Optimistic updates - using arrayMove logic
+  const updateCanvasOrderOptimistically = useCallback((sourceId: string, targetId: string) => {
+    // Quick check for obviously invalid operations
+    if (sourceId === targetId) {
+      return;
+    }
+
+    // More lenient duplicate prevention - only block if exact same operation is in progress
+    const operationKey = `${sourceId}->${targetId}`;
+    if (isOptimisticUpdate && lastOptimisticOperation.current === operationKey) {
+      return;
+    }
+
+    // Allow new operations even if previous one is in progress
+    lastOptimisticOperation.current = operationKey;
+    setIsOptimisticUpdate(true);
+    
+    setCanvases(prev => {
+      const sourceCanvas = prev.find(c => c.metadata.id === sourceId);
+      const targetCanvas = prev.find(c => c.metadata.id === targetId);
+
+      if (!sourceCanvas || !targetCanvas) {
+        return prev;
+      }
+
+      // Verify both canvases are in the same folder
+      if (sourceCanvas.metadata.folderId !== targetCanvas.metadata.folderId) {
+        return prev;
+      }
+
+      // Get all canvases in the same folder, sorted by sort_order
+      const sameFolderCanvases = prev.filter(c => c.metadata.folderId === sourceCanvas.metadata.folderId);
+      const otherCanvases = prev.filter(c => c.metadata.folderId !== sourceCanvas.metadata.folderId);
+
+      // Sort by current sort_order
+      sameFolderCanvases.sort((a, b) => (a.metadata.sort_order || 0) - (b.metadata.sort_order || 0));
+      
+      // Find positions
+      const sourceIndex = sameFolderCanvases.findIndex(c => c.metadata.id === sourceId);
+      const targetIndex = sameFolderCanvases.findIndex(c => c.metadata.id === targetId);
+
+      if (sourceIndex === -1 || targetIndex === -1) {
+        return prev;
+      }
+
+      // FIXED: Handle last position correctly
+      const reorderedCanvases = [...sameFolderCanvases];
+      
+      // Remove source item
+      const [sourceItem] = reorderedCanvases.splice(sourceIndex, 1);
+      
+      // Calculate correct insertion index
+      let newTargetIndex = targetIndex;
+      
+      // Special case: if dropping on the last item from an earlier position, 
+      // place at the very end (after the last item)
+      const isLastItem = targetIndex === sameFolderCanvases.length - 1;
+      const isMovingForward = sourceIndex < targetIndex;
+      
+      if (isLastItem && isMovingForward) {
+        // Moving to last position: place at the very end
+        newTargetIndex = reorderedCanvases.length; // Insert at end
+      } else if (isMovingForward) {
+        // Moving forward: check if it's exactly one position down
+        if (sourceIndex + 1 === targetIndex) {
+          // Moving down by exactly one position: use original targetIndex
+          newTargetIndex = targetIndex;
+        } else {
+          // Moving forward by more than one: targetIndex is now one less because we removed source
+          newTargetIndex = targetIndex - 1;
+        }
+      }
+      // Moving backward: targetIndex stays the same
+      
+      // Insert at the calculated position
+      reorderedCanvases.splice(newTargetIndex, 0, sourceItem);
+      
+      const finalPosition = reorderedCanvases.findIndex(c => c.metadata.id === sourceId);
+      
+      // Update sort_order for all canvases in the folder (use 1-based indexing to match creation)
+      const updatedFolderCanvases = reorderedCanvases.map((canvas, index) => ({
+        ...canvas,
+        metadata: {
+          ...canvas.metadata,
+          sort_order: index + 1,
+        },
+      }));
+
+      // Combine with canvases from other folders
+      const allUpdatedCanvases = [...updatedFolderCanvases, ...otherCanvases];
+      
+      // Note: Flag will be cleared when server operation completes
+      
+      return allUpdatedCanvases;
+    });
+  }, [isOptimisticUpdate]); // Add dependency to prevent stale closure
+
+  const reorderCanvas = useCallback(async (sourceId: string, targetId: string) => {
+    if (!enableSupabase || !effectiveUserId) return;
+    
+    // Set a timeout to clear the optimistic flag if the server doesn't respond
+    const timeoutId = setTimeout(() => {
+      setIsOptimisticUpdate(false);
+      lastOptimisticOperation.current = '';
+    }, 10000);
+    
+    try {
+      await CanvasService.reorderCanvases(effectiveUserId, sourceId, targetId);
+      
+      // Clear the optimistic flag on success
+      setIsOptimisticUpdate(false);
+      lastOptimisticOperation.current = '';
+    } catch (error) {
+      console.error('Server reorder failed, clearing optimistic flag and reverting');
+      // Clear the optimistic flag on error
+      setIsOptimisticUpdate(false);
+      lastOptimisticOperation.current = '';
+      
+      // Reload user data to revert optimistic changes
+      if (effectiveUserId && enableSupabase) {
+        try {
+          await loadUserData();
+        } catch (reloadError) {
+          console.error('Failed to reload data after reorder error:', reloadError);
+        }
+      }
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }, [enableSupabase, effectiveUserId, loadUserData]);
+
+  const reorderFolder = useCallback(async (sourceId: string, targetId: string) => {
+    if (!enableSupabase || !effectiveUserId) return;
+    
+    try {
+      await CanvasService.reorderFolders(effectiveUserId, sourceId, targetId);
+      
+      // Refresh folders to get the new order
+      await loadUserData();
+    } catch (err) {
+      console.error('Failed to reorder folders:', err);
+      setError('Failed to save new folder order');
+    }
+  }, [enableSupabase, effectiveUserId, loadUserData]);
+
   return {
     canvases,
     folders,
@@ -1010,6 +1325,7 @@ export function useCanvasManager(
     updateCanvas,
     deleteCanvas,
     switchCanvas,
+    saveCurrentCanvas,
     clearError,
     preloadCanvas,
     unloadCanvas,
@@ -1018,5 +1334,8 @@ export function useCanvasManager(
     deleteFolder,
     moveCanvasToFolder,
     loadUserData,
+    updateCanvasOrderOptimistically,
+    reorderCanvas,
+    reorderFolder,
   };
 } 

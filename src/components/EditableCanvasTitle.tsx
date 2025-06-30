@@ -77,7 +77,16 @@ export function EditableCanvasTitle({
           fontWeight: 'inherit',
           color: 'inherit',
           width: '100%',
+          cursor: 'text',
+          userSelect: 'text',
+          WebkitUserSelect: 'text',
+          MozUserSelect: 'text',
+          msUserSelect: 'text',
           ...style
+        }}
+        onMouseDown={(e) => {
+          // Prevent drag from starting when clicking on the input
+          e.stopPropagation();
         }}
       />
     );

@@ -4,3 +4,66 @@
   margin: 0;
   padding: 0;
 }
+
+.sidebar-row {
+  transition: transform 180ms cubic-bezier(.22,.68,0,1.71);
+}
+
+/* Improved drag and drop styles */
+[data-dnd-kit-dragging] {
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  z-index: 1000;
+}
+
+/* Enhanced drop zone visibility */
+[data-dnd-kit-droppable="true"] {
+  position: relative;
+  min-height: 20px;
+}
+
+/* Visual feedback for active drop zones */
+[data-dnd-kit-droppable="true"]:has([data-dnd-kit-dragging]) {
+  background-color: rgba(255, 255, 255, 0.05);
+  border-radius: 6px;
+  transition: background-color 0.2s ease;
+}
+
+/* Improved sortable context styling */
+[data-dnd-kit-sortable] {
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
+/* Enhanced placeholder visibility */
+[data-dnd-kit-placeholder] {
+  opacity: 0.6;
+  background-color: rgba(255, 161, 118, 0.1);
+  border: 2px dashed rgba(255, 161, 118, 0.3);
+  border-radius: 6px;
+  margin: 2px 0;
+  transition: all 0.2s ease;
+}
+
+/* Smooth transitions for all drag-related elements */
+[data-dnd-kit-sortable],
+[data-dnd-kit-droppable],
+[data-dnd-kit-placeholder] {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Pulse animation for custom placeholder */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.02);
+  }
+}

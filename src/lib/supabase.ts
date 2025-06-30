@@ -3,7 +3,12 @@ import { createClient } from '@supabase/supabase-js'
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://lmwbfbnduhijqmoqhxpi.supabase.co'
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
-
+console.log('🔧 Supabase Config:', {
+  url: supabaseUrl,
+  hasAnonKey: !!supabaseAnonKey,
+  anonKeyLength: supabaseAnonKey?.length || 0,
+  isLocal: supabaseUrl.includes('127.0.0.1') || supabaseUrl.includes('localhost')
+})
 
 let supabase: any
 
@@ -21,6 +26,7 @@ if (!supabaseAnonKey) {
         detectSessionInUrl: true
       }
     })
+    console.log('✅ Supabase client created successfully')
     
   } catch (error) {
     console.error('Error creating Supabase client:', error)
@@ -71,6 +77,7 @@ export interface Database {
           description: string | null
           color: string
           parent_folder_id: string | null
+          sort_order: number
           created_at: string
           updated_at: string
         }
@@ -81,6 +88,7 @@ export interface Database {
           description?: string | null
           color?: string
           parent_folder_id?: string | null
+          sort_order?: number
           created_at?: string
           updated_at?: string
         }
@@ -91,6 +99,7 @@ export interface Database {
           description?: string | null
           color?: string
           parent_folder_id?: string | null
+          sort_order?: number
           created_at?: string
           updated_at?: string
         }
@@ -105,6 +114,7 @@ export interface Database {
           data: any
           thumbnail: string | null
           is_public: boolean
+          sort_order: number
           created_at: string
           updated_at: string
         }
@@ -117,6 +127,7 @@ export interface Database {
           data?: any
           thumbnail?: string | null
           is_public?: boolean
+          sort_order?: number
           created_at?: string
           updated_at?: string
         }
@@ -129,6 +140,7 @@ export interface Database {
           data?: any
           thumbnail?: string | null
           is_public?: boolean
+          sort_order?: number
           created_at?: string
           updated_at?: string
         }
