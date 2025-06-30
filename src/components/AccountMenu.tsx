@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useAuthContext } from './AuthProvider'
 import { useUser } from '../hooks/useUser'
+import { DeleteButton } from './DeleteButton'
 
 interface AccountMenuProps {
   isOpen: boolean
@@ -221,62 +222,27 @@ export function AccountMenu({ isOpen, onClose }: AccountMenuProps) {
             }}
           >
             <div>
-              <button
+              <DeleteButton
+                text="Sign Out"
                 onClick={handleSignOut}
+                variant="default"
                 style={{
-                  width: '100%',
-                  padding: '6px 12px',
-                  fontSize: '11px',
-                  fontWeight: '500',
-                  backgroundColor: 'transparent',
-                  color: 'var(--color-text)',
-                  border: 'none',
-                  borderRadius: '8px',
-                  cursor: 'pointer',
-                  transition: 'all 0.1s ease',
                   marginBottom: '6px',
                   height: '32px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
+                  borderRadius: '8px',
                 }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = 'hsl(0 0% 96.1%)'
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = 'transparent'
-                }}
-              >
-                Sign Out
-              </button>
+                title="Sign out of your account"
+              />
 
-              <button
+              <DeleteButton
+                text="Delete Account"
                 onClick={() => setShowDeleteConfirm(true)}
                 style={{
-                  width: '100%',
-                  padding: '6px 12px',
-                  fontSize: '11px',
-                  fontWeight: '500',
-                  backgroundColor: 'transparent',
-                  color: '#dc2626',
-                  border: 'none',
-                  borderRadius: '8px',
-                  cursor: 'pointer',
-                  transition: 'all 0.1s ease',
                   height: '32px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
+                  borderRadius: '8px',
                 }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = '#fef2f2'
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = 'transparent'
-                }}
-              >
-                Delete Account
-              </button>
+                title="Delete your account permanently"
+              />
             </div>
           </div>
         </div>

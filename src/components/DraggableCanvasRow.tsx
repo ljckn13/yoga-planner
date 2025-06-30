@@ -71,25 +71,26 @@ export const DraggableCanvasRow: React.FC<DraggableCanvasRowProps> = React.memo(
       style={{
         ...style,
         width: '100%',
-        padding: '0px 8px',
+        padding: '6px 8px', // Increased vertical padding to replace margins and ensure full coverage
         fontSize: '11px',
         fontWeight: '500',
         fontFamily: 'var(--font-system)',
         borderRadius: '6px',
         border: 'none',
-        marginBottom: isLast ? '0px' : '12px',
+        marginBottom: '0px', // Remove margins to eliminate blind spots
         backgroundColor: isCurrent 
           ? 'rgba(255, 255, 255, 0.15)' 
           : 'transparent',
         cursor: isDragging ? 'grabbing' : (isEditing ? 'text' : 'pointer'),
-        transition: 'all 0.2s ease',
+        transition: isCurrent ? 'all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94)' : 'none',
         whiteSpace: 'nowrap',
         textOverflow: 'ellipsis',
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        minHeight: '24px',
+        minHeight: '36px',
         boxSizing: 'border-box',
+        minWidth: 0, // Allow flex items to shrink below their content size
         boxShadow: isCurrent 
           ? '-2px -2px 10px rgba(255, 248, 220, 0.8), 3px 3px 10px rgba(255, 69, 0, 0.3)' 
           : 'none',
@@ -112,12 +113,12 @@ export const DraggableCanvasRow: React.FC<DraggableCanvasRowProps> = React.memo(
           // Background color will be reset by CSS
         }
       }}
-      onMouseEnter={(e) => {
+      onMouseEnter={() => {
         if (!isCurrent && !isEditing && !isDragging) {
-          e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.08)';
+          // Background color will be set by CSS hover state
         }
       }}
-      onClick={(e) => {
+      onClick={() => {
         if (!isEditing && !isDragging) {
           onSwitch(canvas.id);
         }
@@ -136,6 +137,7 @@ export const DraggableCanvasRow: React.FC<DraggableCanvasRowProps> = React.memo(
       
       {isCurrent && !isEditing && (
         <div
+          data-no-dnd="true"
           onClick={(e) => {
             e.stopPropagation();
             e.preventDefault();
@@ -149,12 +151,16 @@ export const DraggableCanvasRow: React.FC<DraggableCanvasRowProps> = React.memo(
             e.stopPropagation();
             e.preventDefault();
           }}
+          onPointerDown={(e) => {
+            e.stopPropagation();
+            e.preventDefault();
+          }}
           style={{
-            width: '16px',
-            height: '16px',
+            width: '20px',
+            height: '20px',
             backgroundColor: 'transparent',
             border: 'none',
-            borderRadius: '2px',
+            borderRadius: '4px',
             cursor: 'pointer',
             color: '#885050',
             opacity: 0.5,
@@ -162,14 +168,23 @@ export const DraggableCanvasRow: React.FC<DraggableCanvasRowProps> = React.memo(
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            padding: 0,
+            padding: '2px',
             marginLeft: '8px',
-            zIndex: 10,
+            zIndex: 20,
             position: 'relative',
+            transition: 'opacity 0.2s ease, background-color 0.2s ease',
           }}
-          title="Canvas options"
+          onMouseEnter={(e) => {
+            e.currentTarget.style.opacity = '1';
+            e.currentTarget.style.backgroundColor = 'rgba(136, 80, 80, 0.1)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.opacity = '0.5';
+            e.currentTarget.style.backgroundColor = 'transparent';
+          }}
+          title="Delete canvas"
         >
-          <MoreVertical size={12} style={{ opacity: 0.5 }} />
+          <MoreVertical size={12} style={{ opacity: 1 }} />
         </div>
       )}
     </div>

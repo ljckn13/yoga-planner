@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useAuthContext } from './AuthProvider';
 import { useCanvasManager } from '../hooks/useCanvasManager';
 import { useSidebarDragAndDrop } from '../hooks/useSidebarDragAndDrop';
 import { DraggableCanvasRow } from './DraggableCanvasRow';
-import { EditableCanvasTitle } from './EditableCanvasTitle';
-import { MoreVertical, X, Plus, Folder, FolderOpen } from 'lucide-react';
+import { DeleteButton } from './DeleteButton';
+import { MoreVertical, X, Folder, FolderOpen } from 'lucide-react';
 import {
   DndContext,
   DragOverlay,
@@ -14,13 +14,18 @@ import {
   useSensors,
   useDroppable,
   rectIntersection,
+  pointerWithin,
+  closestCenter,
 } from '@dnd-kit/core';
-import type { DragStartEvent, DragOverEvent, DragEndEvent } from '@dnd-kit/core';
+import type {
+  CollisionDetection,
+  DroppableContainer,
+  Active,
+} from '@dnd-kit/core';
 import {
   SortableContext,
   verticalListSortingStrategy,
   sortableKeyboardCoordinates,
-  useSortable,
 } from '@dnd-kit/sortable';
 import SimpleBar from 'simplebar-react';
 import 'simplebar-react/dist/simplebar.min.css';
@@ -50,6 +55,61 @@ export interface FlowSidebarProps {
   isDragInProgressRef: React.RefObject<boolean>;
 }
 
+// Custom collision detection that better handles gaps between canvas rows
+const customCollisionDetection: CollisionDetection = (args) => {
+  const { active, droppableContainers, pointerCoordinates } = args;
+  
+  // If we're dragging a canvas, use a more aggressive collision detection
+  if (active.data.current?.type === 'canvas') {
+    // First try pointerWithin for immediate detection
+    const pointerCollisions = pointerWithin(args);
+    if (pointerCollisions.length > 0) {
+      return pointerCollisions;
+    }
+    
+    // If no pointer collisions, try rectIntersection with expanded bounds
+    const rectCollisions = rectIntersection(args);
+    if (rectCollisions.length > 0) {
+      return rectCollisions;
+    }
+    
+    // If still no collisions, try closestCenter with expanded detection radius
+    const closestCollisions = closestCenter(args);
+    if (closestCollisions.length > 0) {
+      return closestCollisions;
+    }
+    
+    // Last resort: find the closest droppable within a reasonable distance
+    if (pointerCoordinates && droppableContainers.length > 0) {
+      const { x, y } = pointerCoordinates;
+      let closestContainer = null;
+      let minDistance = Infinity;
+      
+      for (const container of droppableContainers) {
+        const rect = container.rect.current;
+        if (rect) {
+          const centerX = rect.left + rect.width / 2;
+          const centerY = rect.top + rect.height / 2;
+          const distance = Math.sqrt((x - centerX) ** 2 + (y - centerY) ** 2);
+          
+          // Use a generous detection radius (50px)
+          if (distance < 50 && distance < minDistance) {
+            minDistance = distance;
+            closestContainer = container;
+          }
+        }
+      }
+      
+      if (closestContainer) {
+        return [closestContainer];
+      }
+    }
+  }
+  
+  // For other types (like folder drops), use rectIntersection
+  return rectIntersection(args);
+};
+
 // Root folder droppable component
 const RootFolderDroppable: React.FC<{
   userRootFolderId: string | null;
@@ -63,6 +123,7 @@ const RootFolderDroppable: React.FC<{
   }>;
   currentCanvasId: string;
   editingCanvasId: string | null;
+  draggedCanvas: any | null;
   onSwitchCanvas: (id: string) => void;
   onDeleteCanvas: (id: string) => void;
   onUpdateCanvas: (id: string, updates: { title?: string }) => void;
@@ -73,6 +134,7 @@ const RootFolderDroppable: React.FC<{
   getRootCanvases,
   currentCanvasId,
   editingCanvasId,
+  draggedCanvas,
   onSwitchCanvas,
   onDeleteCanvas,
   onUpdateCanvas,
@@ -88,6 +150,10 @@ const RootFolderDroppable: React.FC<{
 
   const rootCanvases = getRootCanvases();
   const isOver = overFolderIds.has(userRootFolderId || '');
+  
+  // Only show drop zone when dragging from a different folder (not from root)
+  const isDraggingFromRoot = draggedCanvas && draggedCanvas.folderId === userRootFolderId;
+  const shouldShowDropZone = isOver && rootCanvases.length === 0 && draggedCanvas && !isDraggingFromRoot;
 
   return (
     <div
@@ -100,6 +166,8 @@ const RootFolderDroppable: React.FC<{
         backgroundColor: 'transparent',
         border: '2px solid transparent',
         transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        // Ensure the droppable zone covers the full area including gaps
+        marginBottom: '4px',
         // Add drop zone styling when showing drop feedback
         ...(isOver && {
           border: '2px solid rgba(255, 161, 118, 0.5)',
@@ -107,7 +175,7 @@ const RootFolderDroppable: React.FC<{
         }),
       }}
     >
-      {rootCanvases.length === 0 && isOver && (
+      {shouldShowDropZone && (
         <div style={{
           display: 'flex',
           alignItems: 'center',
@@ -119,11 +187,10 @@ const RootFolderDroppable: React.FC<{
           fontFamily: 'var(--font-system)',
           opacity: 0.8,
         }}>
-          Drop flow here
         </div>
       )}
 
-      {rootCanvases.length === 0 && !isOver && (
+      {rootCanvases.length === 0 && !shouldShowDropZone && (
         <div style={{
           display: 'flex',
           alignItems: 'center',
@@ -135,37 +202,36 @@ const RootFolderDroppable: React.FC<{
           fontFamily: 'var(--font-system)',
           opacity: 0,
         }}>
-          Drop zone
         </div>
       )}
 
-      {rootCanvases
-        .sort((a, b) => {
-          if (a.sort_order !== undefined && b.sort_order !== undefined) {
-            return a.sort_order - b.sort_order;
-          }
-          const aDate = new Date(a.createdAt || 0);
-          const bDate = new Date(b.createdAt || 0);
-          return bDate.getTime() - aDate.getTime();
-        })
-        .map((canvas, index) => (
-          <DraggableCanvasRow
-            key={canvas.id}
-            canvas={canvas}
-            index={index}
-            isCurrent={currentCanvasId === canvas.id}
-            isEditing={editingCanvasId === canvas.id}
-            isLast={index === rootCanvases.length - 1}
-            onSwitch={onSwitchCanvas}
-            onDelete={onDeleteCanvas}
-            onUpdate={(id, updates) => {
-              onUpdateCanvas(id, updates);
-              setEditingCanvasId(null);
-            }}
-            onStartEdit={setEditingCanvasId}
-            onCancelEdit={() => setEditingCanvasId(null)}
-          />
-        ))}
+                {rootCanvases
+            .sort((a, b) => {
+              if (a.sort_order !== undefined && b.sort_order !== undefined) {
+                return a.sort_order - b.sort_order;
+              }
+              const aDate = new Date(a.createdAt || 0);
+              const bDate = new Date(b.createdAt || 0);
+              return bDate.getTime() - aDate.getTime();
+            })
+            .map((canvas, index) => (
+              <DraggableCanvasRow
+                key={canvas.id}
+                canvas={canvas}
+                index={index}
+                isCurrent={currentCanvasId === canvas.id}
+                isEditing={editingCanvasId === canvas.id}
+                isLast={index === rootCanvases.length - 1}
+                onSwitch={onSwitchCanvas}
+                onDelete={onDeleteCanvas}
+                onUpdate={(id, updates) => {
+                  onUpdateCanvas(id, updates);
+                  setEditingCanvasId(null);
+                }}
+                onStartEdit={setEditingCanvasId}
+                onCancelEdit={() => setEditingCanvasId(null)}
+              />
+            ))}
     </div>
   );
 };
@@ -235,18 +301,7 @@ const FolderComponent: React.FC<{
     disabled: false, // Enable for all drags
   });
 
-  // Content drop zone - ALWAYS enable, not just when open
-  // BUT disable when dragging folders to allow native DND Kit placeholders
-  const { isOver: isOverContent, setNodeRef: setContentNodeRef } = useDroppable({
-    id: `folder-content-${folder.id}`,
-    data: {
-      type: 'folder',
-      folderId: folder.id,
-    },
-    disabled: false, // Enable for all drags
-  });
-
-  const isOver = isOverFolder || isOverContent;
+  const isOver = isOverFolder;
 
   // Use the drop feedback from the hook
   const shouldShowDropFeedbackForFolder = shouldShowDropFeedback(folder.id);
@@ -271,34 +326,30 @@ const FolderComponent: React.FC<{
   }, [activeId, isOpen, isOverFolder, folder.id, toggleFolder, draggedCanvas]);
 
   return (
-    <div 
-      style={{ 
-        marginBottom: '16px',
-        marginLeft: '8px',
-        marginRight: '8px', 
-        width: 'calc(100% - 16px)',
-        overflowX: 'visible',
-      }}
-    >
-      {/* Folder Wrapper - Neumorphic design like Account Settings */}
-      <div 
-        ref={setFolderDroppableRef}
+          <div 
         style={{ 
-          width: 'calc (100% - 16px)',
-          borderRadius: '8px',
-          // Only show styled background when open
-          backgroundColor: shouldShowStyledBackground ? 'rgba(255, 255, 255, 0.1)' : 'transparent',
-          backdropFilter: shouldShowStyledBackground ? 'blur(10px)' : 'none',
-          WebkitBackdropFilter: shouldShowStyledBackground ? 'blur(10px)' : 'none',
-          boxShadow: shouldShowStyledBackground ? '-2px -2px 10px rgba(255, 248, 220, 1), 3px 3px 10px rgba(255, 69, 0, 0.4)' : 'none',
+          marginBottom: '16px', // Reduced from 16px to minimize blind spots
+          marginLeft: '8px',
+          marginRight: '8px', 
+          width: 'calc(100% - 16px)',
+          overflowX: 'visible',
+          minWidth: 0, // Allow flex items to shrink below their content size
+        }}
+      >
+      {/* Folder Wrapper - Neumorphic design like Account Settings */}
+              <div 
+          ref={setFolderDroppableRef}
+          style={{ 
+            width: 'calc(100%-12px)',
+            borderRadius: '8px',
+          // Animate background during folder open/close
+          backgroundColor: isOpen ? 'rgba(255, 255, 255, 0.1)' : 'transparent',
+          backdropFilter: isOpen ? 'blur(10px)' : 'none',
+          WebkitBackdropFilter: isOpen ? 'blur(10px)' : 'none',
+          boxShadow: isOpen ? '-2px -2px 10px rgba(255, 248, 220, 1), 3px 3px 10px rgba(255, 69, 0, 0.4)' : 'none',
           // Highlight when dragging over (even when closed)
           border: isOver ? '2px solid rgba(255, 161, 118, 0.5)' : '2px solid transparent',
-          // Add drop zone styling when showing drop feedback for empty folders
-          ...(shouldShowDropFeedbackForFolder && isEmpty && {
-            border: '2px solid rgba(255, 161, 118, 0.5)',
-            backgroundColor: 'rgba(255, 161, 118, 0.1)',
-          }),
-          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+          transition: 'all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
         }}
       >
         {/* Folder Header */}
@@ -436,35 +487,27 @@ const FolderComponent: React.FC<{
             maxHeight: isOpen ? '1000px' : '0px',
             overflow: 'hidden',
             opacity: isOpen ? 1 : 0,
-            transform: isOpen ? 'translateY(0)' : 'translateY(-10px)',
-            transition: 'max-height 0.3s ease, opacity 0.3s ease, transform 0.3s ease',
+            transform: isOpen ? 'translateY(0)' : 'translateY(-8px)',
+            transition: 'max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
             position: 'relative',
           }}
         >
-          {isOpen && (
-            <div style={{
-              padding: isEmpty ? '0px 0px 4px 0px' : '0px 0px 8px 0px', // Remove left/right padding for nested canvases
-            }}>
-            {/* Content droppable zone overlay */}
-            <div
-              ref={setContentNodeRef}
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                backgroundColor: 'transparent',
-                borderRadius: '0 0 8px 8px',
-                pointerEvents: 'none',
-              }}
-            />
+          <div style={{
+            padding: '0px 0px 8px 0px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '8px',
+            opacity: isOpen ? 1 : 0,
+            transform: isOpen ? 'translateY(0)' : 'translateY(-4px)',
+            transition: 'opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1), transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+            transitionDelay: isOpen ? '0.1s' : '0s',
+          }}>
             
             {/* Folder content - canvases */}
-            {folderCanvases.length > 0 ? (
+            {folderCanvases.length > 0 && (
               <div
                 style={{
-                  padding: '0px',
+                  padding: '0px 4px',
                   borderRadius: '6px',
                   position: 'relative',
                   overflow: 'visible', // Allow content to overflow
@@ -512,78 +555,62 @@ const FolderComponent: React.FC<{
                     ))}
                 </SortableContext>
               </div>
-            ) : (
+            )}
+
+
+
+            {/* Delete folder button or drop zone - only for empty folders */}
+            {folder.id !== userRootFolderId && folderCanvases.length === 0 && (
               <div style={{
-                fontSize: '11px',
-                color: '#885050',
-                opacity: 0.6,
-                fontFamily: 'var(--font-system)',
-                textAlign: 'center',
-                padding: '8px 0',
-                // Always maintain consistent spacing to prevent jumping
-                border: '2px solid transparent',
-                borderRadius: '6px',
-                backgroundColor: 'transparent',
-                transition: 'all 0.2s ease',
-                // Add drop zone styling when showing drop feedback
-                ...(shouldShowDropFeedbackForFolder && {
-                  border: '2px solid rgba(255, 161, 118, 0.5)',
-                  backgroundColor: 'rgba(255, 161, 118, 0.1)',
-                })
+                padding: '0px 4px',
               }}>
                 {shouldShowDropFeedbackForFolder ? (
-                  'Drop here'
-                ) : folder.id === userRootFolderId ? (
                   <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    height: '60px',
-                    color: 'transparent', // Make text transparent instead of removing it
-                    fontSize: '12px',
-                    fontWeight: '500',
+                    fontSize: '11px',
+                    color: '#885050',
+                    opacity: 0.6,
                     fontFamily: 'var(--font-system)',
-                    opacity: 0,
+                    textAlign: 'center',
+                    border: '2px solid rgba(255, 161, 118, 0.5)',
+                    borderRadius: '6px',
+                    backgroundColor: 'rgba(255, 161, 118, 0.1)',
+                    transition: 'all 0.2s ease',
+                    minHeight: '36px',
                   }}>
-                    Drop zone
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      height: '28px',
+                      color: 'transparent',
+                      fontSize: '12px',
+                      fontWeight: '500',
+                      fontFamily: 'var(--font-system)',
+                      opacity: 0,
+                      padding: '6px 8px',
+                      borderRadius: '6px',
+                      boxSizing: 'border-box',
+                      backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                      backdropFilter: 'blur(10px)',
+                      WebkitBackdropFilter: 'blur(10px)',
+                      boxShadow: '-2px -2px 10px rgba(255, 248, 220, 1), 3px 3px 10px rgba(255, 69, 0, 0.4)',
+                    }}>
+                    </div>
                   </div>
                 ) : (
-                  <button
+                  <DeleteButton
+                    text="Delete folder"
                     onClick={(e) => {
                       e.stopPropagation();
                       handleDeleteFolder(folder.id);
                     }}
-                    style={{
-                      width: '100%',
-                      padding: '6px 10px',
-                      fontSize: '11px',
-                      fontWeight: '500',
-                      fontFamily: 'var(--font-system)',
-                      backgroundColor: 'transparent',
-                      border: 'none',
-                      borderRadius: '6px',
-                      color: '#dc2626',
-                      cursor: 'pointer',
-                      opacity: 0.7,
-                      textAlign: 'center',
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = 'rgba(220, 38, 38, 0.1)';
-                      e.currentTarget.style.opacity = '1';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = 'transparent';
-                      e.currentTarget.style.opacity = '0.7';
-                    }}
+                    disabled={!!draggedCanvas}
                     title="Delete folder"
-                  >
-                    Delete folder
-                  </button>
+                  />
                 )}
               </div>
             )}
             </div>
-          )}
         </div>
       </div>
     </div>
@@ -639,9 +666,9 @@ export const FlowSidebar: React.FC<FlowSidebarProps> = ({
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 15,
-        tolerance: 5,
-        delay: 100,
+        distance: 8, // Increased from 4 to make dragging less sensitive
+        tolerance: 5, // Increased tolerance
+        delay: 50, // Increased delay to prevent accidental drags
       }
     }),
     useSensor(KeyboardSensor, {
@@ -819,9 +846,9 @@ export const FlowSidebar: React.FC<FlowSidebarProps> = ({
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'flex-start',
-        width: sidebarVisible ? '216px' : '0px',
-        minWidth: sidebarVisible ? '216px' : '0px',
-        maxWidth: sidebarVisible ? '216px' : '0px',
+        width: sidebarVisible ? '240px' : '0px',
+        minWidth: sidebarVisible ? '240px' : '0px',
+        maxWidth: sidebarVisible ? '240px' : '0px',
         height: '100vh',
         padding: sidebarVisible ? '40px 8px 0px 8px' : '0',
         backgroundColor: 'transparent',
@@ -831,11 +858,12 @@ export const FlowSidebar: React.FC<FlowSidebarProps> = ({
         overflowY: 'hidden',
         overflowX: 'visible',
         boxSizing: 'border-box',
+        position: 'relative',
       }}
     >
       <DndContext 
         sensors={sensors}
-        collisionDetection={rectIntersection}
+        collisionDetection={customCollisionDetection}
         onDragStart={handleDragStart}
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
@@ -850,8 +878,14 @@ export const FlowSidebar: React.FC<FlowSidebarProps> = ({
             overflowY: 'hidden',
             overflowX: 'visible',
             marginBottom: '8px',
+            minWidth: 0, // Allow flex items to shrink below their content size
           }}
         >
+          {/* Separate SortableContext for root canvases only */}
+          <SortableContext 
+            items={getRootCanvases().map(canvas => canvas.id)} 
+            strategy={verticalListSortingStrategy}
+          >
           {/* Fixed Header - Flows Section */}
           <div style={{
             width: '100%',
@@ -906,28 +940,27 @@ export const FlowSidebar: React.FC<FlowSidebarProps> = ({
             maxHeight: 'none',
             overflowY: 'auto',
             overflowX: 'visible',
+            minWidth: 0, // Allow flex items to shrink below their content size
           }}>
             <div style={{
               width: '100%',
               paddingBottom: '16px',
+              minWidth: 0, // Allow flex items to shrink below their content size
+              boxSizing: 'border-box',
             }}>
               {/* Root folder (top-level canvases) - now droppable like other folders */}
-              <SortableContext 
-                items={getRootCanvases().map(canvas => canvas.id)} 
-                strategy={verticalListSortingStrategy}
-              >
-                <RootFolderDroppable
-                  userRootFolderId={userRootFolderId}
-                  overFolderIds={overFolderIds}
-                  getRootCanvases={getRootCanvases}
-                  currentCanvasId={currentCanvasId}
-                  editingCanvasId={editingCanvasId}
-                  onSwitchCanvas={onSwitchCanvas}
-                  onDeleteCanvas={onDeleteCanvas}
-                  onUpdateCanvas={onUpdateCanvas}
-                  setEditingCanvasId={setEditingCanvasId}
-                />
-              </SortableContext>
+              <RootFolderDroppable
+                userRootFolderId={userRootFolderId}
+                overFolderIds={overFolderIds}
+                getRootCanvases={getRootCanvases}
+                currentCanvasId={currentCanvasId}
+                editingCanvasId={editingCanvasId}
+                draggedCanvas={draggedCanvas}
+                onSwitchCanvas={onSwitchCanvas}
+                onDeleteCanvas={onDeleteCanvas}
+                onUpdateCanvas={onUpdateCanvas}
+                setEditingCanvasId={setEditingCanvasId}
+              />
 
               {/* Folders Section */}
               <div style={{ width: '100%' }}>
@@ -976,7 +1009,7 @@ export const FlowSidebar: React.FC<FlowSidebarProps> = ({
                 )}
 
                 {/* Folders with their canvases */}
-                <div style={{ paddingTop: '8px', paddingBottom: '8px' }}>
+                <div style={{ paddingTop: '8px', paddingBottom: '4px' }}>
                   {folders
                     .sort((a, b) => {
                       // Sort alphabetically by name
@@ -1015,6 +1048,7 @@ export const FlowSidebar: React.FC<FlowSidebarProps> = ({
               </div>
             </div>
           </SimpleBar>
+          </SortableContext>
         </div>
 
         <DragOverlay>

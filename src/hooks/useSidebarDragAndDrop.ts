@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef } from 'react';
 import type { DragStartEvent, DragEndEvent, DragOverEvent } from '@dnd-kit/core';
 import { useCanvasManager } from './useCanvasManager';
+import { arrayMove } from '@dnd-kit/sortable';
 
 interface Canvas {
   id: string;
@@ -21,9 +22,10 @@ export const useSidebarDragAndDrop = (
   const [draggedCanvas, setDraggedCanvas] = useState<Canvas | null>(null);
   const [overFolderIds, setOverFolderIds] = useState<Set<string>>(new Set());
 
-  const { moveCanvasToFolder, updateCanvasOrderOptimistically, reorderCanvas } = canvasManager;
+  const { reorderCanvas, moveCanvasToFolder } = canvasManager;
 
   const isProcessingDragEnd = useRef(false);
+  const lastProcessedDrag = useRef<string>('');
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
     const itemId = event.active.id as string;
@@ -87,63 +89,6 @@ export const useSidebarDragAndDrop = (
     setOverFolderIds(new Set());
   }, [canvases]);
 
-  const handleDragEnd = useCallback(async (event: DragEndEvent) => {
-    const { active, over } = event;
-    
-    if (!active || !over) {
-      clearDragState();
-      return;
-    }
-
-    // Prevent double execution
-    if (isProcessingDragEnd.current) {
-      return;
-    }
-
-    isProcessingDragEnd.current = true;
-
-    try {
-      // Only handle canvas operations
-      if (active.data.current?.type === 'canvas') {
-        const activeCanvas = canvases.find(c => c.id === active.id);
-        
-        if (!activeCanvas) {
-          console.error('Active canvas not found');
-          return;
-        }
-
-        // Handle different drop targets
-        if (over.data.current?.type === 'canvas') {
-          const overCanvas = canvases.find(c => c.id === over.id);
-          
-          if (overCanvas) {
-            const activeFolderId = activeCanvas.folderId;
-            const overFolderId = overCanvas.folderId || null; // Convert undefined to null
-            
-            if (activeFolderId === overFolderId) {
-              // Same folder - reorder
-              await handleCanvasReorder(activeCanvas.id, overCanvas.id);
-            } else {
-              // Different folders - move to the over canvas's folder
-              await handleCanvasMove(activeCanvas.id, overFolderId);
-            }
-          }
-        }
-        else if (over.data.current?.type === 'folder') {
-          const targetFolderId = over.data.current.folderId;
-          if (targetFolderId !== undefined) {
-            await handleCanvasMove(activeCanvas.id, targetFolderId);
-          }
-        }
-      }
-    } finally {
-      isProcessingDragEnd.current = false;
-      
-      // Add a small delay before clearing drag state to prevent UI jumping
-      setTimeout(clearDragState, 100);
-    }
-  }, [canvases, isDragInProgressRef]);
-
   const handleCanvasMove = async (canvasId: string, targetFolderId: string | null) => {
     try {
       const canvas = canvases.find(c => c.id === canvasId);
@@ -160,7 +105,7 @@ export const useSidebarDragAndDrop = (
       }
 
       // Move the canvas
-      await canvasManager.moveCanvasToFolder(canvasId, targetFolderId);
+      await moveCanvasToFolder(canvasId, targetFolderId);
 
       // Auto-open target folder if it's a custom folder
       if (targetFolderId) {
@@ -177,15 +122,73 @@ export const useSidebarDragAndDrop = (
 
   const handleCanvasReorder = async (sourceId: string, targetId: string) => {
     try {
-      // Optimistically update the UI immediately
-      updateCanvasOrderOptimistically(sourceId, targetId);
-
       // Perform the actual reorder
       await reorderCanvas(sourceId, targetId);
     } catch (error) {
       console.error('Failed to reorder canvas:', error);
     }
   };
+
+  const handleDragEnd = useCallback(async (event: DragEndEvent) => {
+    const { active, over } = event;
+    
+    if (!active || !over) {
+      clearDragState();
+      return;
+    }
+
+    // Prevent double execution
+    if (isProcessingDragEnd.current) {
+      return;
+    }
+
+    // Create a unique key for this drag operation
+    const dragKey = `${active.id}-${over.id}`;
+    
+    // Prevent processing the same drag operation multiple times
+    if (lastProcessedDrag.current === dragKey) {
+      return;
+    }
+
+    isProcessingDragEnd.current = true;
+    lastProcessedDrag.current = dragKey;
+
+    try {
+      // Only handle canvas operations
+      if (active.data.current?.type === 'canvas') {
+        const activeCanvas = canvases.find(c => c.id === active.id);
+        if (!activeCanvas) {
+          console.error('Active canvas not found');
+          return;
+        }
+
+        if (over.data.current?.type === 'canvas') {
+          const overCanvas = canvases.find(c => c.id === over.id);
+          if (overCanvas) {
+            const activeFolderId = activeCanvas.folderId;
+            const overFolderId = overCanvas.folderId || null;
+
+            if (activeFolderId === overFolderId) {
+              // Same folder - use built-in reorder logic
+              await handleCanvasReorder(activeCanvas.id, overCanvas.id);
+            } else {
+              // Different folders - move to the over canvas's folder
+              await handleCanvasMove(activeCanvas.id, overFolderId);
+            }
+          }
+        } else if (over.data.current?.type === 'folder') {
+          const targetFolderId = over.data.current.folderId;
+          if (targetFolderId !== undefined) {
+            await handleCanvasMove(activeCanvas.id, targetFolderId);
+          }
+        }
+      }
+    } finally {
+      isProcessingDragEnd.current = false;
+      // Keep drag overlay visible briefly to allow optimistic update to take effect
+      setTimeout(clearDragState, 150);
+    }
+  }, [canvases, isDragInProgressRef]);
 
   // Helper function to check if a folder should show drop feedback
   const shouldFolderShowDropFeedback = useCallback((folderId: string) => {
@@ -202,6 +205,7 @@ export const useSidebarDragAndDrop = (
     setActiveId(null);
     setDraggedCanvas(null);
     setOverFolderIds(new Set());
+    lastProcessedDrag.current = '';
     
     // Clear drag in progress
     if (isDragInProgressRef?.current !== undefined) {

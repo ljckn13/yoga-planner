@@ -259,53 +259,119 @@ export class CanvasService {
    */
   static async moveCanvas(canvasId: string, folderId: string | null): Promise<Canvas> {
     try {
+      console.log(`🔄 Moving canvas ${canvasId} to folder ${folderId || 'root'}`);
+      
       // Get the canvas to determine user_id first
       const { data: canvas, error: fetchError } = await supabase
         .from('canvases')
-        .select('user_id')
+        .select('user_id, folder_id')
         .eq('id', canvasId)
         .single()
       
       if (fetchError) throw fetchError
       if (!canvas) throw new Error('Canvas not found')
 
-      // If no folder_id is provided (null), use the root folder
-      // Otherwise use the provided folder_id
-      const effectiveFolderId = folderId || await this.getRootFolder(canvas.user_id);
+      console.log(`📁 Source folder: ${canvas.folder_id || 'root'}, Target folder: ${folderId || 'root'}`);
       
-      // (canvas user_id already fetched above)
-      
-      // Get the next sort order for first position in the target folder
-      const { data: nextSortOrder, error: sortError } = await supabase
-        .rpc('get_next_canvas_sort_order', {
-          p_user_id: canvas.user_id,
-          p_folder_id: effectiveFolderId,
-          p_insert_at_beginning: true
-        })
-      
-      if (sortError) {
-        console.error('Error getting next sort order:', sortError)
-        // Fallback to 1 if the function fails
+      // Don't do anything if the canvas is already in the target location
+      if (canvas.folder_id === folderId) {
+        console.log('✅ Canvas already in target folder, no action needed');
+        // Just return the existing canvas
+        const { data: existingCanvas, error: fetchError2 } = await supabase
+          .from('canvases')
+          .select('*')
+          .eq('id', canvasId)
+          .single()
+        
+        if (fetchError2) throw fetchError2
+        return existingCanvas
       }
-      
-      const newSortOrder = nextSortOrder || 1
 
-      // Update both folder_id and sort_order to place at first position
+      // Step 1: Get all canvases in the source folder (excluding the one being moved)
+      const { data: sourceFolderCanvases, error: fetchSourceError } = await supabase
+        .from('canvases')
+        .select('id, sort_order')
+        .eq('user_id', canvas.user_id)
+        .eq('folder_id', canvas.folder_id) // This handles both null and specific folder_id
+        .neq('id', canvasId)
+        .order('sort_order', { ascending: true })
+
+      if (fetchSourceError) throw fetchSourceError
+      console.log(`📊 Source folder has ${sourceFolderCanvases?.length || 0} remaining canvases`);
+
+      // Step 2: Get all canvases in the target folder
+      const { data: targetFolderCanvases, error: fetchTargetError } = await supabase
+        .from('canvases')
+        .select('id, sort_order')
+        .eq('user_id', canvas.user_id)
+        .eq('folder_id', folderId) // This handles both null and specific folder_id
+        .order('sort_order', { ascending: true })
+
+      if (fetchTargetError) throw fetchTargetError
+      console.log(`📊 Target folder has ${targetFolderCanvases?.length || 0} existing canvases`);
+
+      // Step 3: Update sort orders in source folder (remaining canvases)
+      if (sourceFolderCanvases && sourceFolderCanvases.length > 0) {
+        const sourceCanvasIds = sourceFolderCanvases.map((c: any) => c.id)
+        console.log(`🔄 Updating source folder sort orders: ${sourceCanvasIds.join(', ')}`);
+        
+        const { error: sourceReorderError } = await supabase
+          .rpc('reorder_canvases_in_folder', {
+            p_user_id: canvas.user_id,
+            p_canvas_ids: sourceCanvasIds,
+            p_folder_id: canvas.folder_id
+          })
+
+        if (sourceReorderError) throw sourceReorderError
+        console.log('✅ Source folder sort orders updated');
+      }
+
+      // Step 4: Handle target folder
+      if (targetFolderCanvases && targetFolderCanvases.length > 0) {
+        // Target folder has existing canvases - shift them up and add moved canvas at position 1
+        const targetCanvasIds = [canvasId, ...(targetFolderCanvases.map((c: any) => c.id))]
+        console.log(`🔄 Updating target folder sort orders: ${targetCanvasIds.join(', ')}`);
+        
+        const { error: targetReorderError } = await supabase
+          .rpc('reorder_canvases_in_folder', {
+            p_user_id: canvas.user_id,
+            p_canvas_ids: targetCanvasIds,
+            p_folder_id: folderId
+          })
+
+        if (targetReorderError) throw targetReorderError
+        console.log('✅ Target folder sort orders updated');
+      } else {
+        // Target folder is empty - just move the canvas with sort_order 1
+        console.log('📁 Target folder is empty, setting sort_order = 1');
+        
+        const { error: directUpdateError } = await supabase
+          .from('canvases')
+          .update({ 
+            folder_id: folderId,
+            sort_order: 1,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', canvasId)
+          .eq('user_id', canvas.user_id)
+
+        if (directUpdateError) throw directUpdateError
+        console.log('✅ Canvas moved to empty folder with sort_order = 1');
+      }
+
+      // Step 5: Get the updated canvas data
       const { data, error } = await supabase
         .from('canvases')
-        .update({ 
-          folder_id: effectiveFolderId,
-          sort_order: newSortOrder
-        })
+        .select('*')
         .eq('id', canvasId)
-        .select()
         .single()
       
       if (error) throw error
       
+      console.log(`✅ Move completed: ${data.title} now in folder ${data.folder_id || 'root'} with sort_order ${data.sort_order}`);
       return data
     } catch (error) {
-      console.error('Error moving canvas:', error)
+      console.error('❌ Error moving canvas:', error)
       throw error
     }
   }
@@ -369,28 +435,23 @@ export class CanvasService {
         throw new Error('Canvas not found in folder');
       }
 
-      // Create new order array
-      const reorderedCanvases = [...allCanvases];
-      const [movedCanvas] = reorderedCanvases.splice(sourceIndex, 1);
-      reorderedCanvases.splice(targetIndex, 0, movedCanvas);
+      // Use arrayMove utility for correct reordering logic
+      const { arrayMove } = await import('@dnd-kit/sortable');
+      const reorderedCanvases = arrayMove(allCanvases, sourceIndex, targetIndex);
 
-      // Update sort_order for all affected canvases
-      const updates = reorderedCanvases.map((canvas, index) => ({
-        id: canvas.id,
-        sort_order: index + 1
-      }));
+      // Extract the new order of canvas IDs
+      const newOrder = reorderedCanvases.map((canvas: any) => canvas.id);
 
-      // Perform individual updates to respect RLS policies
-      for (const update of updates) {
-        const { error: updateError } = await supabase
-          .from('canvases')
-          .update({ sort_order: update.sort_order })
-          .eq('id', update.id)
-          .eq('user_id', userId);
+      // Use the atomic reorder function to update all canvases at once
+      const { error: reorderError } = await supabase
+        .rpc('reorder_canvases_in_folder', {
+          p_user_id: userId,
+          p_canvas_ids: newOrder,
+          p_folder_id: folderId
+        });
 
-        if (updateError) {
-          throw updateError;
-        }
+      if (reorderError) {
+        throw reorderError;
       }
     } catch (error) {
       console.error('Error reordering canvases:', error);
@@ -490,6 +551,53 @@ export class CanvasService {
     } catch (error) {
       console.error('Error fetching folder with canvases:', error)
       throw error
+    }
+  }
+
+  /**
+   * Fix corrupted sort_order values by resetting them to be sequential within each folder
+   */
+  static async fixCanvasSortOrders(userId: string): Promise<void> {
+    try {
+      // Get all canvases for the user, grouped by folder
+      const { data: canvases, error } = await supabase
+        .from('canvases')
+        .select('id, folder_id, created_at')
+        .eq('user_id', userId)
+        .order('created_at');
+        
+      if (error) throw error;
+      
+      // Group by folder and update sort_order
+      const folderGroups = new Map<string | null, any[]>();
+      canvases?.forEach((canvas: any) => {
+        const folderId = canvas.folder_id;
+        if (!folderGroups.has(folderId)) {
+          folderGroups.set(folderId, []);
+        }
+        folderGroups.get(folderId)!.push(canvas);
+      });
+      
+      // Update sort_order for each folder
+      for (const [folderId, folderCanvases] of folderGroups) {
+        const canvasIds = folderCanvases.map((canvas: any) => canvas.id);
+        
+        if (canvasIds.length > 0) {
+          const { error: reorderError } = await supabase
+            .rpc('reorder_canvases_in_folder', {
+              p_user_id: userId,
+              p_canvas_ids: canvasIds,
+              p_folder_id: folderId
+            });
+            
+          if (reorderError) {
+            console.error(`Error fixing sort orders for folder ${folderId}:`, reorderError);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error fixing canvas sort orders:', error);
+      throw error;
     }
   }
 } 

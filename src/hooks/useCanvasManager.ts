@@ -3,6 +3,7 @@ import { type Editor, loadSnapshot, getSnapshot } from 'tldraw';
 import { CanvasService } from '../services/canvasService';
 // ROOT_FOLDER_ID no longer needed - using null for top-level canvases
 import type { Folder } from '../lib/supabase';
+import { arrayMove } from '@dnd-kit/sortable';
 
 export interface CanvasMetadata {
   id: string;
@@ -45,8 +46,6 @@ export interface UseCanvasManagerReturn {
   deleteFolder: (id: string) => Promise<boolean>;
   moveCanvasToFolder: (canvasId: string, folderId: string | null) => Promise<boolean>;
   loadUserData: () => Promise<void>; // Load user's canvases and folders from Supabase
-  // NEW: Optimistic updates
-  updateCanvasOrderOptimistically: (sourceId: string, targetId: string) => void;
   reorderCanvas: (sourceId: string, targetId: string) => Promise<void>;
   reorderFolder: (sourceId: string, targetId: string) => Promise<void>;
 }
@@ -93,13 +92,10 @@ export function useCanvasManager(
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
-  const [isOptimisticUpdate, setIsOptimisticUpdate] = useState(false);
-  
   // Track if we've ever loaded canvases (to prevent auto-create after user deletion)
   const hasLoadedCanvasesRef = useRef(false);
   const defaultCanvasCreatedRef = useRef(false);
   const isLoadingRef = useRef(false);
-  const lastOptimisticOperation = useRef<string>('');
   const loadedCanvasesRef = useRef<Set<string>>(new Set());
   const canvasAccessTimesRef = useRef<Map<string, number>>(new Map());
   
@@ -115,10 +111,7 @@ export function useCanvasManager(
       return;
     }
     
-    // Don't load data during optimistic updates
-    if (isOptimisticUpdate) {
-      return;
-    }
+
     
     isLoadingRef.current = true;
     setIsLoading(true);
@@ -152,10 +145,7 @@ export function useCanvasManager(
       }));
       
       // Always set canvases and mark as loaded, even if empty
-      // Check if we're in an optimistic update before setting canvases
-      if (!isOptimisticUpdate) {
-        setCanvases(transformedCanvases);
-      }
+      setCanvases(transformedCanvases);
       hasLoadedCanvasesRef.current = true; // Mark that we've attempted to load canvases from Supabase
       
       if (transformedCanvases.length > 0) {
@@ -180,7 +170,7 @@ export function useCanvasManager(
       isLoadingRef.current = false;
       setIsLoading(false);
     }
-  }, [effectiveUserId, enableSupabase, version, currentCanvasId, isOptimisticUpdate]);
+  }, [effectiveUserId, enableSupabase, version, currentCanvasId]);
 
   // NEW: Folder operations
   const createFolder = useCallback(async (name: string, description?: string, insertAtBeginning: boolean = false): Promise<string> => {
@@ -395,34 +385,72 @@ export function useCanvasManager(
     if (!effectiveUserId || !enableSupabase) return false;
     
     try {
-      const effectiveFolderId = targetFolderId || await CanvasService.getRootFolder(effectiveUserId);
-      
-      // Optimistically update the UI
+      // Optimistically update the UI immediately
       setCanvases(prev => {
+        const movedCanvas = prev.find(c => c.metadata.id === canvasId);
+        if (!movedCanvas) return prev;
+
+        const sourceFolderId = movedCanvas.metadata.folderId;
+        
+        // Don't do anything if already in target folder
+        if (sourceFolderId === targetFolderId) return prev;
+
         return prev.map(canvas => {
           if (canvas.metadata.id === canvasId) {
+            // Move the canvas to the target folder at position 1
             return {
               ...canvas,
               metadata: {
                 ...canvas.metadata,
-                folderId: effectiveFolderId,
-                sort_order: 1, // Move to top of new folder
+                folderId: targetFolderId,
+                sort_order: 1, // Always first position in new folder
+              }
+            };
+          } else if (canvas.metadata.folderId === sourceFolderId) {
+            // Reorder remaining canvases in source folder to be sequential
+            const remainingCanvases = prev
+              .filter(c => c.metadata.folderId === sourceFolderId && c.metadata.id !== canvasId)
+              .sort((a, b) => (a.metadata.sort_order || 0) - (b.metadata.sort_order || 0));
+            
+            const newIndex = remainingCanvases.findIndex(c => c.metadata.id === canvas.metadata.id);
+            if (newIndex !== -1) {
+              return {
+                ...canvas,
+                metadata: {
+                  ...canvas.metadata,
+                  sort_order: newIndex + 1, // Sequential ordering starting from 1
+                }
+              };
+            }
+          } else if (canvas.metadata.folderId === targetFolderId) {
+            // Shift up existing canvases in target folder by 1
+            return {
+              ...canvas,
+              metadata: {
+                ...canvas.metadata,
+                sort_order: (canvas.metadata.sort_order || 0) + 1,
               }
             };
           }
+          
           return canvas;
         });
       });
       
       // Perform the actual move
-      await CanvasService.moveCanvas(canvasId, effectiveFolderId);
+      await CanvasService.moveCanvas(canvasId, targetFolderId);
+      
+      // No need to reload data since optimistic update already handled UI state
+      // Only reload on error to revert optimistic changes
       
       return true;
     } catch (err) {
       console.error('Error moving canvas to folder:', err);
+      // Revert optimistic update on error
+      await loadUserData();
       return false;
     }
-  }, [effectiveUserId, enableSupabase]);
+  }, [effectiveUserId, enableSupabase, loadUserData]);
 
   // LRU cache management
   const updateCanvasAccess = useCallback((canvasId: string) => {
@@ -1167,132 +1195,67 @@ export function useCanvasManager(
   // Get current canvas
   const currentCanvas = canvases.find(canvas => canvas.metadata.id === currentCanvasId) || null;
 
-  // NEW: Optimistic updates - using arrayMove logic
-  const updateCanvasOrderOptimistically = useCallback((sourceId: string, targetId: string) => {
-    // Quick check for obviously invalid operations
-    if (sourceId === targetId) {
-      return;
-    }
 
-    // More lenient duplicate prevention - only block if exact same operation is in progress
-    const operationKey = `${sourceId}->${targetId}`;
-    if (isOptimisticUpdate && lastOptimisticOperation.current === operationKey) {
-      return;
-    }
-
-    // Allow new operations even if previous one is in progress
-    lastOptimisticOperation.current = operationKey;
-    setIsOptimisticUpdate(true);
-    
-    setCanvases(prev => {
-      const sourceCanvas = prev.find(c => c.metadata.id === sourceId);
-      const targetCanvas = prev.find(c => c.metadata.id === targetId);
-
-      if (!sourceCanvas || !targetCanvas) {
-        return prev;
-      }
-
-      // Verify both canvases are in the same folder
-      if (sourceCanvas.metadata.folderId !== targetCanvas.metadata.folderId) {
-        return prev;
-      }
-
-      // Get all canvases in the same folder, sorted by sort_order
-      const sameFolderCanvases = prev.filter(c => c.metadata.folderId === sourceCanvas.metadata.folderId);
-      const otherCanvases = prev.filter(c => c.metadata.folderId !== sourceCanvas.metadata.folderId);
-
-      // Sort by current sort_order
-      sameFolderCanvases.sort((a, b) => (a.metadata.sort_order || 0) - (b.metadata.sort_order || 0));
-      
-      // Find positions
-      const sourceIndex = sameFolderCanvases.findIndex(c => c.metadata.id === sourceId);
-      const targetIndex = sameFolderCanvases.findIndex(c => c.metadata.id === targetId);
-
-      if (sourceIndex === -1 || targetIndex === -1) {
-        return prev;
-      }
-
-      // FIXED: Handle last position correctly
-      const reorderedCanvases = [...sameFolderCanvases];
-      
-      // Remove source item
-      const [sourceItem] = reorderedCanvases.splice(sourceIndex, 1);
-      
-      // Calculate correct insertion index
-      let newTargetIndex = targetIndex;
-      
-      // Special case: if dropping on the last item from an earlier position, 
-      // place at the very end (after the last item)
-      const isLastItem = targetIndex === sameFolderCanvases.length - 1;
-      const isMovingForward = sourceIndex < targetIndex;
-      
-      if (isLastItem && isMovingForward) {
-        // Moving to last position: place at the very end
-        newTargetIndex = reorderedCanvases.length; // Insert at end
-      } else if (isMovingForward) {
-        // Moving forward: check if it's exactly one position down
-        if (sourceIndex + 1 === targetIndex) {
-          // Moving down by exactly one position: use original targetIndex
-          newTargetIndex = targetIndex;
-        } else {
-          // Moving forward by more than one: targetIndex is now one less because we removed source
-          newTargetIndex = targetIndex - 1;
-        }
-      }
-      // Moving backward: targetIndex stays the same
-      
-      // Insert at the calculated position
-      reorderedCanvases.splice(newTargetIndex, 0, sourceItem);
-      
-      // Update sort_order for all canvases in the folder (use 1-based indexing to match creation)
-      const updatedFolderCanvases = reorderedCanvases.map((canvas, index) => ({
-        ...canvas,
-        metadata: {
-          ...canvas.metadata,
-          sort_order: index + 1,
-        },
-      }));
-
-      // Combine with canvases from other folders
-      const allUpdatedCanvases = [...updatedFolderCanvases, ...otherCanvases];
-      
-      // Note: Flag will be cleared when server operation completes
-      
-      return allUpdatedCanvases;
-    });
-  }, [isOptimisticUpdate]); // Add dependency to prevent stale closure
 
   const reorderCanvas = useCallback(async (sourceId: string, targetId: string) => {
     if (!enableSupabase || !effectiveUserId) return;
     
-    // Set a timeout to clear the optimistic flag if the server doesn't respond
-    const timeoutId = setTimeout(() => {
-      setIsOptimisticUpdate(false);
-      lastOptimisticOperation.current = '';
-    }, 10000);
-    
     try {
+      // Optimistically update the UI immediately
+      setCanvases(prev => {
+        const sourceCanvas = prev.find(c => c.metadata.id === sourceId);
+        const targetCanvas = prev.find(c => c.metadata.id === targetId);
+
+        if (!sourceCanvas || !targetCanvas) {
+          return prev;
+        }
+
+        // Verify both canvases are in the same folder
+        if (sourceCanvas.metadata.folderId !== targetCanvas.metadata.folderId) {
+          return prev;
+        }
+
+        // Get all canvases in the same folder, sorted by sort_order
+        const sameFolderCanvases = prev.filter(c => c.metadata.folderId === sourceCanvas.metadata.folderId);
+        const otherCanvases = prev.filter(c => c.metadata.folderId !== sourceCanvas.metadata.folderId);
+
+        // Sort by current sort_order
+        sameFolderCanvases.sort((a, b) => (a.metadata.sort_order || 0) - (b.metadata.sort_order || 0));
+        
+        // Find positions
+        const sourceIndex = sameFolderCanvases.findIndex(c => c.metadata.id === sourceId);
+        const targetIndex = sameFolderCanvases.findIndex(c => c.metadata.id === targetId);
+
+        if (sourceIndex === -1 || targetIndex === -1) {
+          return prev;
+        }
+
+        // Use arrayMove utility to handle positioning correctly
+        const reorderedCanvases = arrayMove(sameFolderCanvases, sourceIndex, targetIndex);
+        
+        // Update sort_order for all canvases in the folder (use 1-based indexing to match creation)
+        const updatedFolderCanvases = reorderedCanvases.map((canvas, index) => ({
+          ...canvas,
+          metadata: {
+            ...canvas.metadata,
+            sort_order: index + 1,
+          },
+        }));
+
+        // Combine with canvases from other folders
+        const allUpdatedCanvases = [...updatedFolderCanvases, ...otherCanvases];
+        
+        return allUpdatedCanvases;
+      });
+      
       await CanvasService.reorderCanvases(effectiveUserId, sourceId, targetId);
       
-      // Clear the optimistic flag on success
-      setIsOptimisticUpdate(false);
-      lastOptimisticOperation.current = '';
+      // No need to reload data since optimistic update already handled UI state
+      // Only reload on error to revert optimistic changes
     } catch (error) {
-      console.error('Server reorder failed, clearing optimistic flag and reverting');
-      // Clear the optimistic flag on error
-      setIsOptimisticUpdate(false);
-      lastOptimisticOperation.current = '';
-      
-      // Reload user data to revert optimistic changes
-      if (effectiveUserId && enableSupabase) {
-        try {
-          await loadUserData();
-        } catch (reloadError) {
-          console.error('Failed to reload data after reorder error:', reloadError);
-        }
-      }
-    } finally {
-      clearTimeout(timeoutId);
+      console.error('Failed to reorder canvas:', error);
+      // Revert optimistic update on error
+      await loadUserData();
     }
   }, [enableSupabase, effectiveUserId, loadUserData]);
 
@@ -1329,7 +1292,6 @@ export function useCanvasManager(
     deleteFolder,
     moveCanvasToFolder,
     loadUserData,
-    updateCanvasOrderOptimistically,
     reorderCanvas,
     reorderFolder,
   };
