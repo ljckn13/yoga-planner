@@ -16,7 +16,6 @@ interface DraggableCanvasRowProps {
   index: number;
   isCurrent: boolean;
   isEditing: boolean;
-  isLast?: boolean;
   onSwitch: (id: string) => void;
   onDelete: (id: string) => void;
   onUpdate: (id: string, updates: { title?: string }) => void;
@@ -29,7 +28,6 @@ export const DraggableCanvasRow: React.FC<DraggableCanvasRowProps> = React.memo(
   index: _index,
   isCurrent,
   isEditing,
-  isLast = false,
   onSwitch,
   onDelete,
   onUpdate,

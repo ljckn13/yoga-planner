@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef } from 'react';
 import type { DragStartEvent, DragEndEvent, DragOverEvent } from '@dnd-kit/core';
 import { useCanvasManager } from './useCanvasManager';
-import { arrayMove } from '@dnd-kit/sortable';
+
 
 interface Canvas {
   id: string;

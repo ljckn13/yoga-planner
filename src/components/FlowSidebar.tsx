@@ -19,8 +19,6 @@ import {
 } from '@dnd-kit/core';
 import type {
   CollisionDetection,
-  DroppableContainer,
-  Active,
 } from '@dnd-kit/core';
 import {
   SortableContext,
@@ -221,7 +219,6 @@ const RootFolderDroppable: React.FC<{
                 index={index}
                 isCurrent={currentCanvasId === canvas.id}
                 isEditing={editingCanvasId === canvas.id}
-                isLast={index === rootCanvases.length - 1}
                 onSwitch={onSwitchCanvas}
                 onDelete={onDeleteCanvas}
                 onUpdate={(id, updates) => {
@@ -307,8 +304,6 @@ const FolderComponent: React.FC<{
   const shouldShowDropFeedbackForFolder = shouldShowDropFeedback(folder.id);
 
   // Determine folder styling based on state
-  const isEmpty = folderCanvases.length === 0;
-  const shouldShowStyledBackground = isOpen; // Only show styling when open
   const shouldShowAddNewButton = isOpen; // Only show "Add new" when open
 
   // Auto-open folder when dragging over it (when closed) - only for canvas drags
@@ -542,7 +537,6 @@ const FolderComponent: React.FC<{
                         index={index}
                         isCurrent={currentCanvasId === canvas.id}
                         isEditing={editingCanvasId === canvas.id}
-                        isLast={index === folderCanvases.length - 1}
                         onSwitch={handleSwitchCanvas}
                         onDelete={handleDeleteCanvas}
                         onUpdate={(id, updates) => {
