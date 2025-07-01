@@ -38,6 +38,7 @@ const uiOverrides: TLUiOverrides = {
     const allowedTools: any = {
       select: tools.select,
       text: tools.text,
+      eraser: tools.eraser,
       yogaPose: {
         id: 'yoga-pose-tool',
         icon: 'yoga-icon',
