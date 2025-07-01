@@ -99,7 +99,7 @@ export function useCanvasManager(
   const isLoadingRef = useRef(false);
   const loadedCanvasesRef = useRef<Set<string>>(new Set());
   const canvasAccessTimesRef = useRef<Map<string, number>>(new Map());
-  const [userRootFolderId, setUserRootFolderId] = useState<string | null>(null);
+
   const canvasSelectedDuringDeletionRef = useRef<string | null>(null);
   const isDeletionInProgressRef = useRef(false);
   
@@ -1415,17 +1415,7 @@ export function useCanvasManager(
     }
   }, [enableSupabase, effectiveUserId, loadUserData]);
 
-  // Fetch root folder ID when userId changes
-  useEffect(() => {
-    if (effectiveUserId && enableSupabase) {
-      CanvasService.getRootFolder(effectiveUserId)
-        .then(setUserRootFolderId)
-        .catch((err) => {
-          console.error('Failed to fetch root folder ID:', err);
-          setUserRootFolderId(null);
-        });
-    }
-  }, [effectiveUserId, enableSupabase]);
+
 
   return {
     canvases,
