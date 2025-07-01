@@ -242,12 +242,49 @@ export class CanvasService {
    */
   static async deleteCanvas(id: string): Promise<void> {
     try {
-      const { error } = await supabase
+      // First, get the canvas to determine user_id and folder_id
+      const { data: canvas, error: fetchError } = await supabase
+        .from('canvases')
+        .select('user_id, folder_id')
+        .eq('id', id)
+        .single()
+      
+      if (fetchError) throw fetchError
+      if (!canvas) throw new Error('Canvas not found')
+
+      // Delete the canvas
+      const { error: deleteError } = await supabase
         .from('canvases')
         .delete()
         .eq('id', id)
       
-      if (error) throw error
+      if (deleteError) throw deleteError
+
+      // Get remaining canvases in the same folder
+      const { data: remainingCanvases, error: fetchRemainingError } = await supabase
+        .from('canvases')
+        .select('id, sort_order')
+        .eq('user_id', canvas.user_id)
+        .eq('folder_id', canvas.folder_id)
+        .order('sort_order', { ascending: true })
+
+      if (fetchRemainingError) throw fetchRemainingError
+
+      // Update sort orders of remaining canvases if there are any
+      if (remainingCanvases && remainingCanvases.length > 0) {
+        const remainingCanvasIds = remainingCanvases.map((c: any) => c.id)
+        console.log(`🔄 Updating sort orders after deletion: ${remainingCanvasIds.join(', ')}`);
+        
+        const { error: reorderError } = await supabase
+          .rpc('reorder_canvases_in_folder', {
+            p_user_id: canvas.user_id,
+            p_canvas_ids: remainingCanvasIds,
+            p_folder_id: canvas.folder_id
+          })
+
+        if (reorderError) throw reorderError
+        console.log('✅ Sort orders updated after deletion');
+      }
     } catch (error) {
       console.error('Error deleting canvas:', error)
       throw error

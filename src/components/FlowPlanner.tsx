@@ -23,6 +23,7 @@ export const FlowPlanner: React.FC = () => {
   // Refs for folder management
   const previousCanvasFolderRef = useRef<string | null | undefined>(undefined);
   const isDragInProgressRef = useRef(false);
+  const isDeletionInProgressRef = useRef(false);
 
   // Stabilize the options object to prevent useCanvasManager from being recreated
   const canvasManagerOptions = React.useMemo(() => ({
@@ -31,7 +32,8 @@ export const FlowPlanner: React.FC = () => {
     autoCreateDefault: true,
     defaultCanvasTitle: 'Untitled Flow',
     version: '1.0.0',
-  }), [_user?.id, !!_user]);
+    isDeletionInProgressRef: isDeletionInProgressRef,
+  }), [_user?.id, !!_user, isDeletionInProgressRef]);
   
   // Use canvas manager for folder and canvas operations
   const canvasManager = useCanvasManager(editorInstance, canvasManagerOptions);
@@ -39,6 +41,7 @@ export const FlowPlanner: React.FC = () => {
     folders,
     canvases: managerCanvases,
     currentCanvas,
+    isLoading,
     updateCanvas: updateCanvasInManager,
     switchCanvas: switchCanvasInManager,
     deleteCanvas: deleteCanvasInManager,
@@ -62,7 +65,7 @@ export const FlowPlanner: React.FC = () => {
 
   // Set current canvas when available
   React.useEffect(() => {
-    if (currentCanvas && !currentCanvasId) {
+    if (currentCanvas && currentCanvas.metadata.id !== currentCanvasId) {
       setCurrentCanvasId(currentCanvas.metadata.id);
     }
   }, [currentCanvas, currentCanvasId]);
@@ -143,14 +146,22 @@ export const FlowPlanner: React.FC = () => {
                 return newSet;
               });
             } else {
-              // Rule 2: Top-level canvas is active (ROOT_FOLDER_ID) - close ALL folders
-              // BUT: Only if no drag is in progress
-              if (!isDragInProgressRef?.current) {
-                console.log('📁 Applying folder close rules - top-level canvas active, closing all folders');
+              // Rule 2: Top-level canvas is active - but be more conservative about closing folders
+              // Only close folders if we're certain this is a deliberate switch to a top-level canvas
+              // and not just a temporary state during canvas deletion/reload
+              const isDeliberateTopLevelSwitch = 
+                previousFolderId !== undefined && // Not initial load
+                previousFolderId !== null && // Previous was in a folder
+                currentFolderId === null && // Current is top-level
+                !isLoading && // Not during loading operations
+                !isDeletionInProgressRef.current; // Not during deletion operations
+              
+              if (isDeliberateTopLevelSwitch && !isDragInProgressRef?.current) {
+                console.log('📁 Applying folder close rules - deliberate switch to top-level canvas, closing all folders');
                 setOpenFolders(_ => {
                   const newSet = new Set<string>();
                   
-                  // When top-level canvas is active, close all folders completely
+                  // When deliberately switching to top-level canvas, close all folders
                   // Clear manually opened tracking as well since folders should be closed
                   setManuallyOpenedFolders(() => {
                     return new Set<string>();
@@ -158,6 +169,10 @@ export const FlowPlanner: React.FC = () => {
                   
                   return newSet;
                 });
+              } else if (currentFolderId === null) {
+                // For top-level canvases that aren't deliberate switches, just ensure the current folder state is maintained
+                // Don't aggressively close folders - let user manually control folder state
+                console.log('📁 Top-level canvas active - maintaining current folder state');
               }
             }
           }
@@ -182,6 +197,10 @@ export const FlowPlanner: React.FC = () => {
       return;
     }
     
+    // Set deletion flag immediately after confirmation to prevent auto-loading
+    isDeletionInProgressRef.current = true;
+    console.log('🚫 Deletion in progress - preventing auto-loading');
+    
     try {
       await deleteCanvasInManager(canvasId);
       
@@ -191,6 +210,11 @@ export const FlowPlanner: React.FC = () => {
       }
     } catch (error) {
       console.error('Failed to delete canvas:', error);
+    } finally {
+      // Reset deletion flag after a delay to allow for state updates
+      setTimeout(() => {
+        isDeletionInProgressRef.current = false;
+      }, 1000);
     }
   };
 

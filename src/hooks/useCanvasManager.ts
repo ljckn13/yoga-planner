@@ -45,7 +45,7 @@ export interface UseCanvasManagerReturn {
   updateFolder: (id: string, updates: { name?: string; description?: string; color?: string }) => Promise<boolean>;
   deleteFolder: (id: string) => Promise<boolean>;
   moveCanvasToFolder: (canvasId: string, folderId: string | null) => Promise<boolean>;
-  loadUserData: () => Promise<void>; // Load user's canvases and folders from Supabase
+  loadUserData: (options?: { afterDeletion?: { deletedCanvasFolderId: string | null; deletedCanvasId: string } }) => Promise<void>; // Load user's canvases and folders from Supabase
   reorderCanvas: (sourceId: string, targetId: string) => Promise<void>;
   reorderFolder: (sourceId: string, targetId: string) => Promise<void>;
 }
@@ -57,6 +57,7 @@ export interface UseCanvasManagerOptions {
   maxLoadedCanvases?: number; // Limit number of canvases kept in memory
   userId?: string; // NEW: User ID for Supabase integration
   enableSupabase?: boolean; // NEW: Toggle Supabase integration
+  isDeletionInProgressRef?: React.MutableRefObject<boolean>; // NEW: Deletion flag ref
 }
 
 const CANVAS_LIST_KEY = 'yoga_flow_canvas_list';
@@ -68,7 +69,7 @@ export function useCanvasManager(
   editor: Editor | null,
   options: UseCanvasManagerOptions = {}
 ): UseCanvasManagerReturn {
-  const { userId, enableSupabase = false } = options;
+  const { userId, enableSupabase = false, isDeletionInProgressRef: externalDeletionRef } = options;
   
   // Detect environment
   const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
@@ -98,13 +99,18 @@ export function useCanvasManager(
   const isLoadingRef = useRef(false);
   const loadedCanvasesRef = useRef<Set<string>>(new Set());
   const canvasAccessTimesRef = useRef<Map<string, number>>(new Map());
+  const [userRootFolderId, setUserRootFolderId] = useState<string | null>(null);
+  const canvasSelectedDuringDeletionRef = useRef<string | null>(null);
+  const isDeletionInProgressRef = useRef(false);
   
   const clearError = useCallback(() => {
     setError(null);
   }, []);
 
   // NEW: Load user data from Supabase
-  const loadUserData = useCallback(async () => {
+  const loadUserData = useCallback(async (options?: { 
+    afterDeletion?: { deletedCanvasFolderId: string | null; deletedCanvasId: string } 
+  }) => {
     if (!effectiveUserId || !enableSupabase) return;
     
     if (isLoadingRef.current) {
@@ -148,8 +154,46 @@ export function useCanvasManager(
       setCanvases(transformedCanvases);
       hasLoadedCanvasesRef.current = true; // Mark that we've attempted to load canvases from Supabase
       
-      if (transformedCanvases.length > 0) {
-        // Only set initial current canvas if we don't already have one
+      // Handle post-deletion canvas selection
+      if (options?.afterDeletion && transformedCanvases.length > 0) {
+        const { deletedCanvasFolderId, deletedCanvasId } = options.afterDeletion;
+        
+        // Clear current canvas ID since the deleted one is no longer valid
+        if (currentCanvasId === deletedCanvasId) {
+          setCurrentCanvasId(null);
+        }
+        
+        // Find the next canvas to select
+        let next: CanvasListItem | undefined;
+
+        // Try to find the next canvas in the same folder
+        if (deletedCanvasFolderId) {
+          next = transformedCanvases
+            .filter(c => c.metadata.folderId === deletedCanvasFolderId)
+            .sort((a, b) => (a.metadata.sort_order ?? 0) - (b.metadata.sort_order ?? 0))[0];
+        }
+
+        // If none in same folder, try root folder (null folderId)
+        if (!next) {
+          next = transformedCanvases
+            .filter(c => c.metadata.folderId === null)
+            .sort((a, b) => (a.metadata.sort_order ?? 0) - (b.metadata.sort_order ?? 0))[0];
+        }
+
+        // If still none, try any other folder
+        if (!next) {
+          next = transformedCanvases
+            .sort((a, b) => (a.metadata.sort_order ?? 0) - (b.metadata.sort_order ?? 0))[0];
+        }
+
+        // Set the selected canvas ID but don't load it here - let deleteCanvas handle the loading
+        if (next) {
+          console.log('🔄 Selecting next canvas after deletion:', next.metadata.id);
+          setCurrentCanvasId(next.metadata.id);
+          canvasSelectedDuringDeletionRef.current = next.metadata.id;
+        }
+      } else if (transformedCanvases.length > 0) {
+        // Normal load - only set initial current canvas if we don't already have one
         // This prevents overriding the current canvas during drag operations
         if (!currentCanvasId) {
           // Set initial current canvas (prefer top-level canvas)
@@ -586,13 +630,16 @@ export function useCanvasManager(
   // Load canvas state from Supabase or localStorage
   const loadCanvasState = useCallback(async (canvasId: string): Promise<boolean> => {
     if (!canvasId || !editor) {
+      console.log('❌ Cannot load canvas state: missing canvasId or editor');
       return false;
     }
 
     if (isLoadingRef.current) {
+      console.log('❌ Cannot load canvas state: already loading');
       return false;
     }
 
+    console.log('🔄 Starting to load canvas state for:', canvasId);
     isLoadingRef.current = true;
     setIsLoading(true);
     setError(null);
@@ -637,10 +684,29 @@ export function useCanvasManager(
 
       if (canvasState && canvasState.snapshot) {
         // Load the snapshot into the editor
+        console.log('✅ Successfully loaded canvas state for:', canvasId);
+        console.log('📊 Canvas state details:', {
+          hasSnapshot: !!canvasState.snapshot,
+          snapshotType: typeof canvasState.snapshot,
+          timestamp: canvasState.timestamp,
+          version: canvasState.version
+        });
         loadSnapshot(editor.store, canvasState.snapshot);
+        
+        // Debug: Check what's in the editor after loading
+        setTimeout(() => {
+          const shapeIds = editor.getCurrentPageShapeIds();
+          console.log('🔍 Editor state after loading canvas:', canvasId, {
+            shapeCount: shapeIds.size,
+            currentCanvasId: currentCanvasId,
+            editorReady: !!editor
+          });
+        }, 100);
+        
         return true;
       } else {
         // Load a blank state instead of just clearing shapes
+        console.log('⚠️ No canvas state found for:', canvasId, '- loading blank state');
         const blankState = createBlankCanvasState();
         if (blankState && blankState.snapshot) {
           loadSnapshot(editor.store, blankState.snapshot);
@@ -662,7 +728,7 @@ export function useCanvasManager(
       setIsLoading(false);
       isLoadingRef.current = false;
     }
-  }, [editor, effectiveUserId, enableSupabase, createBlankCanvasState]);
+  }, [editor, effectiveUserId, enableSupabase, createBlankCanvasState, currentCanvasId]);
 
   // Preload canvas data without switching to it
   const preloadCanvas = useCallback(async (canvasId: string): Promise<void> => {
@@ -951,38 +1017,94 @@ export function useCanvasManager(
 
   // Delete a canvas
   const deleteCanvas = useCallback(async (id: string): Promise<boolean> => {
+    // Set deletion flag to prevent auto-creation
+    isDeletionInProgressRef.current = true;
+    
+    // Clear the canvas selection ref at the start
+    canvasSelectedDuringDeletionRef.current = null;
+    
     setIsLoading(true);
     setError(null);
 
     try {
-      // Use functional update to avoid dependency on canvases
-      setCanvases(prevCanvases => {
-        const updatedCanvases = prevCanvases.filter(canvas => canvas.metadata.id !== id);
-        // Save to localStorage
-        saveCanvasList(updatedCanvases);
-        return updatedCanvases;
-      });
+      // 1. Find the folderId of the canvas being deleted
+      const toDelete = canvases.find(c => c.metadata.id === id);
+      const deletedCanvasFolderId = toDelete?.metadata.folderId;
 
-      // Delete from Supabase if available
+      // 2. Delete from backend if needed
       if (effectiveUserId && enableSupabase) {
         await CanvasService.deleteCanvas(id);
-        
       }
 
-      // If we deleted the current canvas, switch to another one
-      if (currentCanvasId === id) {
-        setCanvases(prevCanvases => {
-          if (prevCanvases.length > 0) {
-            const newCanvasId = prevCanvases[0].metadata.id;
-            setCurrentCanvasId(newCanvasId);
-            // Load the new canvas state
-            loadCanvasState(newCanvasId);
-          } else {
-            setCurrentCanvasId(null);
+      // 3. Check if this was the last canvas before deletion
+      const wasLastCanvas = canvases.length === 1;
+      
+      // 4. Reload canvases from backend to get updated sort_order and handle canvas selection
+      await loadUserData({
+        afterDeletion: {
+          deletedCanvasFolderId: deletedCanvasFolderId || null,
+          deletedCanvasId: id
+        }
+      });
+
+      // 5. Handle canvas loading and creation after data is reloaded
+      setTimeout(async () => {
+        // Check if a canvas was already selected during loadUserData
+        if (canvasSelectedDuringDeletionRef.current && canvasSelectedDuringDeletionRef.current !== id) {
+          const selectedCanvasId = canvasSelectedDuringDeletionRef.current;
+          console.log('🔄 Canvas already selected during loadUserData, loading it now:', selectedCanvasId);
+          // Load the canvas that was selected during loadUserData
+          await loadCanvasState(selectedCanvasId);
+          // Ensure currentCanvasId is set to the loaded canvas
+          setCurrentCanvasId(selectedCanvasId);
+          // Clear the ref
+          canvasSelectedDuringDeletionRef.current = null;
+          return;
+        }
+        
+        // If this was the last canvas, create a new one immediately
+        if (wasLastCanvas) {
+          console.log('🆕 Last canvas was deleted, creating new canvas immediately');
+          const newId = await createCanvas(defaultCanvasTitle, null, false);
+          setCurrentCanvasId(newId);
+          await loadCanvasState(newId);
+          // Clear the ref
+          canvasSelectedDuringDeletionRef.current = null;
+          return;
+        }
+        
+        // Get the current canvas list after reload
+        const currentCanvases = canvases;
+        console.log('📊 Current canvases after reload:', currentCanvases.map(c => ({ id: c.metadata.id, title: c.metadata.title, folderId: c.metadata.folderId })));
+        
+        if (currentCanvases.length === 0) {
+          // No canvases left, create a new one
+          console.log('🆕 Creating new canvas after deletion');
+          const newId = await createCanvas(defaultCanvasTitle, null, false);
+          setCurrentCanvasId(newId);
+          await loadCanvasState(newId);
+        } else if (!currentCanvasId || currentCanvasId === id) {
+          // No canvas selected or the deleted canvas is still selected, select the first available
+          const firstCanvas = currentCanvases[0];
+          if (firstCanvas) {
+            console.log('🔄 Selecting first available canvas after deletion:', firstCanvas.metadata.id);
+            setCurrentCanvasId(firstCanvas.metadata.id);
+            await loadCanvasState(firstCanvas.metadata.id);
           }
-          return prevCanvases;
-        });
-      }
+        } else {
+          // Canvas is already selected, just load it (this will trigger the normal canvas switching logic)
+          console.log('🔄 Canvas already selected, loading:', currentCanvasId);
+          await loadCanvasState(currentCanvasId);
+        }
+        
+        // Clear the ref at the end
+        canvasSelectedDuringDeletionRef.current = null;
+      }, 50); // Small delay to ensure state is updated
+
+      // Clear deletion flag after a delay to allow for state updates
+      setTimeout(() => {
+        isDeletionInProgressRef.current = false;
+      }, 1000);
 
       return true;
     } catch (err) {
@@ -992,7 +1114,16 @@ export function useCanvasManager(
     } finally {
       setIsLoading(false);
     }
-  }, [currentCanvasId, loadCanvasState, saveCanvasList, effectiveUserId, enableSupabase]);
+  }, [
+    canvases,
+    currentCanvasId,
+    effectiveUserId,
+    enableSupabase,
+    loadUserData,
+    createCanvas,
+    loadCanvasState,
+    defaultCanvasTitle
+  ]);
 
   // Switch to a different canvas - ENHANCED with Supabase support
   const switchCanvas = useCallback(async (id: string): Promise<boolean> => {
@@ -1122,7 +1253,8 @@ export function useCanvasManager(
 
   // SIMPLIFIED: Auto-create default canvas if needed
   useEffect(() => {
-    if (!isInitialized || !autoCreateDefault || defaultCanvasCreatedRef.current || isLoading) {
+    const deletionInProgress = externalDeletionRef?.current || isDeletionInProgressRef.current;
+    if (!isInitialized || !autoCreateDefault || defaultCanvasCreatedRef.current || isLoading || deletionInProgress) {
       return;
     }
     
@@ -1186,11 +1318,21 @@ export function useCanvasManager(
 
   // NEW: Load canvas content when currentCanvasId is set
   useEffect(() => {
-    if (currentCanvasId && editor && isInitialized) {
-
-      loadCanvasState(currentCanvasId);
+    const deletionInProgress = externalDeletionRef?.current || isDeletionInProgressRef.current;
+    
+    // Skip auto-loading if deletion is in progress or if a canvas was already selected during deletion
+    if (deletionInProgress || canvasSelectedDuringDeletionRef.current) {
+      return;
     }
-  }, [currentCanvasId, editor, isInitialized, loadCanvasState]);
+    
+    if (currentCanvasId && editor && isInitialized) {
+      console.log('🔄 Auto-loading canvas content for:', currentCanvasId);
+      // Add a small delay to ensure state updates have propagated
+      setTimeout(() => {
+        loadCanvasState(currentCanvasId);
+      }, 10);
+    }
+  }, [currentCanvasId, editor, isInitialized, loadCanvasState, externalDeletionRef]);
 
   // Get current canvas
   const currentCanvas = canvases.find(canvas => canvas.metadata.id === currentCanvasId) || null;
@@ -1272,6 +1414,18 @@ export function useCanvasManager(
       setError('Failed to save new folder order');
     }
   }, [enableSupabase, effectiveUserId, loadUserData]);
+
+  // Fetch root folder ID when userId changes
+  useEffect(() => {
+    if (effectiveUserId && enableSupabase) {
+      CanvasService.getRootFolder(effectiveUserId)
+        .then(setUserRootFolderId)
+        .catch((err) => {
+          console.error('Failed to fetch root folder ID:', err);
+          setUserRootFolderId(null);
+        });
+    }
+  }, [effectiveUserId, enableSupabase]);
 
   return {
     canvases,
