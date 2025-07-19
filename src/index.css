@@ -231,6 +231,19 @@
   background-color: hsla(39, 88%, 97%, 0.5) !important;
 }
 
+/* Ensure page menu is clickable and above canvas */
+.tlui-page-menu {
+  z-index: 1000 !important;
+  pointer-events: auto !important;
+  position: relative !important;
+}
+
+.tlui-page-menu__header {
+  z-index: 1000 !important;
+  pointer-events: auto !important;
+  position: relative !important;
+}
+
 /* Ensure page menu title uses system font */
 .tlui-page-menu__header__title {
   font-family: var(--font-system) !important;

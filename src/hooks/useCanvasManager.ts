@@ -814,16 +814,43 @@ export function useCanvasManager(
           throw new Error('Database connection required for canvas operations');
         }
         
-        const blankState = createBlankCanvasState();
-        const supabaseCanvas = await CanvasService.createCanvas({
-          user_id: effectiveUserId,
-          folder_id: folderId, // Pass folderId as is (null for top-level)
-          title: title || defaultCanvasTitle,
-          description: '',
-          data: blankState || {},
-          thumbnail: await generateThumbnail() || null,
-          is_public: false,
-        }, insertAtBeginning);
+        // Retry mechanism for canvas creation (in case user profile is not immediately available)
+        let supabaseCanvas;
+        let retryCount = 0;
+        const maxRetries = 3;
+        
+        while (retryCount < maxRetries) {
+          try {
+            const blankState = createBlankCanvasState();
+            supabaseCanvas = await CanvasService.createCanvas({
+              user_id: effectiveUserId,
+              folder_id: folderId, // Pass folderId as is (null for top-level)
+              title: title || defaultCanvasTitle,
+              description: '',
+              data: blankState || {},
+              thumbnail: await generateThumbnail() || null,
+              is_public: false,
+            }, insertAtBeginning);
+            break; // Success, exit retry loop
+          } catch (error: any) {
+            retryCount++;
+            console.log(`🔄 Canvas creation attempt ${retryCount}/${maxRetries} failed:`, error);
+            
+            // If it's a foreign key constraint error and we haven't exhausted retries, wait and retry
+            if (error.code === '23503' && retryCount < maxRetries) {
+              console.log('⏳ User profile might not be ready, waiting before retry...');
+              await new Promise(resolve => setTimeout(resolve, 1000 * retryCount)); // Exponential backoff
+              continue;
+            }
+            
+            // If we've exhausted retries or it's a different error, throw
+            throw error;
+          }
+        }
+        
+        if (!supabaseCanvas) {
+          throw new Error('Failed to create canvas after multiple attempts');
+        }
         
         id = supabaseCanvas.id;
         newCanvas = {

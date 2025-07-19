@@ -225,11 +225,9 @@ export function AccountMenu({ isOpen, onClose }: AccountMenuProps) {
               <DeleteButton
                 text="Sign Out"
                 onClick={handleSignOut}
-                variant="default"
+                variant="danger"
                 style={{
                   marginBottom: '6px',
-                  height: '32px',
-                  borderRadius: '8px',
                 }}
                 title="Sign out of your account"
               />
@@ -237,10 +235,7 @@ export function AccountMenu({ isOpen, onClose }: AccountMenuProps) {
               <DeleteButton
                 text="Delete Account"
                 onClick={() => setShowDeleteConfirm(true)}
-                style={{
-                  height: '32px',
-                  borderRadius: '8px',
-                }}
+                variant="danger"
                 title="Delete your account permanently"
               />
             </div>

@@ -12,8 +12,19 @@ export const CustomPageMenu: React.FC<CustomPageMenuProps> = ({ sidebarVisible }
   const canvasTitle = useCurrentCanvasTitle();
   
   return (
-    <div className="tlui-page-menu">
-      <div className="tlui-page-menu__header" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+    <div className="tlui-page-menu" style={{ 
+      zIndex: 1000, 
+      pointerEvents: 'auto', 
+      position: 'relative' 
+    }}>
+      <div className="tlui-page-menu__header" style={{ 
+        display: 'flex', 
+        alignItems: 'center', 
+        gap: '8px',
+        zIndex: 1000,
+        pointerEvents: 'auto',
+        position: 'relative'
+      }}>
         {/* Arrow Icon in Canvas UI Main Menu */}
         {sidebarVisible ? (
           <ArrowUpLeft 

@@ -1117,12 +1117,36 @@ export const FlowSidebar: React.FC<FlowSidebarProps> = ({
             title="Account Settings"
           >
             <span style={{ flex: '1', textAlign: 'left' }}>Account Settings</span>
-            <span style={{ 
-              display: 'flex', 
-              alignItems: 'center',
-              width: '12px',
-              height: '12px',
-            }}>
+            <div
+              style={{
+                width: '20px',
+                height: '20px',
+                backgroundColor: 'transparent',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                color: '#885050',
+                opacity: 0.5,
+                fontSize: '10px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '2px',
+                marginLeft: '8px',
+                zIndex: 20,
+                position: 'relative',
+                transition: 'opacity 0.2s ease, background-color 0.2s ease',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.opacity = '1';
+                e.currentTarget.style.backgroundColor = 'rgba(136, 80, 80, 0.1)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.opacity = '0.5';
+                e.currentTarget.style.backgroundColor = 'transparent';
+              }}
+              title="Account Settings"
+            >
               {isAccountMenuOpen ? (
                 <X 
                   size={12} 
@@ -1130,30 +1154,12 @@ export const FlowSidebar: React.FC<FlowSidebarProps> = ({
                     e.stopPropagation();
                     setIsAccountMenuOpen(false);
                   }}
-                  style={{ 
-                    cursor: 'pointer', 
-                    opacity: 0.5,
-                    border: '1px solid hsl(214.3, 31.8%, 91.4%)',
-                    borderRadius: '2px',
-                    padding: '1px',
-                    width: '12px',
-                    height: '12px',
-                  }}
+                  style={{ opacity: 1 }} 
                 />
               ) : (
-                <MoreVertical 
-                  size={12} 
-                  style={{ 
-                    opacity: 0.5,
-                    border: '1px solid hsl(214.3, 31.8%, 91.4%)',
-                    borderRadius: '2px',
-                    padding: '1px',
-                    width: '12px',
-                    height: '12px',
-                  }} 
-                />
+                <MoreVertical size={12} style={{ opacity: 1 }} />
               )}
-            </span>
+            </div>
           </button>
           
           {/* Expandable Account Settings Content */}
@@ -1196,7 +1202,8 @@ export const FlowSidebar: React.FC<FlowSidebarProps> = ({
                 borderTop: '1px solid var(--color-divider)',
                 paddingTop: '12px',
               }}>
-                <button
+                <DeleteButton
+                  text="Sign Out"
                   onClick={async () => {
                     const result = await signOut();
                     if (result.error) {
@@ -1204,65 +1211,24 @@ export const FlowSidebar: React.FC<FlowSidebarProps> = ({
                     }
                     setIsAccountMenuOpen(false);
                   }}
+                  variant="danger"
                   style={{
-                    width: '100%',
-                    padding: '6px 10px',
-                    fontSize: '11px',
-                    fontWeight: '500',
-                    fontFamily: 'var(--font-system)',
-                    backgroundColor: 'transparent',
-                    border: 'none',
-                    borderRadius: '6px',
-                    color: '#dc2626', // Red color for sign out action
-                    cursor: 'pointer',
-                    opacity: 0.7,
-                    textAlign: 'center',
                     marginBottom: '6px',
                   }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = 'rgba(220, 38, 38, 0.1)';
-                    e.currentTarget.style.opacity = '1';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = 'transparent';
-                    e.currentTarget.style.opacity = '0.7';
-                  }}
-                >
-                  Sign Out
-                </button>
+                  title="Sign out of your account"
+                />
 
-                <button
+                <DeleteButton
+                  text="Delete Account"
                   onClick={() => {
                     if (confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
                       // TODO: Implement account deletion
                       setIsAccountMenuOpen(false);
                     }
                   }}
-                  style={{
-                    width: '100%',
-                    padding: '6px 10px',
-                    fontSize: '11px',
-                    fontWeight: '500',
-                    fontFamily: 'var(--font-system)',
-                    backgroundColor: 'transparent',
-                    border: 'none',
-                    borderRadius: '6px',
-                    color: '#dc2626', // Red color for delete action
-                    cursor: 'pointer',
-                    opacity: 0.7,
-                    textAlign: 'center',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = 'rgba(220, 38, 38, 0.1)';
-                    e.currentTarget.style.opacity = '1';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = 'transparent';
-                    e.currentTarget.style.opacity = '0.7';
-                  }}
-                >
-                  Delete Account
-                </button>
+                  variant="danger"
+                  title="Delete your account permanently"
+                />
               </div>
             </div>
           </div>

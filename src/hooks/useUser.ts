@@ -36,6 +36,13 @@ export function useUser() {
 
       if (error) {
         console.error('Error fetching profile:', error)
+        
+        // If the user doesn't exist in public.users, try to create it
+        if (error.code === 'PGRST116') {
+          console.log('🔄 User profile not found, attempting to create...')
+          return await createUserProfile(userId)
+        }
+        
         setError(error.message)
         return null
       }
@@ -44,6 +51,45 @@ export function useUser() {
       return data as UserProfile
     } catch (err) {
       console.error('Error in fetchProfile:', err)
+      setError(err instanceof Error ? err.message : 'Unknown error')
+      return null
+    }
+  }
+
+  // Create user profile if it doesn't exist
+  const createUserProfile = async (userId: string) => {
+    try {
+      // Get user info from auth
+      const { data: { user }, error: authError } = await supabase.auth.getUser()
+      
+      if (authError || !user) {
+        console.error('Error getting auth user:', authError)
+        return null
+      }
+
+      // Create user profile
+      const { data, error } = await supabase
+        .from('users')
+        .insert({
+          id: userId,
+          email: user.email || '',
+          display_name: user.user_metadata?.display_name || user.email || '',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .select()
+        .single()
+
+      if (error) {
+        console.error('Error creating user profile:', error)
+        setError(error.message)
+        return null
+      }
+
+      console.log('✅ User profile created successfully')
+      return data as UserProfile
+    } catch (err) {
+      console.error('Error in createUserProfile:', err)
       setError(err instanceof Error ? err.message : 'Unknown error')
       return null
     }
