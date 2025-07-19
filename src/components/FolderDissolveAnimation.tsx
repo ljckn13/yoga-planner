@@ -66,7 +66,7 @@ export const FolderDissolveAnimation: React.FC<FolderDissolveAnimationProps> = (
       setHeight(initialHeight);
       
       // Phase 1: Dissolve folder content (opacity animation)
-      const dissolveDuration = 600; // 600ms for dissolve
+      const dissolveDuration = 1000; //  1000ms for dissolve (slower for folders)
       const dissolveStart = Date.now();
       
       animationRef.current.dissolveInterval = setInterval(() => {
