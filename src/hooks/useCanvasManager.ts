@@ -3,6 +3,7 @@ import { type Editor, loadSnapshot, getSnapshot } from 'tldraw';
 import { CanvasService } from '../services/canvasService';
 // ROOT_FOLDER_ID no longer needed - using null for top-level canvases
 import type { Folder } from '../lib/supabase';
+import { supabase } from '../lib/supabase';
 import { arrayMove } from '@dnd-kit/sortable';
 
 export interface CanvasMetadata {
@@ -33,6 +34,7 @@ export interface UseCanvasManagerReturn {
   isLoading: boolean;
   error: string | null;
   createCanvas: (title?: string, folderId?: string | null, insertAtBeginning?: boolean) => Promise<string>;
+  duplicateCanvas: (id: string) => Promise<string>;
   updateCanvas: (id: string, updates: Partial<CanvasMetadata>) => Promise<boolean>;
   deleteCanvas: (id: string) => Promise<boolean>;
   switchCanvas: (id: string) => Promise<boolean>;
@@ -989,6 +991,153 @@ export function useCanvasManager(
     }
   }, [effectiveUserId, enableSupabase, isProduction, createBlankCanvasState, generateThumbnail, loadCanvasState, version, defaultCanvasTitle]);
 
+  // Duplicate a canvas
+  const duplicateCanvas = useCallback(async (id: string): Promise<string> => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      // Find the canvas to duplicate
+      const sourceCanvas = canvases.find(c => c.metadata.id === id);
+      if (!sourceCanvas) {
+        throw new Error('Canvas not found');
+      }
+
+      // If this is the current canvas, save it first to ensure we have the latest content
+      if (currentCanvasId === id && editor) {
+        console.log('💾 Saving current canvas before duplication...');
+        const currentSnapshot = getSnapshot(editor.store);
+        const canvasState = {
+          snapshot: currentSnapshot,
+          timestamp: Date.now(),
+          version: version,
+        };
+        
+        // Save to both Supabase and localStorage for reliability
+        if (effectiveUserId && enableSupabase) {
+          try {
+            await CanvasService.updateCanvas(id, { data: canvasState });
+          } catch (supabaseError) {
+            console.error('Failed to save to Supabase:', supabaseError);
+            // Fallback to localStorage
+            const storageKey = `${STORAGE_KEY_PREFIX}${id}`;
+            localStorage.setItem(storageKey, JSON.stringify(canvasState));
+          }
+        } else {
+          // Fallback to localStorage
+          const storageKey = `${STORAGE_KEY_PREFIX}${id}`;
+          localStorage.setItem(storageKey, JSON.stringify(canvasState));
+        }
+      }
+
+      // Create new title with "(Copy)" suffix
+      const originalTitle = sourceCanvas.metadata.title;
+      const newTitle = originalTitle.endsWith(' (Copy)') 
+        ? `${originalTitle} (2)`
+        : `${originalTitle} (Copy)`;
+
+      // Load the source canvas state
+      const storageKey = `${STORAGE_KEY_PREFIX}${id}`;
+      let sourceCanvasState = null;
+      
+      if (effectiveUserId && enableSupabase) {
+        try {
+          const canvasData = await CanvasService.getCanvasWithFolder(id);
+          sourceCanvasState = canvasData.data;
+        } catch (supabaseError) {
+          console.error('Failed to load canvas from Supabase:', supabaseError);
+          // Fallback to localStorage
+          const savedData = localStorage.getItem(storageKey);
+          if (savedData) {
+            sourceCanvasState = JSON.parse(savedData);
+          }
+        }
+      } else {
+        // LocalStorage only
+        const savedData = localStorage.getItem(storageKey);
+        if (savedData) {
+          sourceCanvasState = JSON.parse(savedData);
+        }
+      }
+
+      // Create the new canvas with the duplicated content
+      const newCanvasId = await createCanvas(newTitle, sourceCanvas.metadata.folderId, false);
+      
+      // Save the duplicated content to the new canvas
+      if (sourceCanvasState) {
+        const newStorageKey = `${STORAGE_KEY_PREFIX}${newCanvasId}`;
+        
+        if (effectiveUserId && enableSupabase) {
+          try {
+            await CanvasService.updateCanvas(newCanvasId, { data: sourceCanvasState });
+          } catch (supabaseError) {
+            console.error('Failed to save duplicated canvas to Supabase:', supabaseError);
+            // Fallback to localStorage
+            localStorage.setItem(newStorageKey, JSON.stringify(sourceCanvasState));
+          }
+        } else {
+          // LocalStorage only
+          localStorage.setItem(newStorageKey, JSON.stringify(sourceCanvasState));
+        }
+      }
+
+      // Handle sort order: insert the duplicated canvas right after the source canvas
+      if (effectiveUserId && enableSupabase) {
+        try {
+          // Get all canvases in the same folder, sorted by current sort_order
+          const sameFolderCanvases = canvases
+            .filter(c => c.metadata.folderId === sourceCanvas.metadata.folderId)
+            .sort((a, b) => (a.metadata.sort_order || 0) - (b.metadata.sort_order || 0));
+          
+          // Find the source canvas position
+          const sourceIndex = sameFolderCanvases.findIndex(c => c.metadata.id === id);
+          if (sourceIndex !== -1) {
+            // Create the new order: insert the duplicated canvas after the source
+            const canvasIds = sameFolderCanvases.map(canvas => canvas.metadata.id);
+            canvasIds.splice(sourceIndex + 1, 0, newCanvasId);
+            
+            // Use the database function to reorder all canvases in the folder
+            const { error: reorderError } = await supabase
+              .rpc('reorder_canvases_in_folder', {
+                p_user_id: effectiveUserId,
+                p_canvas_ids: canvasIds,
+                p_folder_id: sourceCanvas.metadata.folderId
+              });
+            
+            if (reorderError) {
+              throw reorderError;
+            }
+            
+            console.log('🔄 Reordered canvases for duplicated canvas:', {
+              sourceId: id,
+              newCanvasId,
+              folderId: sourceCanvas.metadata.folderId,
+              newOrder: canvasIds
+            });
+            
+            // Reload the canvas list to reflect the new sort order
+            await loadUserData();
+          }
+        } catch (sortError) {
+          console.error('Failed to update sort orders for duplicated canvas:', sortError);
+        }
+      }
+
+      // Switch to the new canvas
+      setCurrentCanvasId(newCanvasId);
+      await loadCanvasState(newCanvasId);
+
+      return newCanvasId;
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to duplicate canvas';
+      setError(errorMessage);
+      console.error('Error duplicating canvas:', err);
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [canvases, effectiveUserId, enableSupabase, createCanvas, loadCanvasState, currentCanvasId, editor, version]);
+
   // Update canvas metadata
   const updateCanvas = useCallback(async (
     id: string, 
@@ -1451,6 +1600,7 @@ export function useCanvasManager(
     isLoading,
     error,
     createCanvas,
+    duplicateCanvas,
     updateCanvas,
     deleteCanvas,
     switchCanvas,

@@ -8,6 +8,7 @@ interface EditableCanvasTitleProps {
   onCancelEdit: () => void;
   style?: React.CSSProperties;
   className?: string;
+  isCurrent?: boolean; // Add this prop to know the background color
 }
 
 export function EditableCanvasTitle({ 
@@ -17,10 +18,13 @@ export function EditableCanvasTitle({
   onStartEdit, 
   onCancelEdit,
   style,
-  className
+  className,
+  isCurrent = false
 }: EditableCanvasTitleProps) {
   const [editValue, setEditValue] = React.useState(title);
+  const [isOverflowing, setIsOverflowing] = React.useState(false);
   const inputRef = React.useRef<HTMLInputElement>(null);
+  const titleRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
     if (isEditing && inputRef.current) {
@@ -32,6 +36,48 @@ export function EditableCanvasTitle({
   React.useEffect(() => {
     setEditValue(title);
   }, [title]);
+
+  // Check if text is overflowing
+  React.useEffect(() => {
+    const checkOverflow = () => {
+      if (titleRef.current) {
+        const textElement = titleRef.current;
+        const containerElement = textElement.parentElement;
+        
+        if (!containerElement) return;
+        
+        // Get the actual text width by creating a temporary element
+        const tempElement = document.createElement('span');
+        tempElement.style.cssText = `
+          position: absolute;
+          visibility: hidden;
+          white-space: nowrap;
+          font-family: ${getComputedStyle(textElement).fontFamily};
+          font-size: ${getComputedStyle(textElement).fontSize};
+          font-weight: ${getComputedStyle(textElement).fontWeight};
+        `;
+        tempElement.textContent = title;
+        document.body.appendChild(tempElement);
+        
+        const textWidth = tempElement.offsetWidth;
+        const containerWidth = containerElement.offsetWidth;
+        
+        // Account for settings button if current
+        const availableWidth = isCurrent ? containerWidth - 28 : containerWidth;
+        
+        const overflowing = textWidth > availableWidth;
+        
+        document.body.removeChild(tempElement);
+        setIsOverflowing(overflowing);
+      }
+    };
+
+    // Check immediately and after a delay
+    checkOverflow();
+    const timeoutId = setTimeout(checkOverflow, 100);
+    
+    return () => clearTimeout(timeoutId);
+  }, [title, isCurrent]);
 
   const handleSave = () => {
     const trimmedValue = editValue.trim();
@@ -93,16 +139,37 @@ export function EditableCanvasTitle({
   }
 
   const { fontWeight, ...otherStyles } = style || {};
+  
   return (
     <div
       onDoubleClick={onStartEdit}
-      className={`text-primary cursor-pointer w-full overflow-hidden text-ellipsis whitespace-nowrap ${className || ''}`}
+      className={`text-primary cursor-pointer w-full overflow-hidden whitespace-nowrap ${className || ''}`}
       style={{
+        position: 'relative',
         ...otherStyles
       }}
       title={`Double-click to edit: ${title}`}
     >
-      {title}
+      {/* The actual title text */}
+      <div
+        ref={titleRef}
+        style={{
+          position: 'relative',
+          zIndex: 1,
+          // Use CSS mask to fade the text itself
+          overflow: 'hidden',
+          whiteSpace: 'nowrap',
+          // Apply mask only when overflowing
+          ...(isOverflowing && {
+            WebkitMaskImage: `linear-gradient(to right, black 0%, black calc(100% - 20px), transparent 100%)`,
+            maskImage: `linear-gradient(to right, black 0%, black calc(100% - 20px), transparent 100%)`,
+          })
+        }}
+      >
+        {title}
+      </div>
+      
+      {/* Remove the overlay approach */}
     </div>
   );
 } 

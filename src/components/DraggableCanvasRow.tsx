@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { MoreVertical } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { EditableCanvasTitle } from './EditableCanvasTitle';
+import { CanvasSettingsPopup } from './CanvasSettingsPopup';
 
 interface Canvas {
   id: string;
@@ -18,6 +19,7 @@ interface DraggableCanvasRowProps {
   isEditing: boolean;
   onSwitch: (id: string) => void;
   onDelete: (id: string) => void;
+  onDuplicate: (id: string) => void;
   onUpdate: (id: string, updates: { title?: string }) => void;
   onStartEdit: (id: string) => void;
   onCancelEdit: () => void;
@@ -30,10 +32,15 @@ export const DraggableCanvasRow: React.FC<DraggableCanvasRowProps> = React.memo(
   isEditing,
   onSwitch,
   onDelete,
+  onDuplicate,
   onUpdate,
   onStartEdit,
   onCancelEdit,
 }) => {
+  const [isPopupOpen, setIsPopupOpen] = useState(false);
+  const [isHoverTriggered, setIsHoverTriggered] = useState(false);
+  const settingsButtonRef = useRef<HTMLDivElement>(null);
+  const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   // Memoize the sortable data to prevent infinite re-renders
   // Only include essential data that doesn't change during drag operations
   // NOTE: We don't include 'index' to avoid confusion between SortableContext indices and database sort_order
@@ -62,6 +69,41 @@ export const DraggableCanvasRow: React.FC<DraggableCanvasRowProps> = React.memo(
     transform: CSS.Transform.toString(transform),
     transition,
   };
+
+  // Handle hover with 800ms delay
+  const handleMouseEnter = () => {
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+    }
+    hoverTimeoutRef.current = setTimeout(() => {
+      setIsPopupOpen(true);
+      setIsHoverTriggered(true);
+    }, 800);
+  };
+
+  const handleMouseLeave = () => {
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+      hoverTimeoutRef.current = null;
+    }
+  };
+
+  // Handle click
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setIsPopupOpen(true);
+    setIsHoverTriggered(false);
+  };
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (hoverTimeoutRef.current) {
+        clearTimeout(hoverTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const canvasElement = (
     <div
@@ -131,16 +173,14 @@ export const DraggableCanvasRow: React.FC<DraggableCanvasRowProps> = React.memo(
         onStartEdit={() => onStartEdit(canvas.id)}
         onCancelEdit={onCancelEdit}
         className="text-primary flex items-center"
+        isCurrent={isCurrent}
       />
       
       {isCurrent && !isEditing && (
         <div
+          ref={settingsButtonRef}
           data-no-dnd="true"
-          onClick={(e) => {
-            e.stopPropagation();
-            e.preventDefault();
-            onDelete(canvas.id);
-          }}
+          onClick={handleClick}
           onMouseDown={(e) => {
             e.stopPropagation();
             e.preventDefault();
@@ -175,12 +215,14 @@ export const DraggableCanvasRow: React.FC<DraggableCanvasRowProps> = React.memo(
           onMouseEnter={(e) => {
             e.currentTarget.style.opacity = '1';
             e.currentTarget.style.backgroundColor = 'rgba(136, 80, 80, 0.1)';
+            handleMouseEnter();
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.opacity = '0.5';
             e.currentTarget.style.backgroundColor = 'transparent';
+            handleMouseLeave();
           }}
-          title="Delete canvas"
+          title="Canvas settings"
         >
           <MoreVertical size={12} style={{ opacity: 1 }} />
         </div>
@@ -191,6 +233,17 @@ export const DraggableCanvasRow: React.FC<DraggableCanvasRowProps> = React.memo(
   return (
     <div style={{ position: 'relative' }}>
       {canvasElement}
+      
+      {/* Canvas Settings Popup - rendered via portal */}
+      <CanvasSettingsPopup
+        isOpen={isPopupOpen}
+        onClose={() => setIsPopupOpen(false)}
+        onRename={() => onStartEdit(canvas.id)}
+        onDuplicate={() => onDuplicate(canvas.id)}
+        onDelete={() => onDelete(canvas.id)}
+        triggerRef={settingsButtonRef}
+        isHoverTriggered={isHoverTriggered}
+      />
     </div>
   );
 }); 
