@@ -37,7 +37,7 @@ http://localhost:5173
 ### 4. Authentication Flow
 
 - **Unauthenticated users**: See the sign-in page
-- **Authenticated users**: See the yoga flow planner
+- **Authenticated users**: See the yoga planner
 - **Magic link**: Sent to user's email
 - **Session persistence**: Automatically maintained across browser sessions
 

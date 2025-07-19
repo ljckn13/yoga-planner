@@ -182,9 +182,9 @@ To run from source:
 go run . help
 ```
 
-# Yoga Flow Planner React
+# Yoga Planner
 
-A React-based yoga flow planning application with drag-and-drop functionality for organizing canvases and folders.
+A React-based yoga planning application with drag-and-drop functionality for organizing canvases and folders.
 
 ## Features
 

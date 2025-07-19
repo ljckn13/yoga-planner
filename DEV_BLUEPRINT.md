@@ -6,7 +6,7 @@
 
 ## 📋 Project Overview
 
-Building a yoga flow planner with multi-canvas support, auto-save, and user authentication. Users can create, edit, and manage multiple yoga flow canvases with tldraw integration.
+Building a yoga planner with multi-canvas support, auto-save, and user authentication. Users can create, edit, and manage multiple yoga flow canvases with tldraw integration.
 
 ### Core Features (MVP)
 - ✅ Basic yoga pose placement with tldraw

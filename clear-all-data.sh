@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "🧹 COMPLETE YOGA FLOW PLANNER RESET"
+echo "🧹 COMPLETE YOGA PLANNER RESET"
 echo "==================================="
 echo ""
 

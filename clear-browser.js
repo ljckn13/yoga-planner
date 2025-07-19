@@ -1,4 +1,4 @@
-// Clear ALL browser storage for the yoga flow planner app
+// Clear ALL browser storage for the yoga planner app
 // Run this in the browser console for complete reset
 
 console.log('🧹 COMPLETE STORAGE RESET - Clearing everything...');

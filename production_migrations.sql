@@ -1,4 +1,4 @@
--- Production Migrations for Yoga Flow Planner
+-- Production Migrations for Yoga Planner
 -- Run this in your Supabase SQL Editor
 
 -- ===== MIGRATION 1: Fix the get_next_canvas_sort_order_v2 function =====
