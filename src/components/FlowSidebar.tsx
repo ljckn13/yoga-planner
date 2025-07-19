@@ -4,7 +4,7 @@ import { useCanvasManager } from '../hooks/useCanvasManager';
 import { useSidebarDragAndDrop } from '../hooks/useSidebarDragAndDrop';
 import { DraggableCanvasRow } from './DraggableCanvasRow';
 import { DeleteButton } from './DeleteButton';
-import { CanvasDissolveAnimation } from './CanvasDissolveAnimation';
+
 import { FolderDissolveAnimation } from './FolderDissolveAnimation';
 import { MoreVertical, X, Folder, FolderOpen } from 'lucide-react';
 import {
@@ -261,7 +261,6 @@ const FolderComponent: React.FC<{
   handleStartFolderEdit: (id: string, name: string) => void;
   handleCancelFolderEdit: () => void;
   handleSaveFolderEdit: (id: string) => void;
-  handleDeleteFolder: (id: string) => void;
   handleDeleteFolderWithoutConfirmation: (id: string) => void;
   handleSwitchCanvas: (id: string) => void;
   handleDeleteCanvas: (id: string) => void;
@@ -286,7 +285,6 @@ const FolderComponent: React.FC<{
   handleStartFolderEdit,
   handleCancelFolderEdit,
   handleSaveFolderEdit,
-  handleDeleteFolder,
   handleDeleteFolderWithoutConfirmation,
   handleSwitchCanvas,
   handleDeleteCanvas,
@@ -815,23 +813,7 @@ export const FlowSidebar: React.FC<FlowSidebarProps> = ({
     }
   };
 
-  const handleDeleteFolder = async (folderId: string) => {
-    // Check if folder is empty
-    const folderCanvases = getFolderCanvases(folderId);
-    if (folderCanvases.length > 0) {
-      alert('Only empty folders can be deleted');
-      return;
-    }
-    
-    if (confirm('Are you sure you want to delete this folder?')) {
-      try {
-        await deleteFolder(folderId);
-      } catch (error) {
-        console.error('Failed to delete folder:', error);
-        alert('Failed to delete folder');
-      }
-    }
-  };
+
 
   // Version without confirmation for use after animation
   const handleDeleteFolderWithoutConfirmation = async (folderId: string) => {
@@ -1082,7 +1064,6 @@ export const FlowSidebar: React.FC<FlowSidebarProps> = ({
                           handleStartFolderEdit={handleStartFolderEdit}
                           handleCancelFolderEdit={handleCancelFolderEdit}
                           handleSaveFolderEdit={handleSaveFolderEdit}
-                          handleDeleteFolder={handleDeleteFolder}
                           handleDeleteFolderWithoutConfirmation={handleDeleteFolderWithoutConfirmation}
                           handleSwitchCanvas={onSwitchCanvas}
                           handleDeleteCanvas={onDeleteCanvas}

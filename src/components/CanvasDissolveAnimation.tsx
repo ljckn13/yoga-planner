@@ -11,7 +11,7 @@ export const CanvasDissolveAnimation: React.FC<CanvasDissolveAnimationProps> = (
   onAnimationComplete,
   children,
 }) => {
-  const [animationPhase, setAnimationPhase] = useState<'idle' | 'dissolving' | 'collapsing' | 'complete'>('idle');
+
   const [opacity, setOpacity] = useState(1);
   const [height, setHeight] = useState(36); // Initial height in pixels
   const [borderColor, setBorderColor] = useState('transparent');
@@ -24,7 +24,6 @@ export const CanvasDissolveAnimation: React.FC<CanvasDissolveAnimationProps> = (
     if (isDeleting && !hasStartedRef.current) {
       hasStartedRef.current = true;
       console.log('🎬 Starting canvas dissolve animation');
-      setAnimationPhase('dissolving');
       
       // Phase 1: Dissolve popup, settings icon, and text (opacity animation)
       const dissolveDuration = 500; // 500ms for dissolve (reduced from 800ms)
@@ -50,7 +49,6 @@ export const CanvasDissolveAnimation: React.FC<CanvasDissolveAnimationProps> = (
             animationRef.current.dissolveInterval = undefined;
           }
           console.log('🎬 Dissolve phase complete, starting collapse phase');
-          setAnimationPhase('collapsing');
           
           // Phase 2: Collapse height to 1px with red border
           const collapseDuration = 400; // 400ms for collapse (reduced from 600ms)
@@ -79,7 +77,6 @@ export const CanvasDissolveAnimation: React.FC<CanvasDissolveAnimationProps> = (
                 clearInterval(animationRef.current.collapseInterval);
                 animationRef.current.collapseInterval = undefined;
               }
-              setAnimationPhase('complete');
               console.log('✅ Canvas dissolve animation complete');
               setTimeout(() => {
                 onAnimationComplete();
@@ -93,7 +90,6 @@ export const CanvasDissolveAnimation: React.FC<CanvasDissolveAnimationProps> = (
     // Reset when not deleting
     if (!isDeleting) {
       hasStartedRef.current = false;
-      setAnimationPhase('idle');
       setOpacity(1);
       setHeight(36);
       setBorderColor('transparent');

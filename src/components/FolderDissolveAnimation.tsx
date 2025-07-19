@@ -15,11 +15,8 @@ export const FolderDissolveAnimation: React.FC<FolderDissolveAnimationProps> = (
   isOpen,
   hasContent,
 }) => {
-  const [animationPhase, setAnimationPhase] = useState<'idle' | 'dissolving' | 'collapsing' | 'complete'>('idle');
   const [opacity, setOpacity] = useState(1);
   const [height, setHeight] = useState<number | null>(null); // Dynamic height
-  const [borderColor, setBorderColor] = useState('transparent');
-  const [borderWidth, setBorderWidth] = useState(0);
   const [isDeletionComplete, setIsDeletionComplete] = useState(false);
   const [isDeletionInProgress, setIsDeletionInProgress] = useState(false);
   const animationRef = useRef<{ dissolveInterval?: NodeJS.Timeout; collapseInterval?: NodeJS.Timeout }>({});
@@ -67,7 +64,6 @@ export const FolderDissolveAnimation: React.FC<FolderDissolveAnimationProps> = (
     // Only start animation once when isDeleting becomes true
     if (isDeleting && !hasStartedRef.current) {
       hasStartedRef.current = true;
-      setAnimationPhase('dissolving');
       
       const initialHeight = getInitialHeight();
       setHeight(initialHeight);
@@ -93,7 +89,6 @@ export const FolderDissolveAnimation: React.FC<FolderDissolveAnimationProps> = (
               clearInterval(animationRef.current.dissolveInterval);
               animationRef.current.dissolveInterval = undefined;
             }
-            setAnimationPhase('collapsing');
           
           // Phase 2: Collapse height to 0px with red border
           const collapseDuration = 500; // 500ms for collapse
@@ -118,7 +113,6 @@ export const FolderDissolveAnimation: React.FC<FolderDissolveAnimationProps> = (
                 clearInterval(animationRef.current.collapseInterval);
                 animationRef.current.collapseInterval = undefined;
               }
-              setAnimationPhase('complete');
               setTimeout(() => {
                 setIsDeletionInProgress(true);
                 onAnimationComplete();
@@ -132,7 +126,6 @@ export const FolderDissolveAnimation: React.FC<FolderDissolveAnimationProps> = (
     // Reset when not deleting
     if (!isDeleting) {
       hasStartedRef.current = false;
-      setAnimationPhase('idle');
       setOpacity(1);
       setHeight(null); // Reset to auto height
       setIsDeletionComplete(false);

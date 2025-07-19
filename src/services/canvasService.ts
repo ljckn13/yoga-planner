@@ -118,9 +118,6 @@ export class CanvasService {
 
       // If there are canvases in this folder, we need to move them to root
       if (canvases && canvases.length > 0) {
-        // Get the user_id from the first canvas
-        const userId = canvases[0].user_id
-        
         // For now, just set folder_id to null (root level) instead of using root folder function
         const { error: updateError } = await supabase
           .from('canvases')
