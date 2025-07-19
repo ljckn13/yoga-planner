@@ -24,7 +24,12 @@ export const FolderDissolveAnimation: React.FC<FolderDissolveAnimationProps> = (
 
   // Calculate initial height based on folder state
   const getInitialHeight = () => {
-    // Calculate total height including all padding
+    // For empty folders, we know the exact height is 84px (including padding)
+    if (!hasContent) {
+      return 84;
+    }
+    
+    // For folders with content, calculate dynamic height
     const headerHeight = 24; // Folder header height
     const headerPadding = 16; // 8px top + 8px bottom padding
     const contentPadding = 8; // Bottom padding of content area
@@ -36,26 +41,18 @@ export const FolderDissolveAnimation: React.FC<FolderDissolveAnimationProps> = (
       // Add gap between header and content (flex gap: '8px')
       totalHeight += 8;
       
-      if (hasContent) {
-        // Add height for canvas content
-        const canvasHeight = 36; // Height of each canvas row
-        const canvasGap = 8; // Gap between canvases
-        const canvasPadding = 8; // 4px left + 4px right padding for canvas container
-        const canvasCount = 1; // Assume 1 canvas for height calculation
-        
-        totalHeight += (canvasHeight * canvasCount) + (canvasGap * (canvasCount - 1)) + canvasPadding;
-      } else {
-        // Add height for delete button area
-        totalHeight += 40; // Approximate height for delete button
-      }
+      // Add height for canvas content
+      const canvasHeight = 36; // Height of each canvas row
+      const canvasGap = 8; // Gap between canvases
+      const canvasPadding = 8; // 4px left + 4px right padding for canvas container
+      const canvasCount = 1; // Assume 1 canvas for height calculation
+      
+      totalHeight += (canvasHeight * canvasCount) + (canvasGap * (canvasCount - 1)) + canvasPadding;
     }
     
     // Add the margin bottom that creates space between folders
     const folderMarginBottom = isOpen ? 16 : 4; // marginBottom: isOpen ? '16px' : '4px'
     totalHeight += folderMarginBottom;
-    
-    // Add small buffer to ensure smooth animation
-    totalHeight += 8;
     
     return totalHeight;
   };
