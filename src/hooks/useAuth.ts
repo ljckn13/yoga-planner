@@ -23,7 +23,22 @@ export function useAuth() {
         const { data: { session }, error } = await supabase.auth.getSession()
         
         if (error) {
-          console.error('Error getting session:', error)
+          console.log('🔐 Session error detected, clearing stale session:', error.message)
+          
+          // If it's a JWT error (stale token) or missing session, clear the session
+          if (error.message.includes('JWT') || 
+              error.message.includes('sub claim') ||
+              error.message.includes('Auth session missing')) {
+            await supabase.auth.signOut()
+            setAuthState({
+              user: null,
+              isLoading: false,
+              error: null // Don't set error for normal auth states
+            })
+            return
+          }
+          
+          // For other errors, set the error state
           setAuthState(prev => ({ ...prev, error: error.message, isLoading: false }))
           return
         }

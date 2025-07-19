@@ -20,7 +20,7 @@ export class CanvasService {
     try {
       // Use the database function to ensure root folder exists
       const { data: rootFolderId, error } = await supabase
-        .rpc('ensure_root_folder_exists', {
+        .rpc('ensure_root_folder_exists_v2', {
           p_user_id: userId
         });
 
@@ -185,7 +185,7 @@ export class CanvasService {
       
       // Get the next sort order using the database function
       const { data: nextSortOrder, error: sortError } = await supabase
-        .rpc('get_next_canvas_sort_order', {
+        .rpc('get_next_canvas_sort_order_v2', {
           p_user_id: canvas.user_id,
           p_folder_id: effectiveFolderId,
           p_insert_at_beginning: insertAtBeginning

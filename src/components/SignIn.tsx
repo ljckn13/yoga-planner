@@ -1,34 +1,42 @@
-import React, { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuthContext } from './AuthProvider'
 
 export function SignIn() {
+  const { signIn, isLoading, error, clearError } = useAuthContext()
   const [email, setEmail] = useState('')
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [message, setMessage] = useState('')
-  const { signIn, error, clearError } = useAuthContext()
+  const [isSubmitted, setIsSubmitted] = useState(false)
+
+  // Clear any stale authentication data when component mounts
+  useEffect(() => {
+    // Clear any stale JWT tokens from localStorage
+    localStorage.removeItem('sb-lmwbfbnduhijqmoqhxpi-auth-token')
+    localStorage.removeItem('supabase.auth.token')
+    
+    // Clear sessionStorage as well
+    sessionStorage.clear()
+    
+    // Clear any Supabase-related cookies
+    document.cookie.split(";").forEach(function(c) { 
+      document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
+    });
+    
+    console.log('🧹 Cleared stale authentication data')
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
-    if (!email.trim()) {
-      setMessage('Please enter your email address')
-      return
-    }
+    if (!email.trim()) return
 
-    setIsSubmitting(true)
-    setMessage('')
+    setIsSubmitted(true)
     clearError()
 
     const result = await signIn(email.trim())
     
-    if (result.error) {
-      setMessage(result.error)
+    if (result.success) {
+      setIsSubmitted(true)
     } else {
-      setMessage('Check your email for the magic link!')
-      setEmail('')
+      setIsSubmitted(false)
     }
-    
-    setIsSubmitting(false)
   }
 
   return (
@@ -81,7 +89,7 @@ export function SignIn() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="Enter your email"
-                disabled={isSubmitting}
+                disabled={isLoading}
                 style={{
                   width: '100%',
                   padding: '10px 12px',
@@ -118,23 +126,23 @@ export function SignIn() {
               </div>
             )}
 
-            {message && !error && (
-              <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg text-sm text-primary font-system" style={{
+            {isSubmitted && !error && (
+              <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-primary font-system" style={{
                 padding: '12px',
-                backgroundColor: '#ffe5d0',
-                border: '1px solid #fcb69f',
+                backgroundColor: '#e0f2f7',
+                border: '1px solid #90cdf4',
                 borderRadius: '8px',
                 fontSize: '14px',
                 color: '#885050',
                 fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
               }}>
-                {message}
+                Magic link sent! Check your email and click the link to sign in.
               </div>
             )}
 
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isLoading || !email.trim()}
               className="btn-primary w-full py-2.5 px-4 text-sm font-medium cursor-pointer font-system shadow-neumorphic opacity-100 disabled:opacity-60 disabled:cursor-not-allowed"
               style={{
                 width: '100%',
@@ -145,30 +153,39 @@ export function SignIn() {
                 borderRadius: '8px',
                 fontSize: '14px',
                 fontWeight: '500',
-                cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                cursor: isLoading ? 'not-allowed' : 'pointer',
                 transition: 'all 0.1s ease',
                 fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
                 boxShadow: '-2px -2px 10px rgba(255, 248, 220, 1), 3px 3px 10px rgba(255, 69, 0, 0.4)',
                 backdropFilter: 'blur(10px)',
                 WebkitBackdropFilter: 'blur(10px)',
-                opacity: isSubmitting ? 0.6 : 1,
+                opacity: isLoading ? 0.6 : 1,
                 textAlign: 'center',
                 display: 'flex',
                 justifyContent: 'center',
                 alignItems: 'center',
               }}
               onMouseEnter={(e) => {
-                if (!isSubmitting) {
+                if (!isLoading) {
                   e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.15)';
                 }
               }}
               onMouseLeave={(e) => {
-                if (!isSubmitting) {
+                if (!isLoading) {
                   e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
                 }
               }}
             >
-              {isSubmitting ? 'Sending...' : 'Sign in'}
+              {isLoading ? (
+                <div className="flex items-center">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Sending magic link...
+                </div>
+              ) : isSubmitted ? (
+                'Check your email!'
+              ) : (
+                'Send magic link'
+              )}
             </button>
           </form>
         </div>

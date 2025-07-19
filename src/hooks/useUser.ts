@@ -27,7 +27,6 @@ export function useUser() {
   // Get user profile from database
   const fetchProfile = async (userId: string) => {
     try {
-  
       const { data, error } = await supabase
         .from('users')
         .select('*')
@@ -38,15 +37,15 @@ export function useUser() {
         console.error('Error fetching profile:', error)
         
         // If the user doesn't exist in public.users, try to create it
-        if (error.code === 'PGRST116') {
+        if (error.code === 'PGRST116' || error.code === '406') {
           console.log('🔄 User profile not found, attempting to create...')
           return await createUserProfile(userId)
         }
         
+        // For other errors, set the error and return null
         setError(error.message)
         return null
       }
-
 
       return data as UserProfile
     } catch (err) {
@@ -98,24 +97,55 @@ export function useUser() {
   // Load profile when user changes
   useEffect(() => {
     const loadProfile = async () => {
-      // Get current user from auth
-      const { data: { user } } = await supabase.auth.getUser()
-      
-      if (user) {
-    
-        setIsLoading(true)
-        setError(null)
+      try {
+        // Get current user from auth
+        const { data: { user }, error: authError } = await supabase.auth.getUser()
         
-        const userProfile = await fetchProfile(user.id)
-        if (userProfile) {
-          setProfile(userProfile)
+        if (authError) {
+          console.log('🔐 Authentication error in useUser, clearing session:', authError.message)
+          
+          // If it's a JWT error (stale token) or missing session, clear the session
+          if (authError.message.includes('JWT') || 
+              authError.message.includes('sub claim') ||
+              authError.message.includes('Auth session missing')) {
+            await supabase.auth.signOut()
+            setProfile(null)
+            setError(null) // Don't set error for normal auth states
+            setIsLoading(false)
+            return
+          }
+          
+          // For other errors, set the error state
+          setProfile(null)
+          setError(authError.message)
+          setIsLoading(false)
+          return
         }
-      } else {
-  
+        
+        if (user) {
+          console.log('👤 User found, loading profile...')
+          setIsLoading(true)
+          setError(null)
+          
+          const userProfile = await fetchProfile(user.id)
+          if (userProfile) {
+            setProfile(userProfile)
+          } else {
+            // Profile fetch failed, but user exists - this is an error state
+            setError('Failed to load user profile')
+          }
+        } else {
+          console.log('🔐 No user found, redirecting to sign in')
+          setProfile(null)
+          setError(null)
+        }
+      } catch (err) {
+        console.error('Error in loadProfile:', err)
         setProfile(null)
+        setError(err instanceof Error ? err.message : 'Unknown error')
+      } finally {
+        setIsLoading(false)
       }
-      
-      setIsLoading(false)
     }
 
     loadProfile()
@@ -266,4 +296,4 @@ export function useUser() {
     deleteAvatar,
     clearError: () => setError(null)
   }
-} 
+}
