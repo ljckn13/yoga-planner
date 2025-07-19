@@ -37,6 +37,10 @@
 }
 
 @layer base {
+  html {
+    overflow: hidden;
+  }
+  
   * {
     border-color: hsl(var(--border, 214.3 31.8% 91.4%));
     font-family: var(--font-system) !important;
@@ -48,6 +52,7 @@
     min-width: 320px;
     min-height: 100vh;
     font-family: var(--font-system) !important;
+    overflow: hidden;
   }
   
   /* Ensure all text elements use system font */
@@ -301,13 +306,13 @@
 
 /* Ensure the scrollbar container has proper height and is visible */
 .simplebar-content-wrapper {
-  height: 100% !important;
+  height: auto !important;
   overflow-x: hidden !important;
   overflow-y: auto !important;
 }
 
 .simplebar-content {
-  height: 100% !important;
+  height: auto !important;
 }
 
 /* Remove bottom padding that causes cutoff */

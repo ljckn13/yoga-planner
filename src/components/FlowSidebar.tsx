@@ -949,8 +949,8 @@ export const FlowSidebar: React.FC<FlowSidebarProps> = ({
           <SimpleBar style={{
             flex: 1,
             width: '100%',
-            height: 'auto',
-            maxHeight: 'none',
+            height: '100%',
+            minHeight: 0,
             overflowY: 'auto',
             overflowX: 'visible',
             minWidth: 0, // Allow flex items to shrink below their content size
