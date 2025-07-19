@@ -363,7 +363,22 @@ export class CanvasService {
         console.log('✅ Source folder sort orders updated');
       }
 
-      // Step 4: Handle target folder
+      // Step 4: Move the canvas to the target folder first
+      console.log(`🔄 Moving canvas ${canvasId} to folder ${folderId || 'root'}`);
+      
+      const { error: moveError } = await supabase
+        .from('canvases')
+        .update({ 
+          folder_id: folderId,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', canvasId)
+        .eq('user_id', canvas.user_id)
+
+      if (moveError) throw moveError
+      console.log('✅ Canvas moved to target folder');
+
+      // Step 5: Handle target folder sort orders
       if (targetFolderCanvases && targetFolderCanvases.length > 0) {
         // Target folder has existing canvases - shift them up and add moved canvas at position 1
         const targetCanvasIds = [canvasId, ...(targetFolderCanvases.map((c: any) => c.id))]
@@ -379,24 +394,22 @@ export class CanvasService {
         if (targetReorderError) throw targetReorderError
         console.log('✅ Target folder sort orders updated');
       } else {
-        // Target folder is empty - just move the canvas with sort_order 1
+        // Target folder is empty - just set sort_order to 1
         console.log('📁 Target folder is empty, setting sort_order = 1');
         
-        const { error: directUpdateError } = await supabase
+        const { error: sortOrderError } = await supabase
           .from('canvases')
           .update({ 
-            folder_id: folderId,
-            sort_order: 1,
-            updated_at: new Date().toISOString()
+            sort_order: 1
           })
           .eq('id', canvasId)
           .eq('user_id', canvas.user_id)
 
-        if (directUpdateError) throw directUpdateError
-        console.log('✅ Canvas moved to empty folder with sort_order = 1');
+        if (sortOrderError) throw sortOrderError
+        console.log('✅ Canvas sort_order set to 1');
       }
 
-      // Step 5: Get the updated canvas data
+      // Step 6: Get the updated canvas data
       const { data, error } = await supabase
         .from('canvases')
         .select('*')
