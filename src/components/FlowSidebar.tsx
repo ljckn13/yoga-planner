@@ -627,7 +627,7 @@ export const FlowSidebar: React.FC<FlowSidebarProps> = ({
   setManuallyOpenedFolders,
   isDragInProgressRef,
 }) => {
-  const { user, signOut } = useAuthContext();
+  const { user, signOut, deleteAccount } = useAuthContext();
   const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
   const [editingFolderName, setEditingFolderName] = useState<string>('');
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
@@ -1220,9 +1220,21 @@ export const FlowSidebar: React.FC<FlowSidebarProps> = ({
 
                 <DeleteButton
                   text="Delete Account"
-                  onClick={() => {
-                    if (confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
-                      // TODO: Implement account deletion
+                  onClick={async () => {
+                    if (confirm('Are you sure you want to delete your account? This action cannot be undone and will permanently delete all your data including canvases and preferences.')) {
+                      try {
+                        const result = await deleteAccount();
+                        if (result.error) {
+                          console.error('Account deletion error:', result.error);
+                          alert(`Failed to delete account: ${result.error}`);
+                        } else {
+                          console.log('Account deleted successfully');
+                          // User will be automatically redirected to sign-in page
+                        }
+                      } catch (error) {
+                        console.error('Unexpected error during account deletion:', error);
+                        alert('An unexpected error occurred while deleting your account');
+                      }
                       setIsAccountMenuOpen(false);
                     }
                   }}

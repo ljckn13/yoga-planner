@@ -650,4 +650,66 @@ export class CanvasService {
       throw error;
     }
   }
+
+  /**
+   * Delete user account and all associated data
+   */
+  static async deleteUserAccount(userId: string): Promise<void> {
+    try {
+      console.log('🗑️ Starting account deletion for user:', userId);
+      
+      // 1. Delete all user's canvases
+      const { error: canvasDeleteError } = await supabase
+        .from('canvases')
+        .delete()
+        .eq('user_id', userId);
+      
+      if (canvasDeleteError) {
+        console.error('Error deleting canvases:', canvasDeleteError);
+        throw canvasDeleteError;
+      }
+      console.log('✅ Deleted all canvases');
+
+      // 2. Delete all user's folders
+      const { error: folderDeleteError } = await supabase
+        .from('folders')
+        .delete()
+        .eq('user_id', userId);
+      
+      if (folderDeleteError) {
+        console.error('Error deleting folders:', folderDeleteError);
+        throw folderDeleteError;
+      }
+      console.log('✅ Deleted all folders');
+
+      // 3. Delete user profile
+      const { error: userDeleteError } = await supabase
+        .from('users')
+        .delete()
+        .eq('id', userId);
+      
+      if (userDeleteError) {
+        console.error('Error deleting user profile:', userDeleteError);
+        throw userDeleteError;
+      }
+      console.log('✅ Deleted user profile');
+
+      // 4. Delete user from auth (this should be done last)
+      const { error: authDeleteError } = await supabase.auth.admin.deleteUser(userId);
+      
+      if (authDeleteError) {
+        console.error('Error deleting auth user:', authDeleteError);
+        // Don't throw here as the user data is already deleted
+        console.warn('User data deleted but auth user deletion failed');
+      } else {
+        console.log('✅ Deleted auth user');
+      }
+
+      console.log('🎉 Account deletion completed successfully');
+      
+    } catch (error) {
+      console.error('Error deleting user account:', error);
+      throw error;
+    }
+  }
 } 

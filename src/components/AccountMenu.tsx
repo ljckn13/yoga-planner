@@ -9,12 +9,13 @@ interface AccountMenuProps {
 }
 
 export function AccountMenu({ isOpen, onClose }: AccountMenuProps) {
-  const { user, signOut, profile } = useAuthContext()
+  const { user, signOut, profile, deleteAccount } = useAuthContext()
   const { updateProfile } = useUser()
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [displayName, setDisplayName] = useState('')
   const [isEditingDisplayName, setIsEditingDisplayName] = useState(false)
   const [saveSuccess, setSaveSuccess] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   // Load profile data when user changes
   useEffect(() => {
@@ -40,10 +41,25 @@ export function AccountMenu({ isOpen, onClose }: AccountMenuProps) {
   }
 
   const handleDeleteAccount = async () => {
-    // TODO: Implement account deletion
-    
-    setShowDeleteConfirm(false)
-    onClose()
+    try {
+      setIsDeleting(true)
+      const result = await deleteAccount()
+      
+      if (result.error) {
+        console.error('Account deletion error:', result.error)
+        alert(`Failed to delete account: ${result.error}`)
+      } else {
+        console.log('Account deleted successfully')
+        // User will be automatically redirected to sign-in page
+      }
+    } catch (error) {
+      console.error('Unexpected error during account deletion:', error)
+      alert('An unexpected error occurred while deleting your account')
+    } finally {
+      setIsDeleting(false)
+      setShowDeleteConfirm(false)
+      onClose()
+    }
   }
 
   const handleDisplayNameChange = async (newName: string) => {
@@ -312,26 +328,31 @@ export function AccountMenu({ isOpen, onClose }: AccountMenuProps) {
               </button>
               <button
                 onClick={handleDeleteAccount}
+                disabled={isDeleting}
                 className="tlui-button tlui-button__small"
                 style={{
                   padding: '8px 12px',
                   fontSize: '12px',
                   fontWeight: '500',
-                  backgroundColor: '#dc2626',
+                  backgroundColor: isDeleting ? '#999' : '#dc2626',
                   color: 'white',
-                  border: '1px solid #dc2626',
+                  border: `1px solid ${isDeleting ? '#999' : '#dc2626'}`,
                   borderRadius: '6px',
-                  cursor: 'pointer',
+                  cursor: isDeleting ? 'not-allowed' : 'pointer',
                   transition: 'all 0.1s ease'
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = '#b91c1c'
+                  if (!isDeleting) {
+                    e.currentTarget.style.backgroundColor = '#b91c1c'
+                  }
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = '#dc2626'
+                  if (!isDeleting) {
+                    e.currentTarget.style.backgroundColor = '#dc2626'
+                  }
                 }}
               >
-                Delete Account
+                {isDeleting ? 'Deleting...' : 'Delete Account'}
               </button>
             </div>
           </div>
