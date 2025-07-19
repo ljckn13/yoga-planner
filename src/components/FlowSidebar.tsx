@@ -46,6 +46,7 @@ export interface FlowSidebarProps {
   setEditingCanvasId: (id: string | null) => void;
   onSwitchCanvas: (id: string) => void;
   onDeleteCanvas: (id: string) => void;
+  onDuplicateCanvas: (id: string) => void;
   onUpdateCanvas: (id: string, updates: { title?: string }) => void;
   openFolders: Set<string>;
   setOpenFolders: React.Dispatch<React.SetStateAction<Set<string>>>;
@@ -124,6 +125,7 @@ const RootFolderDroppable: React.FC<{
   draggedCanvas: any | null;
   onSwitchCanvas: (id: string) => void;
   onDeleteCanvas: (id: string) => void;
+  onDuplicateCanvas: (id: string) => void;
   onUpdateCanvas: (id: string, updates: { title?: string }) => void;
   setEditingCanvasId: (id: string | null) => void;
 }> = ({
@@ -135,6 +137,7 @@ const RootFolderDroppable: React.FC<{
   draggedCanvas,
   onSwitchCanvas,
   onDeleteCanvas,
+  onDuplicateCanvas,
   onUpdateCanvas,
   setEditingCanvasId,
 }) => {
@@ -221,6 +224,7 @@ const RootFolderDroppable: React.FC<{
                 isEditing={editingCanvasId === canvas.id}
                 onSwitch={onSwitchCanvas}
                 onDelete={onDeleteCanvas}
+                onDuplicate={onDuplicateCanvas}
                 onUpdate={(id, updates) => {
                   onUpdateCanvas(id, updates);
                   setEditingCanvasId(null);
@@ -258,6 +262,7 @@ const FolderComponent: React.FC<{
   handleDeleteFolder: (id: string) => void;
   handleSwitchCanvas: (id: string) => void;
   handleDeleteCanvas: (id: string) => void;
+  handleDuplicateCanvas: (id: string) => void;
   updateCanvas: (id: string, updates: { title?: string }) => void;
   setEditingCanvasId: (id: string | null) => void;
   handleCreateCanvasInFolder: (id: string) => void;
@@ -281,6 +286,7 @@ const FolderComponent: React.FC<{
   handleDeleteFolder,
   handleSwitchCanvas,
   handleDeleteCanvas,
+  handleDuplicateCanvas,
   updateCanvas,
   setEditingCanvasId,
   handleCreateCanvasInFolder,
@@ -539,6 +545,7 @@ const FolderComponent: React.FC<{
                         isEditing={editingCanvasId === canvas.id}
                         onSwitch={handleSwitchCanvas}
                         onDelete={handleDeleteCanvas}
+                        onDuplicate={handleDuplicateCanvas}
                         onUpdate={(id, updates) => {
                           updateCanvas(id, updates);
                           setEditingCanvasId(null); // Ensure editing state is cleared
@@ -621,6 +628,7 @@ export const FlowSidebar: React.FC<FlowSidebarProps> = ({
   setEditingCanvasId,
   onSwitchCanvas,
   onDeleteCanvas,
+  onDuplicateCanvas,
   onUpdateCanvas,
   openFolders,
   setOpenFolders,
@@ -638,6 +646,7 @@ export const FlowSidebar: React.FC<FlowSidebarProps> = ({
     updateFolder,
     deleteFolder,
     createCanvas: createCanvasInManager,
+    duplicateCanvas: duplicateCanvasInManager,
   } = canvasManager;
 
   const {
@@ -710,6 +719,16 @@ export const FlowSidebar: React.FC<FlowSidebarProps> = ({
       await onSwitchCanvas(newCanvasId);
     } catch (error) {
       console.error('Failed to create canvas at root:', error);
+    }
+  };
+
+  const handleDuplicateCanvas = async (canvasId: string) => {
+    try {
+      const newCanvasId = await duplicateCanvasInManager(canvasId);
+      // Set editing state for the new canvas
+      setEditingCanvasId(newCanvasId);
+    } catch (error) {
+      console.error('Failed to duplicate canvas:', error);
     }
   };
 
@@ -952,6 +971,7 @@ export const FlowSidebar: React.FC<FlowSidebarProps> = ({
                 draggedCanvas={draggedCanvas}
                 onSwitchCanvas={onSwitchCanvas}
                 onDeleteCanvas={onDeleteCanvas}
+                onDuplicateCanvas={onDuplicateCanvas}
                 onUpdateCanvas={onUpdateCanvas}
                 setEditingCanvasId={setEditingCanvasId}
               />
@@ -1030,6 +1050,7 @@ export const FlowSidebar: React.FC<FlowSidebarProps> = ({
                           handleDeleteFolder={handleDeleteFolder}
                           handleSwitchCanvas={onSwitchCanvas}
                           handleDeleteCanvas={onDeleteCanvas}
+                          handleDuplicateCanvas={handleDuplicateCanvas}
                           updateCanvas={onUpdateCanvas}
                           setEditingCanvasId={setEditingCanvasId}
                           handleCreateCanvasInFolder={handleCreateCanvasInFolder}

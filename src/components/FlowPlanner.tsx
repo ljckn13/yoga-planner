@@ -45,6 +45,7 @@ export const FlowPlanner: React.FC = () => {
     updateCanvas: updateCanvasInManager,
     switchCanvas: switchCanvasInManager,
     deleteCanvas: deleteCanvasInManager,
+    duplicateCanvas: duplicateCanvasInManager,
   } = canvasManager;
 
   // Convert manager canvases to the format expected by the UI
@@ -274,6 +275,7 @@ export const FlowPlanner: React.FC = () => {
               setEditingCanvasId={setEditingCanvasId}
               onSwitchCanvas={handleSwitchCanvas}
               onDeleteCanvas={handleDeleteCanvas}
+              onDuplicateCanvas={duplicateCanvasInManager}
               onUpdateCanvas={updateCanvas}
               openFolders={openFolders}
               setOpenFolders={setOpenFolders}
