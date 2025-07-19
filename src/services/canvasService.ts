@@ -108,31 +108,29 @@ export class CanvasService {
    */
   static async deleteFolder(id: string): Promise<void> {
     try {
-      // Get the user_id from any canvas in this folder to find the root folder
-      const { data: sampleCanvas, error: sampleError } = await supabase
+      // First, check if the folder has any canvases
+      const { data: canvases, error: canvasesError } = await supabase
         .from('canvases')
-        .select('user_id')
+        .select('id, user_id')
         .eq('folder_id', id)
-        .limit(1)
-        .single()
 
-      if (sampleError && sampleError.code !== 'PGRST116') {
-        throw sampleError
-      }
+      if (canvasesError) throw canvasesError
 
-      // If there are canvases in this folder, move them to root
-      if (sampleCanvas) {
-        const rootFolderId = await this.getRootFolder(sampleCanvas.user_id)
+      // If there are canvases in this folder, we need to move them to root
+      if (canvases && canvases.length > 0) {
+        // Get the user_id from the first canvas
+        const userId = canvases[0].user_id
         
+        // For now, just set folder_id to null (root level) instead of using root folder function
         const { error: updateError } = await supabase
           .from('canvases')
-          .update({ folder_id: rootFolderId })
+          .update({ folder_id: null })
           .eq('folder_id', id)
         
         if (updateError) throw updateError
       }
       
-      // Then delete the folder
+      // Delete the folder
       const { error: deleteError } = await supabase
         .from('folders')
         .delete()

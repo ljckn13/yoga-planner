@@ -4,6 +4,8 @@ import { useCanvasManager } from '../hooks/useCanvasManager';
 import { useSidebarDragAndDrop } from '../hooks/useSidebarDragAndDrop';
 import { DraggableCanvasRow } from './DraggableCanvasRow';
 import { DeleteButton } from './DeleteButton';
+import { CanvasDissolveAnimation } from './CanvasDissolveAnimation';
+import { FolderDissolveAnimation } from './FolderDissolveAnimation';
 import { MoreVertical, X, Folder, FolderOpen } from 'lucide-react';
 import {
   DndContext,
@@ -260,6 +262,7 @@ const FolderComponent: React.FC<{
   handleCancelFolderEdit: () => void;
   handleSaveFolderEdit: (id: string) => void;
   handleDeleteFolder: (id: string) => void;
+  handleDeleteFolderWithoutConfirmation: (id: string) => void;
   handleSwitchCanvas: (id: string) => void;
   handleDeleteCanvas: (id: string) => void;
   handleDuplicateCanvas: (id: string) => void;
@@ -284,6 +287,7 @@ const FolderComponent: React.FC<{
   handleCancelFolderEdit,
   handleSaveFolderEdit,
   handleDeleteFolder,
+  handleDeleteFolderWithoutConfirmation,
   handleSwitchCanvas,
   handleDeleteCanvas,
   handleDuplicateCanvas,
@@ -305,12 +309,32 @@ const FolderComponent: React.FC<{
   });
 
   const isOver = isOverFolder;
+  const [isHovered, setIsHovered] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Use the drop feedback from the hook
   const shouldShowDropFeedbackForFolder = shouldShowDropFeedback(folder.id);
 
   // Determine folder styling based on state
   const shouldShowAddNewButton = isOpen; // Only show "Add new" when open
+
+  // Handle delete with animation
+  const handleDeleteWithAnimation = () => {
+    // Check if folder is empty first
+    if (folderCanvases.length > 0) {
+      alert('Only empty folders can be deleted');
+      return;
+    }
+    
+    if (confirm('Are you sure you want to delete this folder?')) {
+      setIsDeleting(true);
+    }
+  };
+
+  // Handle animation completion
+  const handleAnimationComplete = () => {
+    handleDeleteFolderWithoutConfirmation(folder.id);
+  };
 
   // Auto-open folder when dragging over it (when closed) - only for canvas drags
   React.useEffect(() => {
@@ -327,24 +351,25 @@ const FolderComponent: React.FC<{
   }, [activeId, isOpen, isOverFolder, folder.id, toggleFolder, draggedCanvas]);
 
   return (
-          <div 
-        style={{ 
-          marginBottom: '16px', // Reduced from 16px to minimize blind spots
-          marginLeft: '8px',
-          marginRight: '8px', 
-          width: 'calc(100% - 16px)',
-          overflowX: 'visible',
-          minWidth: 0, // Allow flex items to shrink below their content size
-        }}
-      >
-      {/* Folder Wrapper - Neumorphic design like Account Settings */}
+    <FolderDissolveAnimation
+      isDeleting={isDeleting}
+      onAnimationComplete={handleAnimationComplete}
+      isOpen={isOpen}
+      hasContent={folderCanvases.length > 0}
+    >
               <div 
           ref={setFolderDroppableRef}
+          onMouseEnter={() => setIsHovered(true)}
+          onMouseLeave={() => setIsHovered(false)}
           style={{ 
             width: 'calc(100%-12px)',
             borderRadius: '8px',
           // Animate background during folder open/close
-          backgroundColor: isOpen ? 'rgba(255, 255, 255, 0.1)' : 'transparent',
+          backgroundColor: isOpen 
+            ? 'rgba(255, 255, 255, 0.1)' 
+            : isHovered 
+              ? 'rgba(255, 255, 255, 0.08)' 
+              : 'transparent',
           backdropFilter: isOpen ? 'blur(10px)' : 'none',
           WebkitBackdropFilter: isOpen ? 'blur(10px)' : 'none',
           boxShadow: isOpen ? '-2px -2px 10px rgba(255, 248, 220, 1), 3px 3px 10px rgba(255, 69, 0, 0.4)' : 'none',
@@ -603,7 +628,7 @@ const FolderComponent: React.FC<{
                     text="Delete folder"
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleDeleteFolder(folder.id);
+                      handleDeleteWithAnimation();
                     }}
                     disabled={!!draggedCanvas}
                     title="Delete folder"
@@ -614,7 +639,7 @@ const FolderComponent: React.FC<{
             </div>
         </div>
       </div>
-    </div>
+    </FolderDissolveAnimation>
   );
 };
 
@@ -805,6 +830,16 @@ export const FlowSidebar: React.FC<FlowSidebarProps> = ({
         console.error('Failed to delete folder:', error);
         alert('Failed to delete folder');
       }
+    }
+  };
+
+  // Version without confirmation for use after animation
+  const handleDeleteFolderWithoutConfirmation = async (folderId: string) => {
+    try {
+      await deleteFolder(folderId);
+    } catch (error) {
+      console.error('Failed to delete folder:', error);
+      alert('Failed to delete folder');
     }
   };
 
@@ -1048,6 +1083,7 @@ export const FlowSidebar: React.FC<FlowSidebarProps> = ({
                           handleCancelFolderEdit={handleCancelFolderEdit}
                           handleSaveFolderEdit={handleSaveFolderEdit}
                           handleDeleteFolder={handleDeleteFolder}
+                          handleDeleteFolderWithoutConfirmation={handleDeleteFolderWithoutConfirmation}
                           handleSwitchCanvas={onSwitchCanvas}
                           handleDeleteCanvas={onDeleteCanvas}
                           handleDuplicateCanvas={handleDuplicateCanvas}

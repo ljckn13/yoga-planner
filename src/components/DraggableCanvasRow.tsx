@@ -4,6 +4,7 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { EditableCanvasTitle } from './EditableCanvasTitle';
 import { CanvasSettingsPopup } from './CanvasSettingsPopup';
+import { CanvasDissolveAnimation } from './CanvasDissolveAnimation';
 
 interface Canvas {
   id: string;
@@ -39,6 +40,8 @@ export const DraggableCanvasRow: React.FC<DraggableCanvasRowProps> = React.memo(
 }) => {
   const [isPopupOpen, setIsPopupOpen] = useState(false);
   const [isHoverTriggered, setIsHoverTriggered] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
   const settingsButtonRef = useRef<HTMLDivElement>(null);
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   // Memoize the sortable data to prevent infinite re-renders
@@ -105,6 +108,21 @@ export const DraggableCanvasRow: React.FC<DraggableCanvasRowProps> = React.memo(
     };
   }, []);
 
+  // Handle delete with animation
+  const handleDelete = () => {
+    if (confirm('Are you sure you want to delete this canvas?')) {
+      console.log('🗑️ Starting delete animation for canvas:', canvas.id);
+      setIsDeleting(true);
+      setIsPopupOpen(false);
+    }
+  };
+
+  // Handle animation completion
+  const handleAnimationComplete = () => {
+    console.log('🎯 Animation complete, calling onDelete for canvas:', canvas.id);
+    onDelete(canvas.id);
+  };
+
   const canvasElement = (
     <div
       ref={setNodeRef}
@@ -120,7 +138,9 @@ export const DraggableCanvasRow: React.FC<DraggableCanvasRowProps> = React.memo(
         marginBottom: '0px', // Remove margins to eliminate blind spots
         backgroundColor: isCurrent 
           ? 'rgba(255, 255, 255, 0.15)' 
-          : 'transparent',
+          : isHovered 
+            ? 'rgba(255, 255, 255, 0.08)' 
+            : 'transparent',
         cursor: isDragging ? 'grabbing' : (isEditing ? 'text' : 'pointer'),
         transition: isCurrent ? 'all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94)' : 'none',
         whiteSpace: 'nowrap',
@@ -144,16 +164,20 @@ export const DraggableCanvasRow: React.FC<DraggableCanvasRowProps> = React.memo(
         // Prevent dragging of images and other elements
         WebkitTouchCallout: 'none',
         WebkitTapHighlightColor: 'transparent',
+        // Ensure the element fills the animation container
+        height: '100%',
       }}
       {...(isEditing ? {} : attributes)}
       {...(isEditing ? {} : listeners)}
       onMouseLeave={() => {
+        setIsHovered(false);
         // Reset background color on mouse leave
         if (!isCurrent && !isEditing && !isDragging) {
           // Background color will be reset by CSS
         }
       }}
       onMouseEnter={() => {
+        setIsHovered(true);
         if (!isCurrent && !isEditing && !isDragging) {
           // Background color will be set by CSS hover state
         }
@@ -176,7 +200,7 @@ export const DraggableCanvasRow: React.FC<DraggableCanvasRowProps> = React.memo(
         isCurrent={isCurrent}
       />
       
-      {isCurrent && !isEditing && (
+      {(isCurrent || isHovered) && !isEditing && (
         <div
           ref={settingsButtonRef}
           data-no-dnd="true"
@@ -201,7 +225,7 @@ export const DraggableCanvasRow: React.FC<DraggableCanvasRowProps> = React.memo(
             borderRadius: '4px',
             cursor: 'pointer',
             color: '#885050',
-            opacity: 0.5,
+            opacity: isCurrent ? 0.5 : 0.3,
             fontSize: '10px',
             display: 'flex',
             alignItems: 'center',
@@ -218,7 +242,7 @@ export const DraggableCanvasRow: React.FC<DraggableCanvasRowProps> = React.memo(
             handleMouseEnter();
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.opacity = '0.5';
+            e.currentTarget.style.opacity = isCurrent ? '0.5' : '0.3';
             e.currentTarget.style.backgroundColor = 'transparent';
             handleMouseLeave();
           }}
@@ -231,8 +255,18 @@ export const DraggableCanvasRow: React.FC<DraggableCanvasRowProps> = React.memo(
   );
 
   return (
-    <div style={{ position: 'relative' }}>
-      {canvasElement}
+    <div style={{ 
+      position: 'relative',
+      margin: '0px',
+      padding: '0px',
+      lineHeight: '1',
+    }}>
+      <CanvasDissolveAnimation
+        isDeleting={isDeleting}
+        onAnimationComplete={handleAnimationComplete}
+      >
+        {canvasElement}
+      </CanvasDissolveAnimation>
       
       {/* Canvas Settings Popup - rendered via portal */}
       <CanvasSettingsPopup
@@ -240,7 +274,7 @@ export const DraggableCanvasRow: React.FC<DraggableCanvasRowProps> = React.memo(
         onClose={() => setIsPopupOpen(false)}
         onRename={() => onStartEdit(canvas.id)}
         onDuplicate={() => onDuplicate(canvas.id)}
-        onDelete={() => onDelete(canvas.id)}
+        onDelete={handleDelete}
         triggerRef={settingsButtonRef}
         isHoverTriggered={isHoverTriggered}
       />

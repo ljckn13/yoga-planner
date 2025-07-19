@@ -194,11 +194,7 @@ export const FlowPlanner: React.FC = () => {
   };
 
   const handleDeleteCanvas = async (canvasId: string) => {
-    if (!confirm('Are you sure you want to delete this canvas?')) {
-      return;
-    }
-    
-    // Set deletion flag immediately after confirmation to prevent auto-loading
+    // Set deletion flag immediately to prevent auto-loading
     isDeletionInProgressRef.current = true;
     console.log('🚫 Deletion in progress - preventing auto-loading');
     
