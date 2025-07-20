@@ -7,6 +7,7 @@ import { useAutoSidebar } from '../hooks/useAutoSidebar';
 import { CanvasProvider } from '../contexts/CanvasContext';
 import { FlowSidebar } from './FlowSidebar';
 import { TldrawCanvas } from './TldrawCanvas';
+import { SidebarIndicator } from './SidebarIndicator';
 import { flowPlannerStyles, canvasStyles } from '../styles/FlowPlannerStyles';
 
 export const FlowPlanner: React.FC = () => {
@@ -287,7 +288,13 @@ export const FlowPlanner: React.FC = () => {
                 }}
                 onMouseEnter={autoSidebar.handleSidebarAreaMouseEnter}
                 onMouseLeave={autoSidebar.handleSidebarAreaMouseLeave}
-              />
+              >
+                <SidebarIndicator
+                  sidebarVisible={sidebarVisible}
+                  onMouseEnter={autoSidebar.handleSidebarAreaMouseEnter}
+                  onMouseLeave={autoSidebar.handleSidebarAreaMouseLeave}
+                />
+              </div>
             )}
             {/* Sidebar */}
             <div

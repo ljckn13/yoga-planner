@@ -1302,7 +1302,6 @@ export function useCanvasManager(
         
         // Calculate shape count from current page
         const shapeCount = editor.getCurrentPageShapeIds().size;
-        console.log('🔄 [CanvasManager] Saving canvas with shape count:', shapeCount, 'canvasId:', currentCanvasId);
         
         const canvasState = {
           snapshot: currentSnapshot,
@@ -1364,7 +1363,6 @@ export function useCanvasManager(
       
       // Calculate shape count from current page
       const shapeCount = editor.getCurrentPageShapeIds().size;
-      console.log('🔄 [CanvasManager] Saving canvas with shape count:', shapeCount, 'canvasId:', currentCanvasId);
       
       const canvasState = {
         snapshot: currentSnapshot,
