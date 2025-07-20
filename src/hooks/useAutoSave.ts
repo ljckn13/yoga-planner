@@ -131,18 +131,13 @@ export function useAutoSave(
         clearTimeout(autoSaveTimeoutRef.current);
       }
 
-      // Only trigger auto-save if there are actual changes
-      const shapeIds = editor.getCurrentPageShapeIds();
-      if (shapeIds.size > 0) {
-        setSaveStatus('saving');
-        setHasUnsavedChanges(true);
-        autoSaveTimeoutRef.current = setTimeout(() => {
-          saveToStorage();
-        }, autoSaveDelay);
-      } else {
-        // No shapes, clear unsaved changes flag
-        setHasUnsavedChanges(false);
-      }
+      // Always trigger auto-save when store changes, regardless of shape count
+      // This ensures we save even when deleting the last shape (shape count = 0)
+      setSaveStatus('saving');
+      setHasUnsavedChanges(true);
+      autoSaveTimeoutRef.current = setTimeout(() => {
+        saveToStorage();
+      }, autoSaveDelay);
     };
 
     // Listen to all store changes to ensure we capture user edits
