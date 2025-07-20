@@ -4,10 +4,10 @@ import { CustomMainMenu } from './CustomMainMenu';
 
 // Custom page menu that shows canvas title and main menu side by side
 export interface CustomPageMenuProps {
-  sidebarVisible: boolean;
+  // Removed unused sidebarVisible prop
 }
 
-export const CustomPageMenu: React.FC<CustomPageMenuProps> = ({ sidebarVisible }) => {
+export const CustomPageMenu: React.FC<CustomPageMenuProps> = () => {
   const canvasTitle = useCurrentCanvasTitle();
   
   return (

@@ -320,7 +320,6 @@ export const FlowPlanner: React.FC = () => {
               onMouseLeave={autoSidebar.handleCanvasMouseLeave}
             >
               <TldrawCanvas
-                sidebarVisible={sidebarVisible}
                 onMount={handleMount}
               />
             </div>

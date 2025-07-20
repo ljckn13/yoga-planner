@@ -1,5 +1,5 @@
 import { useEffect, useCallback, useState, useRef } from 'react';
-import { type Editor, getSnapshot } from 'tldraw';
+import { type Editor } from 'tldraw';
 import { useCanvasState } from './useCanvasState';
 
 export interface UseAutoSaveReturn {
@@ -49,22 +49,7 @@ export function useAutoSave(
     }
   }, []);
 
-  const saveToLocalStorage = useCallback((snapshot: any) => {
-    if (!canvasId) {
-      return;
-    }
 
-    try {
-      const data = { snapshot, lastSaved: new Date().toISOString() };
-      const storageKey = `${STORAGE_KEY_PREFIX}${canvasId}`;
-      
-      localStorage.setItem(storageKey, JSON.stringify(data));
-      setLastSaved(new Date());
-
-    } catch (error) {
-      console.error(`❌ [AutoSave] Failed to save canvas ${canvasId}:`, error);
-    }
-  }, [canvasId]);
 
   const saveToStorage = useCallback(async () => {
     if (!editor || !canvasId) {
@@ -75,10 +60,6 @@ export function useAutoSave(
     try {
       setSaveStatus('saving');
       setError(null);
-      
-      // Check if there are actual changes to save
-      const currentSnapshot = getSnapshot(editor.store);
-      const shapeIds = editor.getCurrentPageShapeIds();
       
       // Use canvas manager save function if available (saves to both Supabase and localStorage)
       if (saveCurrentCanvas) {

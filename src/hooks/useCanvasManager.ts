@@ -1344,7 +1344,6 @@ export function useCanvasManager(
 
     try {
       const currentSnapshot = getSnapshot(editor.store);
-      const shapeIds = editor.getCurrentPageShapeIds();
       
       const canvasState = {
         snapshot: currentSnapshot,
