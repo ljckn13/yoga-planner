@@ -50,6 +50,7 @@ export interface UseCanvasManagerReturn {
   loadUserData: (options?: { afterDeletion?: { deletedCanvasFolderId: string | null; deletedCanvasId: string } }) => Promise<void>; // Load user's canvases and folders from Supabase
   reorderCanvas: (sourceId: string, targetId: string) => Promise<void>;
   reorderFolder: (sourceId: string, targetId: string) => Promise<void>;
+  isLoadingRef: React.MutableRefObject<boolean>; // NEW: Loading ref for auto-save coordination
 }
 
 export interface UseCanvasManagerOptions {
@@ -557,6 +558,8 @@ export function useCanvasManager(
       // Get the clean snapshot
       const blankSnapshot = getSnapshot(editor.store);
       
+
+      
       const blankState = {
         snapshot: blankSnapshot,
         timestamp: Date.now(),
@@ -636,12 +639,7 @@ export function useCanvasManager(
       return false;
     }
 
-    if (isLoadingRef.current) {
-      console.log('❌ Cannot load canvas state: already loading');
-      return false;
-    }
-
-    console.log('🔄 Starting to load canvas state for:', canvasId);
+          // Loading canvas state for canvasId
     isLoadingRef.current = true;
     setIsLoading(true);
     setError(null);
@@ -686,29 +684,10 @@ export function useCanvasManager(
 
       if (canvasState && canvasState.snapshot) {
         // Load the snapshot into the editor
-        console.log('✅ Successfully loaded canvas state for:', canvasId);
-        console.log('📊 Canvas state details:', {
-          hasSnapshot: !!canvasState.snapshot,
-          snapshotType: typeof canvasState.snapshot,
-          timestamp: canvasState.timestamp,
-          version: canvasState.version
-        });
         loadSnapshot(editor.store, canvasState.snapshot);
-        
-        // Debug: Check what's in the editor after loading
-        setTimeout(() => {
-          const shapeIds = editor.getCurrentPageShapeIds();
-          console.log('🔍 Editor state after loading canvas:', canvasId, {
-            shapeCount: shapeIds.size,
-            currentCanvasId: currentCanvasId,
-            editorReady: !!editor
-          });
-        }, 100);
-        
         return true;
       } else {
         // Load a blank state instead of just clearing shapes
-        console.log('⚠️ No canvas state found for:', canvasId, '- loading blank state');
         const blankState = createBlankCanvasState();
         if (blankState && blankState.snapshot) {
           loadSnapshot(editor.store, blankState.snapshot);
@@ -1354,11 +1333,19 @@ export function useCanvasManager(
   // NEW: Manual save function for current canvas
   const saveCurrentCanvas = useCallback(async (): Promise<boolean> => {
     if (!editor || !currentCanvasId) {
+      console.log('❌ [CanvasManager] Cannot save: missing editor or currentCanvasId', { 
+        editor: !!editor, 
+        currentCanvasId,
+        effectiveUserId,
+        enableSupabase 
+      });
       return false;
     }
 
     try {
       const currentSnapshot = getSnapshot(editor.store);
+      const shapeIds = editor.getCurrentPageShapeIds();
+      
       const canvasState = {
         snapshot: currentSnapshot,
         timestamp: Date.now(),
@@ -1370,7 +1357,7 @@ export function useCanvasManager(
         try {
           await CanvasService.updateCanvas(currentCanvasId, { data: canvasState });
         } catch (supabaseError) {
-          console.error('Failed to save to Supabase:', supabaseError);
+          console.error('❌ [CanvasManager] Failed to save to Supabase:', supabaseError);
           // Fallback to localStorage
           const storageKey = `${STORAGE_KEY_PREFIX}${currentCanvasId}`;
           localStorage.setItem(storageKey, JSON.stringify(canvasState));
@@ -1383,7 +1370,7 @@ export function useCanvasManager(
       
       return true;
     } catch (err) {
-      console.error('Failed to save current canvas:', err);
+      console.error('❌ [CanvasManager] Failed to save current canvas:', err);
       return false;
     }
   }, [editor, currentCanvasId, effectiveUserId, enableSupabase, version]);
@@ -1468,7 +1455,6 @@ export function useCanvasManager(
     
     checkIfWorkspaceEmpty().then((shouldCreate) => {
       if (shouldCreate) {
-        console.log('🎨 Auto-creating default canvas - workspace is empty');
         defaultCanvasCreatedRef.current = true;
         // Use setTimeout to avoid calling createCanvas during render
         setTimeout(() => {
@@ -1502,11 +1488,20 @@ export function useCanvasManager(
     }
     
     if (currentCanvasId && editor && isInitialized) {
-      console.log('🔄 Auto-loading canvas content for:', currentCanvasId);
       // Add a small delay to ensure state updates have propagated
       setTimeout(() => {
-        loadCanvasState(currentCanvasId);
-      }, 10);
+        // Only load if not already loading
+        if (!isLoadingRef.current) {
+          // Set a flag to indicate we're loading (this will be used by auto-save)
+          isLoadingRef.current = true;
+          loadCanvasState(currentCanvasId).finally(() => {
+            // Clear loading flag after a short delay to allow editor to settle
+            setTimeout(() => {
+              isLoadingRef.current = false;
+            }, 100);
+          });
+        }
+      }, 50); // Increased delay to prevent race conditions
     }
   }, [currentCanvasId, editor, isInitialized, loadCanvasState, externalDeletionRef]);
 
@@ -1615,5 +1610,6 @@ export function useCanvasManager(
     loadUserData,
     reorderCanvas,
     reorderFolder,
+    isLoadingRef, // NEW: Expose loading ref for auto-save coordination
   };
 } 

@@ -75,10 +75,11 @@ const uiOverrides: TLUiOverrides = {
 };
 
 // Create components with sidebar visibility and custom toolbar
-const createComponents = (sidebarVisible: boolean): TLComponents => ({
+const createComponents = (sidebarVisible: boolean, isAnimating: boolean): TLComponents => ({
   PageMenu: () => <CustomPageMenu sidebarVisible={sidebarVisible} />,
   Grid: CustomGrid,
   MainMenu: null,
+  // Keep toolbar visible throughout animation
   Toolbar: (props) => {
     const tools = useTools();
     const editor = useEditor();
@@ -302,13 +303,15 @@ const createComponents = (sidebarVisible: boolean): TLComponents => ({
 export interface TldrawCanvasProps {
   sidebarVisible: boolean;
   onMount: (editor: Editor) => void;
+  isAnimating?: boolean; // Add animation state prop
 }
 
 export const TldrawCanvas: React.FC<TldrawCanvasProps> = ({
   sidebarVisible,
   onMount,
+  isAnimating = false, // Default to false
 }) => {
-  const components = React.useMemo(() => createComponents(sidebarVisible), [sidebarVisible]);
+  const components = React.useMemo(() => createComponents(sidebarVisible, isAnimating), [sidebarVisible, isAnimating]);
 
   return (
     <Tldraw

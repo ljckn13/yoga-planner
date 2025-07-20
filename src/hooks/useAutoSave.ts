@@ -15,6 +15,8 @@ export interface UseAutoSaveOptions {
   canvasId?: string;
   autoSaveDelay?: number; // milliseconds
   enableAutoSave?: boolean;
+  saveCurrentCanvas?: () => Promise<boolean>; // NEW: Canvas manager save function
+  isLoadingRef?: React.MutableRefObject<boolean>; // NEW: Loading flag from canvas manager
 }
 
 const STORAGE_KEY_PREFIX = 'yoga_flow_canvas_';
@@ -25,7 +27,9 @@ export function useAutoSave(
 ): UseAutoSaveReturn {
   const {
     canvasId = 'default',
-    autoSaveDelay = 1000, // 1 second delay for auto-save
+    autoSaveDelay = 500, // 0.5 second delay for auto-save (faster)
+    saveCurrentCanvas, // NEW: Canvas manager save function
+    isLoadingRef, // NEW: Loading flag from canvas manager
   } = options;
 
   const { serializeCanvas, error: serializeError } = useCanvasState(editor);
@@ -36,6 +40,7 @@ export function useAutoSave(
   const [error, setError] = useState<string | null>(null);
   
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout | number | null>(null);
+  const isInitialLoadRef = useRef(true); // NEW: Track initial load to prevent auto-save during loading
 
   const clearAutoSaveTimeout = useCallback(() => {
     if (autoSaveTimeoutRef.current) {
@@ -46,15 +51,12 @@ export function useAutoSave(
 
   const saveToLocalStorage = useCallback((snapshot: any) => {
     if (!canvasId) {
-
       return;
     }
 
     try {
       const data = { snapshot, lastSaved: new Date().toISOString() };
       const storageKey = `${STORAGE_KEY_PREFIX}${canvasId}`;
-      
-  
       
       localStorage.setItem(storageKey, JSON.stringify(data));
       setLastSaved(new Date());
@@ -65,29 +67,48 @@ export function useAutoSave(
   }, [canvasId]);
 
   const saveToStorage = useCallback(async () => {
-    if (!editor || !canvasId) return;
+    if (!editor || !canvasId) {
+      return;
+    }
     const storageKey = `${STORAGE_KEY_PREFIX}${canvasId}`;
-
-    
 
     try {
       setSaveStatus('saving');
       setError(null);
-      const canvasState = await serializeCanvas();
-      if (!canvasState) {
-        throw new Error('Failed to serialize canvas');
-      }
       
-      localStorage.setItem(storageKey, JSON.stringify(canvasState));
-      setLastSaved(new Date());
-      setSaveStatus('saved');
-      setHasUnsavedChanges(false);
+      // Check if there are actual changes to save
+      const currentSnapshot = getSnapshot(editor.store);
+      const shapeIds = editor.getCurrentPageShapeIds();
+      
+      // Use canvas manager save function if available (saves to both Supabase and localStorage)
+      if (saveCurrentCanvas) {
+        const success = await saveCurrentCanvas();
+        if (success) {
+          setLastSaved(new Date());
+          setSaveStatus('saved');
+          setHasUnsavedChanges(false);
+        } else {
+          throw new Error('Canvas manager save failed');
+        }
+      } else {
+        // Fallback to old localStorage-only method
+        const canvasState = await serializeCanvas();
+        if (!canvasState) {
+          throw new Error('Failed to serialize canvas');
+        }
+        
+        localStorage.setItem(storageKey, JSON.stringify(canvasState));
+        setLastSaved(new Date());
+        setSaveStatus('saved');
+        setHasUnsavedChanges(false);
+      }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Save failed';
       setError(errorMessage);
       setSaveStatus('error');
+      console.error('❌ [AutoSave] Save failed:', err);
     }
-  }, [editor, serializeCanvas, canvasId]);
+  }, [editor, serializeCanvas, canvasId, saveCurrentCanvas]);
 
   const manualSave = useCallback(async () => {
     clearAutoSaveTimeout();
@@ -106,44 +127,53 @@ export function useAutoSave(
 
   useEffect(() => {
     if (!editor || !canvasId || canvasId.trim() === '') {
-
       return;
     }
 
-
-    setSaveStatus('saving');
-
-    // Save current state immediately when switching to a new canvas
-    const currentSnapshot = getSnapshot(editor.store);
-    saveToLocalStorage(currentSnapshot);
+    // Don't auto-save immediately on initial load - wait for user interaction
+    if (isInitialLoadRef.current) {
+      isInitialLoadRef.current = false;
+      setSaveStatus('saved');
+    } else {
+      // Only save immediately when switching canvases (not on initial load)
+      setSaveStatus('saving');
+      saveToStorage();
+    }
 
     const handleStoreChange = () => {
+      // Skip auto-save during initial load or when canvas is loading
+      if (isInitialLoadRef.current || (isLoadingRef?.current)) {
+        return;
+      }
 
-      
       if (autoSaveTimeoutRef.current) {
         clearTimeout(autoSaveTimeoutRef.current);
       }
 
-      setSaveStatus('saving');
-      autoSaveTimeoutRef.current = setTimeout(() => {
-        const snapshot = getSnapshot(editor.store);
-  
-        saveToLocalStorage(snapshot);
-        setSaveStatus('saved');
-      }, autoSaveDelay);
+      // Only trigger auto-save if there are actual changes
+      const shapeIds = editor.getCurrentPageShapeIds();
+      if (shapeIds.size > 0) {
+        setSaveStatus('saving');
+        setHasUnsavedChanges(true);
+        autoSaveTimeoutRef.current = setTimeout(() => {
+          saveToStorage();
+        }, autoSaveDelay);
+      } else {
+        // No shapes, clear unsaved changes flag
+        setHasUnsavedChanges(false);
+      }
     };
 
     // Listen to all store changes to ensure we capture user edits
     const unsubscribe = editor.store.listen(handleStoreChange);
 
     return () => {
-  
       if (autoSaveTimeoutRef.current) {
         clearTimeout(autoSaveTimeoutRef.current);
       }
       unsubscribe();
     };
-  }, [editor, canvasId, saveToLocalStorage, autoSaveDelay]);
+  }, [editor, canvasId, saveToStorage, autoSaveDelay]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {

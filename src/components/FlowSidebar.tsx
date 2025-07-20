@@ -694,7 +694,7 @@ export const FlowSidebar: React.FC<FlowSidebarProps> = ({
       activationConstraint: {
         distance: 8, // Increased from 4 to make dragging less sensitive
         tolerance: 5, // Increased tolerance
-        delay: 50, // Increased delay to prevent accidental drags
+        delay: 150, // Increased delay to prevent accidental drags (was 50ms)
       }
     }),
     useSensor(KeyboardSensor, {
@@ -889,6 +889,7 @@ export const FlowSidebar: React.FC<FlowSidebarProps> = ({
         overflowX: 'visible',
         boxSizing: 'border-box',
         position: 'relative',
+        transition: 'all 0.2s ease-in-out',
       }}
     >
       <DndContext 

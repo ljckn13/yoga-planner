@@ -138,6 +138,7 @@ export const canvasStyles = {
     borderRadius: '12px',
     overflow: 'hidden' as const,
     margin: sidebarVisible ? '40px 40px 40px 0px' : '0px',
+    transition: 'margin 0.2s ease-in-out',
   }),
   
   ghostButton: (sidebarVisible: boolean) => ({

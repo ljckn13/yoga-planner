@@ -16,6 +16,7 @@ export function AccountMenu({ isOpen, onClose }: AccountMenuProps) {
   const [isEditingDisplayName, setIsEditingDisplayName] = useState(false)
   const [saveSuccess, setSaveSuccess] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [isAnimating, setIsAnimating] = useState(false)
 
   // Load profile data when user changes
   useEffect(() => {
@@ -24,10 +25,21 @@ export function AccountMenu({ isOpen, onClose }: AccountMenuProps) {
     }
   }, [user, profile])
 
-  
+  // Handle animation when opening/closing
+  useEffect(() => {
+    if (isOpen) {
+      setIsAnimating(true)
+    } else {
+      // Delay hiding to allow animation to complete
+      const timer = setTimeout(() => {
+        setIsAnimating(false)
+      }, 300) // Match the transition duration
+      return () => clearTimeout(timer)
+    }
+  }, [isOpen])
 
-  if (!isOpen) {
-          return null
+  if (!isOpen && !isAnimating) {
+    return null
   }
 
   
@@ -91,8 +103,10 @@ export function AccountMenu({ isOpen, onClose }: AccountMenuProps) {
           borderRadius: '12px',
           boxShadow: '0px 0px 2px hsl(0, 0%, 0%, 16%), 0px 2px 3px hsl(0, 0%, 0%, 24%), 0px 2px 6px hsl(0, 0%, 0%, 0.1), inset 0px 0px 0px 1px hsl(0, 0%, 100%)',
           position: 'fixed',
-          bottom: '0px',
-          left: '0px'
+          top: '50%',
+          right: isOpen ? '0px' : '-200px',
+          transform: 'translateY(-50%)',
+          transition: 'right 0.3s ease-in-out'
         }}
       >
         {/* Header */}

@@ -3,6 +3,7 @@ import { type Editor } from 'tldraw';
 import { useAutoSave } from '../hooks/useAutoSave';
 import { useAuthContext } from './AuthProvider';
 import { useCanvasManager } from '../hooks/useCanvasManager';
+import { useAutoSidebar } from '../hooks/useAutoSidebar';
 import { CanvasProvider } from '../contexts/CanvasContext';
 import { FlowSidebar } from './FlowSidebar';
 import { TldrawCanvas } from './TldrawCanvas';
@@ -13,6 +14,14 @@ export const FlowPlanner: React.FC = () => {
   const [sidebarVisible, setSidebarVisible] = useState(true);
   const editorRef = useRef<Editor | null>(null);
   const [editorInstance, setEditorInstance] = useState<Editor | null>(null);
+  
+  // Auto sidebar behavior
+  const autoSidebar = useAutoSidebar({
+    sidebarVisible,
+    setSidebarVisible,
+    canvasHoverDelay: 300, // 1.5 seconds before collapsing when hovering canvas
+    sidebarHoverDelay: 300, // 0.8 seconds before expanding when hovering sidebar area
+  });
   
   // Canvas and folder management
   const [currentCanvasId, setCurrentCanvasId] = useState<string>('');
@@ -26,14 +35,20 @@ export const FlowPlanner: React.FC = () => {
   const isDeletionInProgressRef = useRef(false);
 
   // Stabilize the options object to prevent useCanvasManager from being recreated
-  const canvasManagerOptions = React.useMemo(() => ({
-    userId: _user?.id,
-    enableSupabase: !!_user,
-    autoCreateDefault: true,
-    defaultCanvasTitle: 'Untitled Flow',
-    version: '1.0.0',
-    isDeletionInProgressRef: isDeletionInProgressRef,
-  }), [_user?.id, !!_user, isDeletionInProgressRef]);
+  const canvasManagerOptions = React.useMemo(() => {
+    // In development mode, enable Supabase even without a user (RLS is disabled)
+    const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    const enableSupabase = isDevelopment ? true : !!_user;
+    
+    return {
+      userId: _user?.id || (isDevelopment ? 'test-user' : undefined),
+      enableSupabase,
+      autoCreateDefault: true,
+      defaultCanvasTitle: 'Untitled Flow',
+      version: '1.0.0',
+      isDeletionInProgressRef: isDeletionInProgressRef,
+    };
+  }, [_user?.id, !!_user, isDeletionInProgressRef]);
   
   // Use canvas manager for folder and canvas operations
   const canvasManager = useCanvasManager(editorInstance, canvasManagerOptions);
@@ -62,6 +77,8 @@ export const FlowPlanner: React.FC = () => {
   // Auto-save for the current canvas
   useAutoSave(editorInstance, {
     canvasId: currentCanvasId,
+    saveCurrentCanvas: canvasManager.saveCurrentCanvas,
+    isLoadingRef: canvasManager.isLoadingRef, // NEW: Pass loading ref to prevent auto-save during loading
   });
 
   // Set current canvas when available
@@ -229,12 +246,7 @@ export const FlowPlanner: React.FC = () => {
     setEditorInstance(mountedEditor);
   };
 
-  // Toggle sidebar handler
-  React.useEffect(() => {
-    const handler = () => setSidebarVisible(v => !v);
-    window.addEventListener('toggleSidebar', handler);
-    return () => window.removeEventListener('toggleSidebar', handler);
-  }, []);
+
 
   // Canvas context value
   const canvasContextValue = React.useMemo(() => ({
@@ -258,41 +270,62 @@ export const FlowPlanner: React.FC = () => {
               backgroundColor: 'transparent',
               boxSizing: 'border-box',
               position: 'relative',
+              transition: 'padding 0.2s ease-in-out',
             }}
           >
+            {/* Sidebar Area (left padding when sidebar is collapsed) */}
+            {!sidebarVisible && (
+              <div
+                style={{
+                  position: 'absolute',
+                  left: 0,
+                  top: 0,
+                  width: '40px',
+                  height: '100vh',
+                  zIndex: 1000,
+                  backgroundColor: 'transparent',
+                }}
+                onMouseEnter={autoSidebar.handleSidebarAreaMouseEnter}
+                onMouseLeave={autoSidebar.handleSidebarAreaMouseLeave}
+              />
+            )}
             {/* Sidebar */}
-            <FlowSidebar
-              sidebarVisible={sidebarVisible}
-              canvasManager={canvasManager}
-              canvases={canvases}
-              folders={folders}
-              currentCanvasId={currentCanvasId}
-              editingCanvasId={editingCanvasId}
-              setEditingCanvasId={setEditingCanvasId}
-              onSwitchCanvas={handleSwitchCanvas}
-              onDeleteCanvas={handleDeleteCanvas}
-              onDuplicateCanvas={duplicateCanvasInManager}
-              onUpdateCanvas={updateCanvas}
-              openFolders={openFolders}
-              setOpenFolders={setOpenFolders}
-              setManuallyOpenedFolders={setManuallyOpenedFolders}
-              isDragInProgressRef={isDragInProgressRef}
-            />
+            <div
+              onMouseEnter={autoSidebar.handleSidebarMouseEnter}
+              onMouseLeave={autoSidebar.handleSidebarMouseLeave}
+            >
+              <FlowSidebar
+                sidebarVisible={sidebarVisible}
+                canvasManager={canvasManager}
+                canvases={canvases}
+                folders={folders}
+                currentCanvasId={currentCanvasId}
+                editingCanvasId={editingCanvasId}
+                setEditingCanvasId={setEditingCanvasId}
+                onSwitchCanvas={handleSwitchCanvas}
+                onDeleteCanvas={handleDeleteCanvas}
+                onDuplicateCanvas={duplicateCanvasInManager}
+                onUpdateCanvas={updateCanvas}
+                openFolders={openFolders}
+                setOpenFolders={setOpenFolders}
+                setManuallyOpenedFolders={setManuallyOpenedFolders}
+                isDragInProgressRef={isDragInProgressRef}
+              />
+            </div>
 
             {/* Canvas */}
-            <div style={canvasStyles.canvas(sidebarVisible)}>
+            <div 
+              style={canvasStyles.canvas(sidebarVisible)}
+              onMouseEnter={autoSidebar.handleCanvasMouseEnter}
+              onMouseLeave={autoSidebar.handleCanvasMouseLeave}
+            >
               <TldrawCanvas
                 sidebarVisible={sidebarVisible}
                 onMount={handleMount}
               />
             </div>
             
-            {/* Ghost Button Overlay */}
-            <div
-              style={canvasStyles.ghostButton(sidebarVisible)}
-              onClick={() => setSidebarVisible(v => !v)}
-              title={sidebarVisible ? 'Collapse sidebar' : 'Expand sidebar'}
-            />
+
           </div>
         </CanvasProvider>
       </div>

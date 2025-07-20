@@ -5,6 +5,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { EditableCanvasTitle } from './EditableCanvasTitle';
 import { CanvasSettingsPopup } from './CanvasSettingsPopup';
 import { CanvasDissolveAnimation } from './CanvasDissolveAnimation';
+import { useSidebarAnimationListener } from '../hooks/useSidebarAnimationEvents';
 
 interface Canvas {
   id: string;
@@ -108,10 +109,17 @@ export const DraggableCanvasRow: React.FC<DraggableCanvasRowProps> = React.memo(
     };
   }, []);
 
+  // Listen for sidebar animation events and close popup
+  useSidebarAnimationListener(() => {
+    if (isPopupOpen) {
+      setIsPopupOpen(false);
+      setIsHoverTriggered(false);
+    }
+  });
+
   // Handle delete with animation
   const handleDelete = () => {
     if (confirm('Are you sure you want to delete this canvas?')) {
-      console.log('🗑️ Starting delete animation for canvas:', canvas.id);
       setIsDeleting(true);
       setIsPopupOpen(false);
     }
@@ -119,7 +127,6 @@ export const DraggableCanvasRow: React.FC<DraggableCanvasRowProps> = React.memo(
 
   // Handle animation completion
   const handleAnimationComplete = () => {
-    console.log('🎯 Animation complete, calling onDelete for canvas:', canvas.id);
     onDelete(canvas.id);
   };
 
