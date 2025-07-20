@@ -16,6 +16,7 @@ export interface CanvasMetadata {
   folderId?: string | null; // NEW: Folder support
   description?: string; // NEW: Description support
   sort_order?: number; // NEW: Sort order for drag and drop
+  shape_count?: number; // NEW: Number of shapes on the canvas
 }
 
 export interface CanvasListItem {
@@ -147,6 +148,7 @@ export function useCanvasManager(
           folderId: canvas.folder_id,
           description: canvas.description || undefined,
           sort_order: canvas.sort_order || 0,
+          shape_count: canvas.shape_count || 0,
         },
         hasUnsavedChanges: false,
         saveStatus: 'saved',
@@ -811,6 +813,7 @@ export function useCanvasManager(
               data: blankState || {},
               thumbnail: await generateThumbnail() || null,
               is_public: false,
+              shape_count: 0, // New canvases start with 0 shapes
             }, insertAtBeginning);
             break; // Success, exit retry loop
           } catch (error: any) {
@@ -846,6 +849,7 @@ export function useCanvasManager(
             folderId: supabaseCanvas.folder_id,
             description: supabaseCanvas.description || undefined,
             sort_order: supabaseCanvas.sort_order || 0,
+            shape_count: supabaseCanvas.shape_count || 0,
           },
           hasUnsavedChanges: false,
           saveStatus: 'saved',
@@ -865,6 +869,7 @@ export function useCanvasManager(
               data: blankState || {},
               thumbnail: await generateThumbnail() || null,
               is_public: false,
+              shape_count: 0, // New canvases start with 0 shapes
             }, insertAtBeginning);
             
             id = supabaseCanvas.id;
@@ -880,6 +885,7 @@ export function useCanvasManager(
                 folderId: supabaseCanvas.folder_id,
                 description: supabaseCanvas.description || undefined,
                 sort_order: supabaseCanvas.sort_order || 0,
+                shape_count: supabaseCanvas.shape_count || 0,
               },
               hasUnsavedChanges: false,
               saveStatus: 'saved',
@@ -898,6 +904,7 @@ export function useCanvasManager(
                 version,
                 folderId: folderId || null,
                 sort_order: 0,
+                shape_count: 0,
               },
               hasUnsavedChanges: false,
               saveStatus: 'saved',
@@ -921,6 +928,7 @@ export function useCanvasManager(
               version,
               folderId: folderId || null,
               sort_order: 0,
+              shape_count: 0,
             },
             hasUnsavedChanges: false,
             saveStatus: 'saved',
@@ -1153,6 +1161,7 @@ export function useCanvasManager(
         if (updates.title !== undefined) supabaseUpdates.title = updates.title;
         if (updates.description !== undefined) supabaseUpdates.description = updates.description;
         if (updates.folderId !== undefined) supabaseUpdates.folder_id = updates.folderId;
+        if (updates.shape_count !== undefined) supabaseUpdates.shape_count = updates.shape_count;
         
         if (Object.keys(supabaseUpdates).length > 0) {
           await CanvasService.updateCanvas(id, supabaseUpdates);
@@ -1290,6 +1299,10 @@ export function useCanvasManager(
     if (editor && currentCanvasId) {
       try {
         const currentSnapshot = getSnapshot(editor.store);
+        
+        // Calculate shape count from current page
+        const shapeCount = editor.getCurrentPageShapeIds().size;
+        
         const canvasState = {
           snapshot: currentSnapshot,
           timestamp: Date.now(),
@@ -1299,7 +1312,10 @@ export function useCanvasManager(
         // Save to both Supabase and localStorage for reliability
         if (effectiveUserId && enableSupabase) {
           try {
-            await CanvasService.updateCanvas(currentCanvasId, { data: canvasState });
+            await CanvasService.updateCanvas(currentCanvasId, { 
+              data: canvasState,
+              shape_count: shapeCount
+            });
           } catch (supabaseError) {
             console.error('Failed to save to Supabase:', supabaseError);
             // Fallback to localStorage
@@ -1345,6 +1361,9 @@ export function useCanvasManager(
     try {
       const currentSnapshot = getSnapshot(editor.store);
       
+      // Calculate shape count from current page
+      const shapeCount = editor.getCurrentPageShapeIds().size;
+      
       const canvasState = {
         snapshot: currentSnapshot,
         timestamp: Date.now(),
@@ -1354,7 +1373,10 @@ export function useCanvasManager(
       // Save to both Supabase and localStorage for reliability
       if (effectiveUserId && enableSupabase) {
         try {
-          await CanvasService.updateCanvas(currentCanvasId, { data: canvasState });
+          await CanvasService.updateCanvas(currentCanvasId, { 
+            data: canvasState,
+            shape_count: shapeCount
+          });
         } catch (supabaseError) {
           console.error('❌ [CanvasManager] Failed to save to Supabase:', supabaseError);
           // Fallback to localStorage

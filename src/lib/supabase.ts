@@ -115,6 +115,7 @@ export interface Database {
           thumbnail: string | null
           is_public: boolean
           sort_order: number
+          shape_count: number
           created_at: string
           updated_at: string
         }
@@ -128,6 +129,7 @@ export interface Database {
           thumbnail?: string | null
           is_public?: boolean
           sort_order?: number
+          shape_count?: number
           created_at?: string
           updated_at?: string
         }
@@ -141,6 +143,7 @@ export interface Database {
           thumbnail?: string | null
           is_public?: boolean
           sort_order?: number
+          shape_count?: number
           created_at?: string
           updated_at?: string
         }

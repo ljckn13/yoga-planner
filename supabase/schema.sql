@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS public.canvases (
   thumbnail TEXT, -- Base64 thumbnail
   is_public BOOLEAN DEFAULT FALSE, -- For future sharing features
   sort_order INTEGER DEFAULT 1,
+  shape_count INTEGER DEFAULT 0, -- NEW: Track number of shapes on canvas
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
