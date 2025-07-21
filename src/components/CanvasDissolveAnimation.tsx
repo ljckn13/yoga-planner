@@ -120,7 +120,7 @@ export const CanvasDissolveAnimation: React.FC<CanvasDissolveAnimationProps> = (
         height: `${height}px`,
         border: `${borderWidth}px solid ${borderColor}`,
         borderRadius: '6px',
-        overflow: 'hidden',
+        overflow: isDeleting ? 'hidden' : 'visible',
         pointerEvents: isDeleting ? 'none' : 'auto',
         marginBottom: '0px',
         marginTop: '0px',

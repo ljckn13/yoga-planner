@@ -17,6 +17,8 @@ export interface UseAutoSaveOptions {
   enableAutoSave?: boolean;
   saveCurrentCanvas?: () => Promise<boolean>; // NEW: Canvas manager save function
   isLoadingRef?: React.MutableRefObject<boolean>; // NEW: Loading flag from canvas manager
+  isDragInProgress?: boolean; // NEW: Block auto-save during drag
+  isReordering?: boolean; // NEW: Block auto-save during reorder
 }
 
 const STORAGE_KEY_PREFIX = 'yoga_flow_canvas_';
@@ -110,6 +112,10 @@ export function useAutoSave(
     if (!editor || !canvasId || canvasId.trim() === '') {
       return;
     }
+    // Block auto-save if drag or reorder is in progress
+    if (options.isDragInProgress || options.isReordering) {
+      return;
+    }
 
     // Don't auto-save immediately on initial load - wait for user interaction
     if (isInitialLoadRef.current) {
@@ -149,7 +155,7 @@ export function useAutoSave(
       }
       unsubscribe();
     };
-  }, [editor, canvasId, saveToStorage, autoSaveDelay]);
+  }, [editor, canvasId, saveToStorage, autoSaveDelay, options.isDragInProgress, options.isReordering]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
