@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useAuthContext } from './AuthProvider'
+import { useAuthContext } from '../hooks/useAuthContext'
 
 export function SignIn() {
   const { signIn, isLoading, error, clearError } = useAuthContext()

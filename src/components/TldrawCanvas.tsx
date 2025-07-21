@@ -18,7 +18,6 @@ import { CustomPageMenu } from './CustomPageMenu';
 import { YogaPosePanel } from './YogaPosePanel';
 import { getPoseState } from '../utils/pose-state';
 import { yogaCategories } from '../assets/yoga-flows';
-import { useAuthContext } from './AuthProvider';
 
 // Custom tools and shape utilities
 const customTools = [YogaPoseTool];
@@ -35,10 +34,8 @@ const customAssetUrls: TLUiAssetUrlOverrides = {
 const uiOverrides: TLUiOverrides = {
   tools(editor, tools) {
     // Only keep the tools we want
-    const allowedTools: any = {
-      select: tools.select,
-      text: tools.text,
-      eraser: tools.eraser,
+    const allowedTools: Record<string, unknown> = {
+      ...tools,
       yogaPose: {
         id: 'yoga-pose-tool',
         icon: 'yoga-icon',
@@ -47,17 +44,27 @@ const uiOverrides: TLUiOverrides = {
         onSelect: () => {
           editor.setCurrentTool('yoga-pose-tool');
         },
-      }
+      },
     };
-    
-    // Add other tools only if they exist
-    if (tools.frame) allowedTools.frame = tools.frame;
-    if (tools.media) allowedTools.media = tools.media;
-    if (tools.asset) allowedTools.asset = tools.asset;
-    if (tools.draw) allowedTools.draw = tools.draw;
-    if (tools.note) allowedTools.note = tools.note;
-    
-    return allowedTools;
+    // Only keep the tools we want
+    const filteredTools = [
+      'select',
+      'text',
+      'eraser',
+      'yogaPose',
+      'frame',
+      'media',
+      'asset',
+      'draw',
+      'note',
+    ];
+    const result: Record<string, unknown> = {};
+    for (const key of filteredTools) {
+      if (allowedTools[key] && typeof allowedTools[key] === 'object' && allowedTools[key] !== null && 'id' in (allowedTools[key] as object)) {
+        result[key] = allowedTools[key];
+      }
+    }
+    return result as typeof tools;
   },
   actions(editor, actions) {
     return {
@@ -86,7 +93,6 @@ const createComponents = (): TLComponents => ({
     const isYogaPoseSelected = useIsToolSelected(tools['yogaPose']);
     const [activeCategory, setActiveCategory] = React.useState<number>(0);
     const [isHoveringPoseTool, setIsHoveringPoseTool] = React.useState(false);
-    const { user: _user } = useAuthContext();
     
     return (
       <>

@@ -106,6 +106,7 @@ export function useCanvasManager(
 
   const canvasSelectedDuringDeletionRef = useRef<string | null>(null);
   const isDeletionInProgressRef = useRef(false);
+  const isCreatingCanvasRef = useRef(false); // Prevent double creation
   
   const clearError = useCallback(() => {
     setError(null);
@@ -255,10 +256,7 @@ export function useCanvasManager(
             setFolders(prev => [...prev, newFolder]);
 
             return newFolder.id;
-          } catch (supabaseError) {
-    
-            // Fall through to localStorage logic below
-          }
+          } catch { /* intentionally empty */ }
         }
         
         // localStorage fallback with UUID format
@@ -331,9 +329,7 @@ export function useCanvasManager(
             ));
 
             return true;
-          } catch (supabaseError) {
-    
-          }
+          } catch { /* intentionally empty */ }
         }
         
         // localStorage fallback
@@ -394,9 +390,7 @@ export function useCanvasManager(
           try {
             await CanvasService.deleteFolder(id);
 
-          } catch (supabaseError) {
-    
-          }
+          } catch { /* intentionally empty */ }
         }
         
         // Update state and localStorage
@@ -594,8 +588,8 @@ export function useCanvasManager(
         const parsedList = JSON.parse(savedList);
         // Validate and transform the saved data
         const validCanvases: CanvasListItem[] = parsedList
-          .filter((item: any) => item.metadata && item.metadata.id)
-          .map((item: any) => ({
+          .filter((item: CanvasListItem) => item.metadata && item.metadata.id)
+          .map((item: CanvasListItem) => ({
             metadata: {
               ...item.metadata,
               lastModified: new Date(item.metadata.lastModified),
@@ -635,42 +629,43 @@ export function useCanvasManager(
   }, [currentCanvasId]); // Removed currentCanvasId from dependencies to prevent infinite loop
 
   // Load canvas state from Supabase or localStorage
-  const loadCanvasState = useCallback(async (canvasId: string): Promise<boolean> => {
+  const loadCanvasState = useCallback(async (canvasId: string, retryCount = 0): Promise<boolean> => {
     if (!canvasId || !editor) {
       console.log('❌ Cannot load canvas state: missing canvasId or editor');
       return false;
     }
 
-          // Loading canvas state for canvasId
     isLoadingRef.current = true;
     setIsLoading(true);
     setError(null);
 
     try {
       let canvasState = null;
-      
       // Try Supabase first if available
       if (effectiveUserId && enableSupabase) {
         try {
           const canvas = await CanvasService.getCanvasWithFolder(canvasId);
-          
           if (canvas && canvas.data) {
-            // Handle different data formats
             if (typeof canvas.data === 'string') {
               try {
                 canvasState = JSON.parse(canvas.data);
-              } catch (parseError) {
-                console.error('❌ Failed to parse canvas data string:', parseError);
-              }
+              } catch { /* intentionally empty */ }
             } else if (typeof canvas.data === 'object') {
               canvasState = canvas.data;
             }
+          } else if (canvas && typeof canvas === 'object' && 'code' in canvas && canvas.code === 'PGRST116') {
+            // Robust retry logic for 406/0 rows
+            if (!canvasState && retryCount < 5) {
+              await new Promise(res => setTimeout(res, 500));
+              return loadCanvasState(canvasId, retryCount + 1);
+            }
           }
-        } catch (supabaseError) {
-          console.error('❌ Failed to load from Supabase:', supabaseError);
-        }
+        } catch { /* intentionally empty */ }
       }
-      
+      // If all retries fail, load blank state
+      if (!canvasState && retryCount >= 5) {
+        // No-op, will load blank state below
+      }
       // Fallback to localStorage if Supabase failed or not available
       if (!canvasState) {
         const storageKey = `${STORAGE_KEY_PREFIX}${canvasId}`;
@@ -678,23 +673,17 @@ export function useCanvasManager(
         if (savedData) {
           try {
             canvasState = JSON.parse(savedData);
-          } catch (parseError) {
-            console.error('❌ Failed to parse localStorage data:', parseError);
-          }
+          } catch { /* intentionally empty */ }
         }
       }
-
       if (canvasState && canvasState.snapshot) {
-        // Load the snapshot into the editor
         loadSnapshot(editor.store, canvasState.snapshot);
         return true;
       } else {
-        // Load a blank state instead of just clearing shapes
         const blankState = createBlankCanvasState();
         if (blankState && blankState.snapshot) {
           loadSnapshot(editor.store, blankState.snapshot);
         } else {
-          // Fallback: Clear all shapes to create a truly blank canvas
           const shapeIds = editor.getCurrentPageShapeIds();
           if (shapeIds.size > 0) {
             editor.deleteShapes(Array.from(shapeIds));
@@ -705,7 +694,6 @@ export function useCanvasManager(
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to load canvas state';
       setError(errorMessage);
-      console.error(`❌ Error loading canvas state for ${canvasId}:`, err);
       return false;
     } finally {
       setIsLoading(false);
@@ -782,6 +770,7 @@ export function useCanvasManager(
 
   // Create a new canvas
   const createCanvas = useCallback(async (title?: string, folderId?: string | null, insertAtBeginning: boolean = false): Promise<string> => {
+    console.log('[createCanvas] called with', { title, folderId, insertAtBeginning, effectiveUserId, enableSupabase });
     setIsLoading(true);
     setError(null);
 
@@ -794,6 +783,7 @@ export function useCanvasManager(
       if (isProduction) {
         // Production: Supabase only - no localStorage fallback for data consistency
         if (!effectiveUserId || !enableSupabase) {
+          console.warn('[createCanvas] Early return: missing effectiveUserId or enableSupabase');
           throw new Error('Database connection required for canvas operations');
         }
         
@@ -816,12 +806,12 @@ export function useCanvasManager(
               shape_count: 0, // New canvases start with 0 shapes
             }, insertAtBeginning);
             break; // Success, exit retry loop
-          } catch (error: any) {
+          } catch (error: unknown) {
             retryCount++;
             console.log(`🔄 Canvas creation attempt ${retryCount}/${maxRetries} failed:`, error);
             
             // If it's a foreign key constraint error and we haven't exhausted retries, wait and retry
-            if (error.code === '23503' && retryCount < maxRetries) {
+            if ((error as { code?: string }).code === '23503' && retryCount < maxRetries) {
               console.log('⏳ User profile might not be ready, waiting before retry...');
               await new Promise(resolve => setTimeout(resolve, 1000 * retryCount)); // Exponential backoff
               continue;
@@ -891,7 +881,7 @@ export function useCanvasManager(
               saveStatus: 'saved',
               isLoaded: false,
             };
-          } catch (supabaseError) {
+          } catch (supabaseError: unknown) {
             console.error('Failed to create canvas in Supabase:', supabaseError);
             // Fall back to localStorage
             id = crypto.randomUUID();
@@ -1004,7 +994,7 @@ export function useCanvasManager(
         if (effectiveUserId && enableSupabase) {
           try {
             await CanvasService.updateCanvas(id, { data: canvasState });
-          } catch (supabaseError) {
+          } catch (supabaseError: unknown) {
             console.error('Failed to save to Supabase:', supabaseError);
             // Fallback to localStorage
             const storageKey = `${STORAGE_KEY_PREFIX}${id}`;
@@ -1031,14 +1021,7 @@ export function useCanvasManager(
         try {
           const canvasData = await CanvasService.getCanvasWithFolder(id);
           sourceCanvasState = canvasData.data;
-        } catch (supabaseError) {
-          console.error('Failed to load canvas from Supabase:', supabaseError);
-          // Fallback to localStorage
-          const savedData = localStorage.getItem(storageKey);
-          if (savedData) {
-            sourceCanvasState = JSON.parse(savedData);
-          }
-        }
+        } catch { /* intentionally empty */ }
       } else {
         // LocalStorage only
         const savedData = localStorage.getItem(storageKey);
@@ -1057,7 +1040,7 @@ export function useCanvasManager(
         if (effectiveUserId && enableSupabase) {
           try {
             await CanvasService.updateCanvas(newCanvasId, { data: sourceCanvasState });
-          } catch (supabaseError) {
+          } catch (supabaseError: unknown) {
             console.error('Failed to save duplicated canvas to Supabase:', supabaseError);
             // Fallback to localStorage
             localStorage.setItem(newStorageKey, JSON.stringify(sourceCanvasState));
@@ -1105,9 +1088,7 @@ export function useCanvasManager(
             // Reload the canvas list to reflect the new sort order
             await loadUserData();
           }
-        } catch (sortError) {
-          console.error('Failed to update sort orders for duplicated canvas:', sortError);
-        }
+        } catch { /* intentionally empty */ }
       }
 
       // Switch to the new canvas
@@ -1157,7 +1138,7 @@ export function useCanvasManager(
       
       // Update in Supabase if available
       if (effectiveUserId && enableSupabase) {
-        const supabaseUpdates: any = {};
+        const supabaseUpdates: Record<string, unknown> = {};
         if (updates.title !== undefined) supabaseUpdates.title = updates.title;
         if (updates.description !== undefined) supabaseUpdates.description = updates.description;
         if (updates.folderId !== undefined) supabaseUpdates.folder_id = updates.folderId;
@@ -1181,12 +1162,12 @@ export function useCanvasManager(
 
   // Delete a canvas
   const deleteCanvas = useCallback(async (id: string): Promise<boolean> => {
-    // Set deletion flag to prevent auto-creation
+    // Set deletion and creation flags to prevent auto-create effect from firing
     isDeletionInProgressRef.current = true;
-    
+    defaultCanvasCreatedRef.current = true; // Prevent auto-create effect
+    isCreatingCanvasRef.current = true; // Prevent double creation
     // Clear the canvas selection ref at the start
     canvasSelectedDuringDeletionRef.current = null;
-    
     setIsLoading(true);
     setError(null);
 
@@ -1200,10 +1181,7 @@ export function useCanvasManager(
         await CanvasService.deleteCanvas(id);
       }
 
-      // 3. Check if this was the last canvas before deletion
-      const wasLastCanvas = canvases.length === 1;
-      
-      // 4. Reload canvases from backend to get updated sort_order and handle canvas selection
+      // 3. Reload canvases from backend to get updated sort_order and handle canvas selection
       await loadUserData({
         afterDeletion: {
           deletedCanvasFolderId: deletedCanvasFolderId || null,
@@ -1211,83 +1189,44 @@ export function useCanvasManager(
         }
       });
 
-      // 5. Handle canvas loading and creation after data is reloaded
+      // 4. Handle canvas selection after data is reloaded
       setTimeout(async () => {
         // Check if a canvas was already selected during loadUserData
         if (canvasSelectedDuringDeletionRef.current && canvasSelectedDuringDeletionRef.current !== id) {
           const selectedCanvasId = canvasSelectedDuringDeletionRef.current;
-          console.log('🔄 Canvas already selected during loadUserData, loading it now:', selectedCanvasId);
-          // Load the canvas that was selected during loadUserData
           await loadCanvasState(selectedCanvasId);
-          // Ensure currentCanvasId is set to the loaded canvas
           setCurrentCanvasId(selectedCanvasId);
-          // Clear the ref
           canvasSelectedDuringDeletionRef.current = null;
-          return;
-        }
-        
-        // If this was the last canvas, create a new one immediately
-        if (wasLastCanvas) {
-          console.log('🆕 Last canvas was deleted, creating new canvas immediately');
-          const newId = await createCanvas(defaultCanvasTitle, null, false);
-          setCurrentCanvasId(newId);
-          await loadCanvasState(newId);
-          // Clear the ref
-          canvasSelectedDuringDeletionRef.current = null;
-          return;
-        }
-        
-        // Get the current canvas list after reload
-        const currentCanvases = canvases;
-        console.log('📊 Current canvases after reload:', currentCanvases.map(c => ({ id: c.metadata.id, title: c.metadata.title, folderId: c.metadata.folderId })));
-        
-        if (currentCanvases.length === 0) {
-          // No canvases left, create a new one
-          console.log('🆕 Creating new canvas after deletion');
-          const newId = await createCanvas(defaultCanvasTitle, null, false);
-          setCurrentCanvasId(newId);
-          await loadCanvasState(newId);
         } else if (!currentCanvasId || currentCanvasId === id) {
           // No canvas selected or the deleted canvas is still selected, select the first available
-          const firstCanvas = currentCanvases[0];
+          const firstCanvas = canvases[0];
           if (firstCanvas) {
-            console.log('🔄 Selecting first available canvas after deletion:', firstCanvas.metadata.id);
             setCurrentCanvasId(firstCanvas.metadata.id);
             await loadCanvasState(firstCanvas.metadata.id);
           }
         } else {
-          // Canvas is already selected, just load it (this will trigger the normal canvas switching logic)
-          console.log('🔄 Canvas already selected, loading:', currentCanvasId);
+          // Canvas is already selected, just load it
           await loadCanvasState(currentCanvasId);
         }
-        
-        // Clear the ref at the end
-        canvasSelectedDuringDeletionRef.current = null;
-      }, 50); // Small delay to ensure state is updated
-
-      // Clear deletion flag after a delay to allow for state updates
-      setTimeout(() => {
+        // Synchronously reset flags after all async work and state updates
+        isCreatingCanvasRef.current = false;
+        defaultCanvasCreatedRef.current = false;
         isDeletionInProgressRef.current = false;
-      }, 1000);
-
+        canvasSelectedDuringDeletionRef.current = null;
+      }, 50);
       return true;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to delete canvas';
       setError(errorMessage);
+      // Always reset flags on error
+      isCreatingCanvasRef.current = false;
+      defaultCanvasCreatedRef.current = false;
+      isDeletionInProgressRef.current = false;
       return false;
     } finally {
       setIsLoading(false);
     }
-  }, [
-    canvases,
-    currentCanvasId,
-    effectiveUserId,
-    enableSupabase,
-    loadUserData,
-    createCanvas,
-    loadCanvasState,
-    defaultCanvasTitle
-  ]);
+  }, [canvases, currentCanvasId, effectiveUserId, enableSupabase, loadUserData, createCanvas, loadCanvasState, defaultCanvasTitle]);
 
   // Switch to a different canvas - ENHANCED with Supabase support
   const switchCanvas = useCallback(async (id: string): Promise<boolean> => {
@@ -1316,7 +1255,7 @@ export function useCanvasManager(
               data: canvasState,
               shape_count: shapeCount
             });
-          } catch (supabaseError) {
+          } catch (supabaseError: unknown) {
             console.error('Failed to save to Supabase:', supabaseError);
             // Fallback to localStorage
             const storageKey = `${STORAGE_KEY_PREFIX}${currentCanvasId}`;
@@ -1377,7 +1316,7 @@ export function useCanvasManager(
             data: canvasState,
             shape_count: shapeCount
           });
-        } catch (supabaseError) {
+        } catch (supabaseError: unknown) {
           console.error('❌ [CanvasManager] Failed to save to Supabase:', supabaseError);
           // Fallback to localStorage
           const storageKey = `${STORAGE_KEY_PREFIX}${currentCanvasId}`;
@@ -1421,7 +1360,7 @@ export function useCanvasManager(
       if (effectiveUserId && enableSupabase) {
         loadUserData().then(() => {
           setIsInitialized(true);
-        }).catch((_error) => {
+        }).catch(() => {
           // Fallback to localStorage if Supabase fails
 
           loadCanvasList();
@@ -1438,9 +1377,18 @@ export function useCanvasManager(
   // SIMPLIFIED: Auto-create default canvas if needed
   useEffect(() => {
     const deletionInProgress = externalDeletionRef?.current || isDeletionInProgressRef.current;
-    if (!isInitialized || !autoCreateDefault || defaultCanvasCreatedRef.current || isLoading || deletionInProgress) {
+    
+    // Early exit - avoid expensive checks if basic conditions aren't met
+    if (!isInitialized || !autoCreateDefault || defaultCanvasCreatedRef.current || deletionInProgress || isCreatingCanvasRef.current) {
       return;
     }
+    
+    // Skip if still loading
+    if (isLoading) {
+      return;
+    }
+    
+    console.log('[AutoCreateEffect] Running check - canvases.length:', canvases.length, 'effectiveUserId:', effectiveUserId, 'enableSupabase:', enableSupabase);
     
     // Simple check: Only auto-create if workspace is truly empty
     const checkIfWorkspaceEmpty = async () => {
@@ -1475,6 +1423,7 @@ export function useCanvasManager(
     };
     
     checkIfWorkspaceEmpty().then((shouldCreate) => {
+      console.log('[AutoCreateEffect] shouldCreate:', shouldCreate);
       if (shouldCreate) {
         defaultCanvasCreatedRef.current = true;
         // Use setTimeout to avoid calling createCanvas during render
@@ -1494,10 +1443,7 @@ export function useCanvasManager(
         }, 100);
       }
     });
-  }, [isInitialized, autoCreateDefault, canvases.length, defaultCanvasTitle, createCanvas, isLoading, effectiveUserId, enableSupabase, isProduction]);
-
-  // REMOVED: Fallback check that was causing double canvas creation
-  // The auto-creation logic above already handles empty workspace scenarios
+  }, [isInitialized, autoCreateDefault, canvases.length, effectiveUserId, enableSupabase]);
 
   // NEW: Load canvas content when currentCanvasId is set
   useEffect(() => {
@@ -1586,7 +1532,7 @@ export function useCanvasManager(
       
       // No need to reload data since optimistic update already handled UI state
       // Only reload on error to revert optimistic changes
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Failed to reorder canvas:', error);
       // Revert optimistic update on error
       await loadUserData();

@@ -2,15 +2,11 @@ import React, { useState, useEffect } from 'react';
 
 interface SidebarIndicatorProps {
   sidebarVisible: boolean;
-  onMouseEnter: () => void;
-  onMouseLeave: () => void;
   delay?: number; // Delay in milliseconds before showing indicator
 }
 
 export const SidebarIndicator: React.FC<SidebarIndicatorProps> = ({
   sidebarVisible,
-  onMouseEnter,
-  onMouseLeave,
   delay = 100, // No delay - show immediately
 }) => {
   const [shouldShow, setShouldShow] = useState(false);

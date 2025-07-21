@@ -1,7 +1,7 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { type Editor } from 'tldraw';
 import { useAutoSave } from '../hooks/useAutoSave';
-import { useAuthContext } from './AuthProvider';
+import { useAuthContext } from '../hooks/useAuthContext';
 import { useCanvasManager } from '../hooks/useCanvasManager';
 import { useAutoSidebar } from '../hooks/useAutoSidebar';
 import { CanvasProvider } from '../contexts/CanvasContext';
@@ -16,12 +16,36 @@ export const FlowPlanner: React.FC = () => {
   const editorRef = useRef<Editor | null>(null);
   const [editorInstance, setEditorInstance] = useState<Editor | null>(null);
   
+  // Refs for folder management
+  const previousCanvasFolderRef = useRef<string | null | undefined>(undefined);
+  const isDragInProgressRef = useRef(false);
+  const isDeletionInProgressRef = useRef(false);
+  
   // Auto sidebar behavior
+  const [isDeletionInProgress, setIsDeletionInProgress] = useState(false);
+  const [isCreationInProgress, setIsCreationInProgress] = useState(false);
+  const [isDragInProgress, setIsDragInProgress] = useState(false);
+  
+  // Sync ref with state for drag progress
+  useEffect(() => {
+    const checkDragProgress = () => {
+      if (isDragInProgressRef.current !== isDragInProgress) {
+        setIsDragInProgress(isDragInProgressRef.current);
+      }
+    };
+    
+    const interval = setInterval(checkDragProgress, 100);
+    return () => clearInterval(interval);
+  }, [isDragInProgress]);
+  
   const autoSidebar = useAutoSidebar({
     sidebarVisible,
     setSidebarVisible,
-    canvasHoverDelay: 300, // 1.5 seconds before collapsing when hovering canvas
+    canvasHoverDelay: 1500, // 1.5 seconds before collapsing when hovering canvas
     sidebarHoverDelay: 300, // 0.8 seconds before expanding when hovering sidebar area
+    isDeletionInProgress,
+    isCreationInProgress,
+    isDragInProgress,
   });
   
   // Canvas and folder management
@@ -29,11 +53,6 @@ export const FlowPlanner: React.FC = () => {
   const [editingCanvasId, setEditingCanvasId] = useState<string | null>(null);
   const [openFolders, setOpenFolders] = useState<Set<string>>(new Set());
   const [, setManuallyOpenedFolders] = useState<Set<string>>(new Set());
-  
-  // Refs for folder management
-  const previousCanvasFolderRef = useRef<string | null | undefined>(undefined);
-  const isDragInProgressRef = useRef(false);
-  const isDeletionInProgressRef = useRef(false);
 
   // Stabilize the options object to prevent useCanvasManager from being recreated
   const canvasManagerOptions = React.useMemo(() => {
@@ -58,6 +77,7 @@ export const FlowPlanner: React.FC = () => {
     canvases: managerCanvases,
     currentCanvas,
     isLoading,
+    createCanvas,
     updateCanvas: updateCanvasInManager,
     switchCanvas: switchCanvasInManager,
     deleteCanvas: deleteCanvasInManager,
@@ -80,12 +100,33 @@ export const FlowPlanner: React.FC = () => {
     canvasId: currentCanvasId,
     saveCurrentCanvas: canvasManager.saveCurrentCanvas,
     isLoadingRef: canvasManager.isLoadingRef, // NEW: Pass loading ref to prevent auto-save during loading
+    canvases, // Pass the current list of canvases for auto-save guard
+    isDeletionInProgress, // Block auto-save during deletion
   });
 
   // Set current canvas when available
+  const hasSetInitialCanvasId = React.useRef(false);
   React.useEffect(() => {
-    if (currentCanvas && currentCanvas.metadata.id !== currentCanvasId) {
+    // Only set if currentCanvasId is empty or different
+    if (
+      currentCanvas &&
+      (currentCanvasId === '' || currentCanvasId === undefined || currentCanvasId === null)
+      && !hasSetInitialCanvasId.current
+    ) {
+      console.log('🎯 Setting initial canvas ID:', currentCanvas.metadata.id);
       setCurrentCanvasId(currentCanvas.metadata.id);
+      hasSetInitialCanvasId.current = true;
+    }
+    // If currentCanvasId is different from currentCanvas, update it (allow updates after deletion)
+    else if (
+      currentCanvas &&
+      currentCanvasId !== currentCanvas.metadata.id
+    ) {
+      console.log('🔄 Updating canvas ID from', currentCanvasId, 'to', currentCanvas.metadata.id);
+      setCurrentCanvasId(currentCanvas.metadata.id);
+      if (!hasSetInitialCanvasId.current) {
+        hasSetInitialCanvasId.current = true;
+      }
     }
   }, [currentCanvas, currentCanvasId]);
 
@@ -177,7 +218,7 @@ export const FlowPlanner: React.FC = () => {
               
               if (isDeliberateTopLevelSwitch && !isDragInProgressRef?.current) {
                 console.log('📁 Applying folder close rules - deliberate switch to top-level canvas, closing all folders');
-                setOpenFolders(_ => {
+                setOpenFolders(() => {
                   const newSet = new Set<string>();
                   
                   // When deliberately switching to top-level canvas, close all folders
@@ -211,8 +252,9 @@ export const FlowPlanner: React.FC = () => {
     }
   };
 
-  const handleDeleteCanvas = async (canvasId: string) => {
-    // Set deletion flag immediately to prevent auto-loading
+  const handleDeleteCanvas = async (canvasId: string, afterAnimation?: () => void) => {
+    console.log('🗑️ Starting canvas deletion - setting flags to true');
+    setIsDeletionInProgress(true);
     isDeletionInProgressRef.current = true;
     console.log('🚫 Deletion in progress - preventing auto-loading');
     
@@ -226,10 +268,13 @@ export const FlowPlanner: React.FC = () => {
     } catch (error) {
       console.error('Failed to delete canvas:', error);
     } finally {
-      // Reset deletion flag after a delay to allow for state updates
+      // Reset flags after a longer delay to ensure deletion and any auto-creation completes
       setTimeout(() => {
+        console.log('✅ Deletion complete - resetting flags to false');
         isDeletionInProgressRef.current = false;
-      }, 1000);
+        setIsDeletionInProgress(false);
+        if (afterAnimation) afterAnimation();
+      }, 2000); // Increased delay to ensure everything completes
     }
   };
 
@@ -245,6 +290,29 @@ export const FlowPlanner: React.FC = () => {
   const handleMount = (mountedEditor: Editor) => {
     editorRef.current = mountedEditor;
     setEditorInstance(mountedEditor);
+  };
+
+  // Wrapper functions to track creation progress
+  const createCanvasWithProgress = async (...args: Parameters<typeof createCanvas>) => {
+    setIsCreationInProgress(true);
+    try {
+      const result = await createCanvas(...args);
+      return result;
+    } finally {
+      // Reset creation progress after a delay to let animation complete
+      setTimeout(() => setIsCreationInProgress(false), 1000);
+    }
+  };
+
+  const duplicateCanvasWithProgress = async (...args: Parameters<typeof duplicateCanvasInManager>) => {
+    setIsCreationInProgress(true);
+    try {
+      const result = await duplicateCanvasInManager(...args);
+      return result;
+    } finally {
+      // Reset creation progress after a delay to let animation complete
+      setTimeout(() => setIsCreationInProgress(false), 1000);
+    }
   };
 
 
@@ -291,8 +359,6 @@ export const FlowPlanner: React.FC = () => {
               >
                 <SidebarIndicator
                   sidebarVisible={sidebarVisible}
-                  onMouseEnter={autoSidebar.handleSidebarAreaMouseEnter}
-                  onMouseLeave={autoSidebar.handleSidebarAreaMouseLeave}
                 />
               </div>
             )}
@@ -303,7 +369,11 @@ export const FlowPlanner: React.FC = () => {
             >
               <FlowSidebar
                 sidebarVisible={sidebarVisible}
-                canvasManager={canvasManager}
+                canvasManager={{
+                  ...canvasManager,
+                  createCanvas: createCanvasWithProgress,
+                  duplicateCanvas: duplicateCanvasWithProgress,
+                }}
                 canvases={canvases}
                 folders={folders}
                 currentCanvasId={currentCanvasId}
@@ -311,12 +381,14 @@ export const FlowPlanner: React.FC = () => {
                 setEditingCanvasId={setEditingCanvasId}
                 onSwitchCanvas={handleSwitchCanvas}
                 onDeleteCanvas={handleDeleteCanvas}
-                onDuplicateCanvas={duplicateCanvasInManager}
+
+                onDuplicateCanvas={duplicateCanvasWithProgress}
                 onUpdateCanvas={updateCanvas}
                 openFolders={openFolders}
                 setOpenFolders={setOpenFolders}
                 setManuallyOpenedFolders={setManuallyOpenedFolders}
                 isDragInProgressRef={isDragInProgressRef}
+                isDeletionInProgress={isDeletionInProgress}
               />
             </div>
 

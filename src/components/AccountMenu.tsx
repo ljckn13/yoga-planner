@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useAuthContext } from './AuthProvider'
+import { useAuthContext } from '../hooks/useAuthContext'
 import { useUser } from '../hooks/useUser'
 import { DeleteButton } from './DeleteButton'
 

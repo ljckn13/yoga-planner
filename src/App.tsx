@@ -1,5 +1,6 @@
 import { FlowPlanner } from './components/FlowPlanner';
-import { AuthProvider, useAuthContext } from './components/AuthProvider';
+import { AuthProvider } from './components/AuthProvider';
+import { useAuthContext } from './hooks/useAuthContext';
 import { SignIn } from './components/SignIn';
 import { AuthCallback } from './components/AuthCallback';
 import './App.css';

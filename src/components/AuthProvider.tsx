@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect } from 'react'
+import { createContext, useEffect } from 'react'
 import type { ReactNode } from 'react'
 import { useAuth } from '../hooks/useAuth'
 import { useUser } from '../hooks/useUser'
@@ -16,21 +16,14 @@ interface AuthContextType {
   clearError: () => void
   // User profile functionality
   profile: UserProfile | null
-  updateProfile: (updates: Partial<UserProfile>) => Promise<{ success?: boolean; error?: string; data?: any }>
-  updatePreferences: (preferences: Partial<UserPreferences>) => Promise<{ success?: boolean; error?: string; data?: any }>
-  getPreference: (key: keyof UserPreferences, defaultValue?: any) => any
-  setPreference: (key: keyof UserPreferences, value: any) => Promise<{ success?: boolean; error?: string; data?: any }>
+  updateProfile: (updates: Partial<UserProfile>) => Promise<{ success?: boolean; error?: string; data?: unknown }>
+  updatePreferences: (preferences: Partial<UserPreferences>) => Promise<{ success?: boolean; error?: string; data?: unknown }>
+  getPreference: (key: keyof UserPreferences, defaultValue?: unknown) => unknown
+  setPreference: (key: keyof UserPreferences, value: unknown) => Promise<{ success?: boolean; error?: string; data?: unknown }>
 }
 
 const AuthContext = createContext<AuthContextType | null>(null)
-
-export function useAuthContext() {
-  const context = useContext(AuthContext)
-  if (!context) {
-    throw new Error('useAuthContext must be used within an AuthProvider')
-  }
-  return context
-}
+export { AuthContext }
 
 interface AuthProviderProps {
   children: ReactNode

@@ -25,11 +25,13 @@ interface DraggableCanvasRowProps {
   onUpdate: (id: string, updates: { title?: string }) => void;
   onStartEdit: (id: string) => void;
   onCancelEdit: () => void;
+  onDeleteAnimationComplete?: () => void;
+
+  resetCanvasCreationFlags: () => void;
 }
 
 export const DraggableCanvasRow: React.FC<DraggableCanvasRowProps> = React.memo(({
   canvas,
-  index: _index,
   isCurrent,
   isEditing,
   onSwitch,
@@ -38,6 +40,9 @@ export const DraggableCanvasRow: React.FC<DraggableCanvasRowProps> = React.memo(
   onUpdate,
   onStartEdit,
   onCancelEdit,
+  onDeleteAnimationComplete,
+
+  resetCanvasCreationFlags,
 }) => {
   const [isPopupOpen, setIsPopupOpen] = useState(false);
   const [isHoverTriggered, setIsHoverTriggered] = useState(false);
@@ -117,9 +122,11 @@ export const DraggableCanvasRow: React.FC<DraggableCanvasRowProps> = React.memo(
     }
   });
 
-  // Handle delete with animation
+    // Handle delete with animation
   const handleDelete = () => {
     if (confirm('Are you sure you want to delete this canvas?')) {
+      // Trigger onDelete callback immediately to set deletion flags BEFORE animation
+      onDelete(canvas.id);
       setIsDeleting(true);
       setIsPopupOpen(false);
     }
@@ -127,7 +134,9 @@ export const DraggableCanvasRow: React.FC<DraggableCanvasRowProps> = React.memo(
 
   // Handle animation completion
   const handleAnimationComplete = () => {
+    resetCanvasCreationFlags();
     onDelete(canvas.id);
+    if (onDeleteAnimationComplete) onDeleteAnimationComplete();
   };
 
   const canvasElement = (

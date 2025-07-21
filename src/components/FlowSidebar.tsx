@@ -1,6 +1,5 @@
-import React, { useState } from 'react';
-import { useAuthContext } from './AuthProvider';
-import { useCanvasManager } from '../hooks/useCanvasManager';
+import React, { useState, useEffect, useRef } from 'react';
+import { useAuthContext } from '../hooks/useAuthContext';
 import { useSidebarDragAndDrop } from '../hooks/useSidebarDragAndDrop';
 import { DraggableCanvasRow } from './DraggableCanvasRow';
 import { DeleteButton } from './DeleteButton';
@@ -31,29 +30,14 @@ import SimpleBar from 'simplebar-react';
 import 'simplebar-react/dist/simplebar.min.css';
 import { CanvasService } from '../services/canvasService';
 import type { Folder as FolderType } from '../lib/supabase';
+import type { UseCanvasManagerReturn } from '../hooks/useCanvasManager';
 
-export interface FlowSidebarProps {
-  sidebarVisible: boolean;
-  canvasManager: ReturnType<typeof useCanvasManager>;
-  canvases: Array<{
-    id: string;
-    title: string;
-    folderId?: string | null;
-    createdAt?: Date;
-    sort_order?: number;
-  }>;
-  folders: FolderType[];
-  currentCanvasId: string;
-  editingCanvasId: string | null;
-  setEditingCanvasId: (id: string | null) => void;
-  onSwitchCanvas: (id: string) => void;
-  onDeleteCanvas: (id: string) => void;
-  onDuplicateCanvas: (id: string) => void;
-  onUpdateCanvas: (id: string, updates: { title?: string }) => void;
-  openFolders: Set<string>;
-  setOpenFolders: React.Dispatch<React.SetStateAction<Set<string>>>;
-  setManuallyOpenedFolders: React.Dispatch<React.SetStateAction<Set<string>>>;
-  isDragInProgressRef: React.RefObject<boolean>;
+interface Canvas {
+  id: string;
+  title: string;
+  folderId?: string | null;
+  createdAt?: Date;
+  sort_order?: number;
 }
 
 // Custom collision detection that better handles gaps between canvas rows
@@ -124,12 +108,13 @@ const RootFolderDroppable: React.FC<{
   }>;
   currentCanvasId: string;
   editingCanvasId: string | null;
-  draggedCanvas: any | null;
+  draggedCanvas: Canvas | null;
   onSwitchCanvas: (id: string) => void;
-  onDeleteCanvas: (id: string) => void;
+  onDeleteCanvas: (id: string, afterAnimation?: () => void) => void;
   onDuplicateCanvas: (id: string) => void;
   onUpdateCanvas: (id: string, updates: { title?: string }) => void;
   setEditingCanvasId: (id: string | null) => void;
+  resetCanvasCreationFlags: () => void;
 }> = ({
   userRootFolderId,
   overFolderIds,
@@ -142,6 +127,7 @@ const RootFolderDroppable: React.FC<{
   onDuplicateCanvas,
   onUpdateCanvas,
   setEditingCanvasId,
+  resetCanvasCreationFlags,
 }) => {
   const { setNodeRef } = useDroppable({
     id: `folder-droppable-${userRootFolderId || 'root'}`,
@@ -209,7 +195,7 @@ const RootFolderDroppable: React.FC<{
       )}
 
                 {rootCanvases
-            .sort((a, b) => {
+            .sort((a: Canvas, b: Canvas) => {
               if (a.sort_order !== undefined && b.sort_order !== undefined) {
                 return a.sort_order - b.sort_order;
               }
@@ -217,7 +203,7 @@ const RootFolderDroppable: React.FC<{
               const bDate = new Date(b.createdAt || 0);
               return bDate.getTime() - aDate.getTime();
             })
-            .map((canvas, index) => (
+            .map((canvas: Canvas, index: number) => (
               <DraggableCanvasRow
                 key={canvas.id}
                 canvas={canvas}
@@ -225,7 +211,13 @@ const RootFolderDroppable: React.FC<{
                 isCurrent={currentCanvasId === canvas.id}
                 isEditing={editingCanvasId === canvas.id}
                 onSwitch={onSwitchCanvas}
-                onDelete={onDeleteCanvas}
+                onDelete={(canvasId) => {
+                  // Set deletion flags immediately when delete is confirmed
+                  console.log('🚨 Setting deletion flags immediately for canvas:', canvasId);
+                  onDeleteCanvas(canvasId, () => {});
+                }}
+                onDeleteAnimationComplete={() => {}}
+
                 onDuplicate={onDuplicateCanvas}
                 onUpdate={(id, updates) => {
                   onUpdateCanvas(id, updates);
@@ -233,6 +225,7 @@ const RootFolderDroppable: React.FC<{
                 }}
                 onStartEdit={setEditingCanvasId}
                 onCancelEdit={() => setEditingCanvasId(null)}
+                resetCanvasCreationFlags={resetCanvasCreationFlags}
               />
             ))}
     </div>
@@ -253,7 +246,7 @@ const FolderComponent: React.FC<{
   isEditing: boolean;
   editingFolderName: string;
   activeId: string | null;
-  draggedCanvas: any | null;
+  draggedCanvas: Canvas | null;
   currentCanvasId: string;
   editingCanvasId: string | null;
   shouldShowDropFeedback: (folderId: string) => boolean;
@@ -270,6 +263,7 @@ const FolderComponent: React.FC<{
   handleCreateCanvasInFolder: (id: string) => void;
   setEditingFolderName: (name: string) => void;
   userRootFolderId: string | null;
+  resetCanvasCreationFlags: () => void;
 }> = ({
   folder,
   folderCanvases,
@@ -294,6 +288,7 @@ const FolderComponent: React.FC<{
   handleCreateCanvasInFolder,
   setEditingFolderName,
   userRootFolderId,
+  resetCanvasCreationFlags,
 }) => {
   // Make the entire folder droppable for folder-to-folder drops
   // BUT disable when dragging folders to allow native DND Kit placeholders
@@ -551,7 +546,7 @@ const FolderComponent: React.FC<{
                   strategy={verticalListSortingStrategy}
                 >
                   {folderCanvases
-                    .sort((a, b) => {
+                    .sort((a: Canvas, b: Canvas) => {
                       if (a.sort_order !== undefined && b.sort_order !== undefined) {
                         return a.sort_order - b.sort_order;
                       }
@@ -559,7 +554,7 @@ const FolderComponent: React.FC<{
                       const bDate = new Date(b.createdAt || 0);
                       return bDate.getTime() - aDate.getTime();
                     })
-                    .map((canvas, index) => (
+                    .map((canvas: Canvas, index: number) => (
                       <DraggableCanvasRow
                         key={canvas.id}
                         canvas={canvas}
@@ -567,7 +562,12 @@ const FolderComponent: React.FC<{
                         isCurrent={currentCanvasId === canvas.id}
                         isEditing={editingCanvasId === canvas.id}
                         onSwitch={handleSwitchCanvas}
-                        onDelete={handleDeleteCanvas}
+                        onDelete={(canvasId) => {
+                          // Set deletion flags immediately when delete is confirmed
+                          console.log('🚨 Setting deletion flags immediately for canvas:', canvasId);
+                          handleDeleteCanvas(canvasId);
+                        }}
+                        onDeleteAnimationComplete={() => {}}
                         onDuplicate={handleDuplicateCanvas}
                         onUpdate={(id, updates) => {
                           updateCanvas(id, updates);
@@ -575,6 +575,7 @@ const FolderComponent: React.FC<{
                         }}
                         onStartEdit={setEditingCanvasId}
                         onCancelEdit={() => setEditingCanvasId(null)}
+                        resetCanvasCreationFlags={resetCanvasCreationFlags}
                       />
                     ))}
                 </SortableContext>
@@ -641,6 +642,26 @@ const FolderComponent: React.FC<{
   );
 };
 
+interface FlowSidebarProps {
+  sidebarVisible: boolean;
+  canvasManager: UseCanvasManagerReturn;
+  canvases: Array<Canvas>;
+  folders: Array<FolderType>;
+  currentCanvasId: string;
+  editingCanvasId: string | null;
+  setEditingCanvasId: (id: string | null) => void;
+  onSwitchCanvas: (id: string) => void;
+  onDeleteCanvas: (id: string, afterAnimation?: () => void) => void;
+
+  onDuplicateCanvas: (id: string) => void;
+  onUpdateCanvas: (id: string, updates: { title?: string }) => void;
+  openFolders: Set<string>;
+  setOpenFolders: React.Dispatch<React.SetStateAction<Set<string>>>;
+  setManuallyOpenedFolders: React.Dispatch<React.SetStateAction<Set<string>>>;
+  isDragInProgressRef: React.MutableRefObject<boolean>;
+  isDeletionInProgress: boolean;
+}
+
 export const FlowSidebar: React.FC<FlowSidebarProps> = ({
   sidebarVisible,
   canvasManager,
@@ -651,12 +672,14 @@ export const FlowSidebar: React.FC<FlowSidebarProps> = ({
   setEditingCanvasId,
   onSwitchCanvas,
   onDeleteCanvas,
+
   onDuplicateCanvas,
   onUpdateCanvas,
   openFolders,
   setOpenFolders,
   setManuallyOpenedFolders,
   isDragInProgressRef,
+  isDeletionInProgress,
 }) => {
   const { user, signOut, deleteAccount } = useAuthContext();
   const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
@@ -705,7 +728,7 @@ export const FlowSidebar: React.FC<FlowSidebarProps> = ({
   // Get canvases for each folder
   // Get root canvases by checking if they belong to the root folder
   const getRootCanvases = () => {
-    return canvases.filter(canvas => canvas.folderId === userRootFolderId);
+    return canvases.filter((canvas: Canvas) => canvas.folderId === userRootFolderId);
   };
   const getFolderCanvases = (folderId: string) => canvases.filter(canvas => canvas.folderId === folderId);
 
@@ -717,7 +740,7 @@ export const FlowSidebar: React.FC<FlowSidebarProps> = ({
       
       // Only open folder if not in drag state
       if (!isDragInProgressRef?.current) {
-        setOpenFolders(prev => {
+        setOpenFolders((prev: Set<string>) => {
           const newSet = new Set(prev);
           newSet.add(folderId);
           return newSet;
@@ -767,17 +790,17 @@ export const FlowSidebar: React.FC<FlowSidebarProps> = ({
       
       // Only open folder if not in drag state
       if (folderId && !isDragInProgressRef?.current) {
-        setOpenFolders(prev => {
+        setOpenFolders((prev: Set<string>) => {
           const newSet = new Set(prev);
           newSet.add(folderId);
           return newSet;
         });
         
         // Track as manually opened
-        setManuallyOpenedFolders(prev => {
-          const newSet = new Set(prev);
-          newSet.add(folderId);
-          return newSet;
+        setManuallyOpenedFolders((prevManual: Set<string>) => {
+          const newManualSet = new Set(prevManual);
+          newManualSet.add(folderId);
+          return newManualSet;
         });
         
         // Start editing the folder name immediately
@@ -826,7 +849,7 @@ export const FlowSidebar: React.FC<FlowSidebarProps> = ({
   };
 
   const toggleFolder = (folderId: string) => {
-    setOpenFolders(prev => {
+    setOpenFolders((prev: Set<string>) => {
       const newSet = new Set(prev);
       
       if (newSet.has(folderId)) {
@@ -834,7 +857,7 @@ export const FlowSidebar: React.FC<FlowSidebarProps> = ({
         newSet.delete(folderId);
         
         // Remove from manually opened tracking
-        setManuallyOpenedFolders(prevManual => {
+        setManuallyOpenedFolders((prevManual: Set<string>) => {
           const newManualSet = new Set(prevManual);
           newManualSet.delete(folderId);
           return newManualSet;
@@ -844,7 +867,7 @@ export const FlowSidebar: React.FC<FlowSidebarProps> = ({
         newSet.add(folderId);
         
         // Track as manually opened
-        setManuallyOpenedFolders(prevManual => {
+        setManuallyOpenedFolders((prevManual: Set<string>) => {
           const newManualSet = new Set(prevManual);
           newManualSet.add(folderId);
           return newManualSet;
@@ -869,6 +892,43 @@ export const FlowSidebar: React.FC<FlowSidebarProps> = ({
       fetchRootFolderId();
     }
   }, [user?.id]);
+
+  // Get the refs from the canvasManager (from props)
+  const resetCanvasCreationFlags = () => {
+    if (
+      typeof canvasManager === 'object' &&
+      canvasManager !== null &&
+      'isCreatingCanvasRef' in canvasManager &&
+      'defaultCanvasCreatedRef' in canvasManager &&
+      'isDeletionInProgressRef' in canvasManager
+    ) {
+      const cm = canvasManager as {
+        isCreatingCanvasRef?: { current: boolean };
+        defaultCanvasCreatedRef?: { current: boolean };
+        isDeletionInProgressRef?: { current: boolean };
+      };
+      if (cm.isCreatingCanvasRef && 'current' in cm.isCreatingCanvasRef) cm.isCreatingCanvasRef.current = false;
+      if (cm.defaultCanvasCreatedRef && 'current' in cm.defaultCanvasCreatedRef) cm.defaultCanvasCreatedRef.current = false;
+      if (cm.isDeletionInProgressRef && 'current' in cm.isDeletionInProgressRef) cm.isDeletionInProgressRef.current = false;
+    }
+  };
+
+  // Track if we just deleted the last canvas
+  const lastCanvasDeletedRef = useRef(false);
+
+  useEffect(() => {
+    if (isDeletionInProgress && canvases.length === 0 && !lastCanvasDeletedRef.current) {
+      lastCanvasDeletedRef.current = true;
+      canvasManager.createCanvas('Untitled Flow').then((newCanvasId) => {
+        // Auto-select the newly created canvas
+        if (newCanvasId) {
+          onSwitchCanvas(newCanvasId);
+        }
+      }).finally(() => {
+        lastCanvasDeletedRef.current = false;
+      });
+    }
+  }, [canvases.length, isDeletionInProgress, canvasManager, onSwitchCanvas]);
 
   return (
     <div
@@ -956,7 +1016,7 @@ export const FlowSidebar: React.FC<FlowSidebarProps> = ({
                 title="Create new flow"
               >
                 {(() => {
-                  const shouldShowDropFlow = activeId && draggedCanvas && overFolderIds.has(userRootFolderId || '');
+                  const shouldShowDropFlow = activeId && draggedCanvas && overFolderIds.has(userRootFolderId ?? '');
                   return shouldShowDropFlow ? 'Drop flow' : 'Add new';
                 })()}
               </button>
@@ -992,6 +1052,7 @@ export const FlowSidebar: React.FC<FlowSidebarProps> = ({
                 onDuplicateCanvas={onDuplicateCanvas}
                 onUpdateCanvas={onUpdateCanvas}
                 setEditingCanvasId={setEditingCanvasId}
+                resetCanvasCreationFlags={resetCanvasCreationFlags}
               />
 
               {/* Folders Section */}
@@ -1043,11 +1104,11 @@ export const FlowSidebar: React.FC<FlowSidebarProps> = ({
                 {/* Folders with their canvases */}
                 <div style={{ paddingTop: '8px', paddingBottom: '4px' }}>
                   {folders
-                    .sort((a, b) => {
+                    .sort((a: FolderType, b: FolderType) => {
                       // Sort alphabetically by name
                       return a.name.localeCompare(b.name);
                     })
-                    .map((folder) => {
+                    .map((folder: FolderType) => {
                       return (
                         <FolderComponent
                           key={folder.id}
@@ -1074,6 +1135,7 @@ export const FlowSidebar: React.FC<FlowSidebarProps> = ({
                           handleCreateCanvasInFolder={handleCreateCanvasInFolder}
                           setEditingFolderName={setEditingFolderName}
                           userRootFolderId={userRootFolderId}
+                          resetCanvasCreationFlags={resetCanvasCreationFlags}
                         />
                       );
                     })}

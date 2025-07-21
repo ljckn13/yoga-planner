@@ -15,10 +15,12 @@ export interface UseAutoSaveOptions {
   canvasId?: string;
   autoSaveDelay?: number; // milliseconds
   enableAutoSave?: boolean;
-  saveCurrentCanvas?: () => Promise<boolean>; // NEW: Canvas manager save function
+  saveCurrentCanvas?: () => Promise<boolean>; // Add this if not present
   isLoadingRef?: React.MutableRefObject<boolean>; // NEW: Loading flag from canvas manager
   isDragInProgress?: boolean; // NEW: Block auto-save during drag
   isReordering?: boolean; // NEW: Block auto-save during reorder
+  canvases?: Array<{ id: string }>; // Pass the current list of canvases
+  isDeletionInProgress?: boolean; // Block auto-save during deletion
 }
 
 const STORAGE_KEY_PREFIX = 'yoga_flow_canvas_';
@@ -32,6 +34,8 @@ export function useAutoSave(
     autoSaveDelay = 500, // 0.5 second delay for auto-save (faster)
     saveCurrentCanvas, // NEW: Canvas manager save function
     isLoadingRef, // NEW: Loading flag from canvas manager
+    canvases = [], // NEW: List of current canvases
+    isDeletionInProgress = false, // Block auto-save during deletion
   } = options;
 
   const { serializeCanvas, error: serializeError } = useCanvasState(editor);
@@ -55,6 +59,15 @@ export function useAutoSave(
 
   const saveToStorage = useCallback(async () => {
     if (!editor || !canvasId) {
+      return;
+    }
+    if (isDeletionInProgress) {
+      // Optionally log for debug: console.log('Skipping auto-save during deletion', canvasId);
+      return;
+    }
+    // Guard: If the canvasId is not in the current canvases list, skip save
+    if (!canvases.some(c => c.id === canvasId)) {
+      // Optionally log for debug: console.log('Skipping auto-save for deleted canvas', canvasId);
       return;
     }
     const storageKey = `${STORAGE_KEY_PREFIX}${canvasId}`;
@@ -91,7 +104,7 @@ export function useAutoSave(
       setSaveStatus('error');
       console.error('❌ [AutoSave] Save failed:', err);
     }
-  }, [editor, serializeCanvas, canvasId, saveCurrentCanvas]);
+  }, [editor, serializeCanvas, canvasId, saveCurrentCanvas, canvases, isDeletionInProgress]);
 
   const manualSave = useCallback(async () => {
     clearAutoSaveTimeout();
