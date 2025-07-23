@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useAuthContext } from '../hooks/useAuthContext';
 import { DeleteButton } from './DeleteButton';
 import { X, MoreVertical } from 'lucide-react';
@@ -141,10 +141,10 @@ export const SidebarAccountMenu: React.FC<SidebarAccountMenuProps> = ({
         <div style={{ padding: '4px 8px 8px 8px' }}>
           {/* Email (read-only) */}
           <div style={{ marginBottom: '0px' }}>
-            <input
-              type="email"
-              value={user.email || ''}
-              disabled
+                          <input
+                type="email"
+                value={user?.email || ''}
+                disabled
               style={{
                 width: '100%',
                 padding: '6px 10px',
