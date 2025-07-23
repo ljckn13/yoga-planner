@@ -37,12 +37,15 @@ export const SidebarIndicator: React.FC<SidebarIndicatorProps> = ({
         transform: 'translateY(-50%)',
         width: '4px',
         height: '30vh',
-        backgroundColor: 'rgba(255, 255, 255, 0.4)', // White with 50% opacity
+        backgroundColor: 'rgba(255, 255, 255, 0.4)', // White with 40% opacity
         borderRadius: '100px',
         zIndex: 1001,
         pointerEvents: 'none', // Don't interfere with hover events
         transition: 'opacity 0.8s ease-in-out',
         opacity: shouldShow ? 1 : 0,
+        boxShadow: '-2px -2px 10px rgba(255, 248, 220, 0.8), 3px 3px 10px rgba(255, 69, 0, 0.3)',
+        backdropFilter: 'blur(10px)',
+        WebkitBackdropFilter: 'blur(10px)',
       }}
     />
   );

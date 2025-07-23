@@ -17,6 +17,9 @@ export function AccountMenu({ isOpen, onClose }: AccountMenuProps) {
   const [saveSuccess, setSaveSuccess] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [isAnimating, setIsAnimating] = useState(false)
+  const [showSignOutConfirm, setShowSignOutConfirm] = useState(false)
+  
+
 
   // Load profile data when user changes
   useEffect(() => {
@@ -45,10 +48,15 @@ export function AccountMenu({ isOpen, onClose }: AccountMenuProps) {
   
 
   const handleSignOut = async () => {
+    setShowSignOutConfirm(true)
+  }
+
+  const handleConfirmSignOut = async () => {
     const result = await signOut()
     if (result.error) {
       console.error('Sign out error:', result.error)
     }
+    setShowSignOutConfirm(false)
     onClose()
   }
 
@@ -308,7 +316,7 @@ export function AccountMenu({ isOpen, onClose }: AccountMenuProps) {
                 lineHeight: '1.4'
               }}
             >
-              Are you sure you want to delete your account? This action cannot be undone and will permanently delete all your data including canvases and preferences.
+              Are you sure you want to delete your account? This action cannot be undone and will permanently delete all your data including canvases and folders.
             </p>
             <div 
               style={{
@@ -367,6 +375,101 @@ export function AccountMenu({ isOpen, onClose }: AccountMenuProps) {
                 }}
               >
                 {isDeleting ? 'Deleting...' : 'Delete Account'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Sign Out Confirmation Modal */}
+      {showSignOutConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center" style={{ zIndex: 999999 }}>
+          <div 
+            className="tlui-panel"
+            style={{
+              maxWidth: '400px',
+              width: '90vw',
+              padding: '20px',
+              backgroundColor: '#ffffff',
+              border: '1px solid var(--color-divider)',
+              borderRadius: '12px',
+              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)'
+            }}
+          >
+            <h3 
+              className="tlui-text tlui-text__h4"
+              style={{
+                margin: '0 0 12px 0',
+                fontSize: '14px',
+                fontWeight: '600',
+                color: 'var(--color-text)'
+              }}
+            >
+              Sign Out
+            </h3>
+            <p 
+              className="tlui-text"
+              style={{
+                fontSize: '12px',
+                color: 'var(--color-text-3)',
+                margin: '0 0 20px 0',
+                lineHeight: '1.4'
+              }}
+            >
+              Are you sure you want to sign out? You will need to sign in again to access your account.
+            </p>
+            <div 
+              style={{
+                display: 'flex',
+                justifyContent: 'flex-end',
+                gap: '8px'
+              }}
+            >
+              <button
+                onClick={() => setShowSignOutConfirm(false)}
+                className="tlui-button tlui-button__small"
+                style={{
+                  padding: '8px 12px',
+                  fontSize: '12px',
+                  fontWeight: '500',
+                  backgroundColor: 'var(--color-panel)',
+                  color: 'var(--color-text)',
+                  border: '1px solid var(--color-divider)',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  transition: 'all 0.1s ease'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = 'var(--color-hover)'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'var(--color-panel)'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmSignOut}
+                className="tlui-button tlui-button__small"
+                style={{
+                  padding: '8px 12px',
+                  fontSize: '12px',
+                  fontWeight: '500',
+                  backgroundColor: '#dc2626',
+                  color: 'white',
+                  border: '1px solid #dc2626',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  transition: 'all 0.1s ease'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#b91c1c'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = '#dc2626'
+                }}
+              >
+                Sign Out
               </button>
             </div>
           </div>

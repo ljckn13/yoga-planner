@@ -124,7 +124,7 @@ export const DraggableCanvasRow: React.FC<DraggableCanvasRowProps> = React.memo(
 
     // Handle delete with animation
   const handleDelete = () => {
-    if (confirm('Are you sure you want to delete this canvas?')) {
+    if (confirm('Are you sure you want to delete this canvas? This is irreversible.')) {
       // Trigger onDelete callback immediately to set deletion flags BEFORE animation
       onDelete(canvas.id);
       setIsDeleting(true);

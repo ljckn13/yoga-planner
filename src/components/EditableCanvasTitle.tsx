@@ -138,7 +138,7 @@ export function EditableCanvasTitle({
     );
   }
 
-  const { fontWeight, ...otherStyles } = style || {};
+  const otherStyles = style ? { ...style } : {};
   
   return (
     <div
@@ -146,6 +146,7 @@ export function EditableCanvasTitle({
       className={`text-primary cursor-pointer w-full overflow-hidden whitespace-nowrap ${className || ''}`}
       style={{
         position: 'relative',
+        cursor: 'pointer',
         ...otherStyles
       }}
       title={`Double-click to edit: ${title}`}

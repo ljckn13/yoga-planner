@@ -41,8 +41,8 @@ export const FlowPlanner: React.FC = () => {
   const autoSidebar = useAutoSidebar({
     sidebarVisible,
     setSidebarVisible,
-    canvasHoverDelay: 1500, // 1.5 seconds before collapsing when hovering canvas
-    sidebarHoverDelay: 300, // 0.8 seconds before expanding when hovering sidebar area
+    canvasHoverDelay: 100, // 0.3 seconds before collapsing when hovering canvas
+    sidebarHoverDelay: 100, // 0.8 seconds before expanding when hovering sidebar area
     isDeletionInProgress,
     isCreationInProgress,
     isDragInProgress,

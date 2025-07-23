@@ -3,11 +3,7 @@ import { useCurrentCanvasTitle } from '../hooks/useCurrentCanvasTitle';
 import { CustomMainMenu } from './CustomMainMenu';
 
 // Custom page menu that shows canvas title and main menu side by side
-export interface CustomPageMenuProps {
-  // Removed unused sidebarVisible prop
-}
-
-export const CustomPageMenu: React.FC<CustomPageMenuProps> = () => {
+export const CustomPageMenu: React.FC = () => {
   const canvasTitle = useCurrentCanvasTitle();
   
   return (
