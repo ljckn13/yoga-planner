@@ -1,6 +1,8 @@
 import { createShapeId, type TLShape, type Editor } from 'tldraw';
 import { toRichText } from '@tldraw/tlschema';
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 export interface YogaPoseSVG {
   id: string;
   name: string;
@@ -135,19 +137,59 @@ export async function createPoseFromSVG(
   // Create SVG shape first
   editor.createShape(svgShape);
 
-  
-  // Create text shapes using putExternalContent (safer for sync)
-  await editor.putExternalContent({
+  // Create editable tldraw text shapes with fixed width to prevent PNG wrapping
+  const titleWidth = Math.min(330, Math.max(200, width));
+  const subtitleWidth = titleWidth;
+  const titleX = targetX + (width / 2) - (titleWidth / 2);
+  const subtitleX = targetX + (width / 2) - (subtitleWidth / 2);
+
+  const titleShape: TLShape = {
+    id: createShapeId(),
     type: 'text',
-    text: poseData.name,
-    point: { x: targetX + (width / 2), y: targetY + height + 15 },
-  });
-  
-  await editor.putExternalContent({
-    type: 'text', 
-    text: poseData.indianName,
-    point: { x: targetX + (width / 2), y: targetY + height + 45 },
-  });
+    x: titleX,
+    y: targetY + height + 12,
+    rotation: 0,
+    index: 'a0' as any,
+    parentId: 'page:page' as any,
+    typeName: 'shape',
+    isLocked: false,
+    opacity: 1,
+    meta: {},
+    props: {
+      richText: toRichText(poseData.name),
+      color: 'black',
+      font: 'sans',
+      size: 'l',
+      textAlign: 'middle',
+      w: titleWidth,
+      autoSize: false,
+    },
+  };
+
+  const subtitleShape: TLShape = {
+    id: createShapeId(),
+    type: 'text',
+    x: subtitleX,
+    y: targetY + height + 62,
+    rotation: 0,
+    index: 'a0' as any,
+    parentId: 'page:page' as any,
+    typeName: 'shape',
+    isLocked: false,
+    opacity: 0.75,
+    meta: {},
+    props: {
+      richText: toRichText(poseData.indianName),
+      color: 'grey',
+      font: 'sans',
+      size: 'm',
+      textAlign: 'middle',
+      w: subtitleWidth,
+      autoSize: false,
+    },
+  };
+
+  editor.createShapes([titleShape, subtitleShape]);
   
   
 }

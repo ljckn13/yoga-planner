@@ -1,13 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useEditor } from 'tldraw';
 import { yogaPoses, yogaCategories } from '../assets/yoga-flows';
-import { sampleSVGPoses } from '../assets/sample-svg-poses';
 import { SubCategory } from '../types/category';
-import { createPoseFromSVG, type YogaPoseSVG } from '../utils/svg-pose-parser';
+import { createPoseFromSVG } from '../utils/svg-pose-parser';
 
 interface YogaPosePanelProps {
-  onPoseSelect: (pose: typeof yogaPoses[0] | YogaPoseSVG) => void;
-  selectedPose?: typeof yogaPoses[0] | YogaPoseSVG;
+  onPoseSelect: (pose: typeof yogaPoses[0]) => void;
+  selectedPose?: typeof yogaPoses[0] | import('../utils/svg-pose-parser').YogaPoseSVG;
   activeCategory: number;
   onCategoryChange: (category: number) => void;
 }
@@ -16,6 +15,76 @@ export const YogaPosePanel: React.FC<YogaPosePanelProps> = ({ onPoseSelect, sele
   const editor = useEditor();
   const [activeSubCategory, setActiveSubCategory] = useState<SubCategory | undefined>();
   const [lastPosePosition, setLastPosePosition] = useState<{ x: number; y: number } | null>(null);
+
+  // Convert yoga pose to SVG format for createPoseFromSVG (inline SVG content for export)
+  const convertToSVGFormat = async (pose: typeof yogaPoses[0]) => {
+    try {
+      const res = await fetch(pose.image);
+      const svgText = await res.text();
+      
+      // Extract viewBox / width / height from the source SVG
+      const viewBoxMatch = svgText.match(/viewBox="([^"]+)"/);
+      let origW = 100;
+      let origH = 100;
+      if (viewBoxMatch) {
+        const parts = viewBoxMatch[1].split(/\s+/);
+        if (parts.length >= 4) {
+          origW = parseFloat(parts[2]);
+          origH = parseFloat(parts[3]);
+        }
+      } else {
+        const widthMatch = svgText.match(/width="(\d+(?:\.\d+)?)"/);
+        const heightMatch = svgText.match(/height="(\d+(?:\.\d+)?)"/);
+        if (widthMatch) origW = parseFloat(widthMatch[1]);
+        if (heightMatch) origH = parseFloat(heightMatch[1]);
+      }
+      
+      // Normalize to a consistent target frame
+      const targetW = 352;
+      const targetH = 255;
+      const scale = Math.min(targetW / origW, targetH / origH);
+      const offsetX = (targetW - origW * scale) / 2;
+      const offsetY = (targetH - origH * scale) / 2;
+      
+      // Extract root <svg> attributes to preserve default fill/stroke from source
+      const rootAttrMatch = svgText.match(/<svg\s+([^>]+)>/);
+      let preservedAttrs = '';
+      if (rootAttrMatch) {
+        const raw = rootAttrMatch[1];
+        const keep = ['fill','stroke','stroke-width','stroke-linecap','stroke-linejoin','stroke-miterlimit','stroke-dasharray','stroke-dashoffset','color','style'];
+        const attrRegex = /(\w[\w-]*)\s*=\s*("[^"]*"|'[^']*')/g;
+        let m: RegExpExecArray | null;
+        const picked: string[] = [];
+        while ((m = attrRegex.exec(raw)) !== null) {
+          const key = m[1];
+          const val = m[2];
+          if (keep.includes(key)) picked.push(`${key}=${val}`);
+        }
+        preservedAttrs = picked.join(' ');
+      }
+
+      // Strip outer <svg> wrapper but keep inner content & defs
+      const inner = svgText.replace(/^[\s\S]*?<svg[^>]*>/, '').replace(/<\/svg>[\s\S]*$/, '');
+      const wrapped = `\n<svg width="${targetW}" height="${targetH}" viewBox="0 0 ${targetW} ${targetH}" xmlns="http://www.w3.org/2000/svg">\n  <g transform="translate(${offsetX}, ${offsetY}) scale(${scale})">\n    <g${preservedAttrs ? ' ' + preservedAttrs : ''}>\n      ${inner}\n    </g>\n  </g>\n</svg>`;
+      
+      return {
+        id: pose.id.toString(),
+        name: pose.name,
+        indianName: pose.indianName,
+        svg: wrapped,
+        thumbnail: pose.thumbnail,
+      };
+    } catch (e) {
+      // Fallback to minimal placeholder if fetch fails
+      return {
+        id: pose.id.toString(),
+        name: pose.name,
+        indianName: pose.indianName,
+        svg: `<svg width="352" height="255" viewBox="0 0 352 255" xmlns="http://www.w3.org/2000/svg"><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle">${pose.name}</text></svg>`,
+        thumbnail: pose.thumbnail,
+      };
+    }
+  };
 
   // Auto-select first subcategory when category changes
   useEffect(() => {
@@ -27,16 +96,26 @@ export const YogaPosePanel: React.FC<YogaPosePanelProps> = ({ onPoseSelect, sele
     }
   }, [activeCategory]);
 
-  // For now, let's use the sample SVG poses for testing
-  const availablePoses = sampleSVGPoses;
+  // Use the actual yoga poses from yoga-flows.ts
+  const availablePoses = yogaPoses;
   
-  const filteredPoses = availablePoses.filter(() => {
-    // For now, show all SVG poses regardless of category
-    return true;
-  });
-
+  // Define category and subcategory variables before using them
   const currentCategory = yogaCategories.find(cat => cat.category === activeCategory);
   const hasSubCategories = currentCategory?.subCategories && currentCategory.subCategories.length > 0;
+  
+  const filteredPoses = availablePoses.filter((pose) => {
+    // Filter by category
+    if (pose.category !== activeCategory) {
+      return false;
+    }
+    
+    // Filter by subcategory if it exists and is selected
+    if (hasSubCategories && activeSubCategory !== undefined) {
+      return pose.subCategory === activeSubCategory;
+    }
+    
+    return true;
+  });
 
   // Calculate height based on number of poses
   const calculateGridHeight = () => {
@@ -202,27 +281,28 @@ export const YogaPosePanel: React.FC<YogaPosePanelProps> = ({ onPoseSelect, sele
                 onClick={async () => {
                   onPoseSelect(pose);
                   
-                  // Create SVG-based shapes on the canvas
+                  // Calculate position for the pose
                   let x, y;
                   if (lastPosePosition === null) {
                     // First pose: place at center
                     const center = editor.getViewportScreenCenter();
                     const point = editor.screenToPage(center);
-                    x = point.x - 200; // Half of the frame width
-                    y = point.y - 250; // Half of the frame height
+                    x = point.x - 176; // Half of the frame width (352/2)
+                    y = point.y - 160; // Half of the frame height (320/2)
                   } else {
                     // Place 40px to the right of the last pose
-                    x = lastPosePosition.x + 440; // 400px width + 40px gap
+                    x = lastPosePosition.x + 392; // 352px width + 40px gap
                     y = lastPosePosition.y;
                   }
                   
                   // Update the last pose position
                   setLastPosePosition({ x, y });
                   
-                  // Create pose using the new async function
-                  await createPoseFromSVG(editor, pose, x, y);
+                  // Convert pose to SVG format (inline SVG) and create on canvas
+                  const svgPose = await convertToSVGFormat(pose);
+                  await createPoseFromSVG(editor, svgPose, x, y);
                   
-                  // Clear the selected pose after pasting
+                  // Clear the selected pose after placing
                   onPoseSelect(undefined as any);
                 }}
                 onMouseEnter={(e) => {
@@ -237,7 +317,7 @@ export const YogaPosePanel: React.FC<YogaPosePanelProps> = ({ onPoseSelect, sele
                 }}
               >
                 <img 
-                  src={pose.thumbnail} 
+                  src={pose.image} 
                   alt={pose.name}
                   style={{ 
                     width: '40px', 
@@ -255,7 +335,7 @@ export const YogaPosePanel: React.FC<YogaPosePanelProps> = ({ onPoseSelect, sele
                   marginTop: 'auto'
                 }}>
                   <div style={{ fontWeight: '500', marginBottom: '1px' }}>{pose.name}</div>
-                  <div style={{ opacity: 0.6, fontSize: '8px' }}>{pose.indianName}</div>
+                  <div style={{ opacity: 0.6, fontSize: '8px' }}>{pose.translation}</div>
                 </div>
               </div>
             ))}

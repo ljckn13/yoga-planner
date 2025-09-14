@@ -80,26 +80,25 @@ export class YogaPoseSvgShapeUtil extends ShapeUtil<YogaPoseSvgShape> {
     );
   }
 
-  /* Export renderer - parse SVG and return proper SVG elements */
+  /* Export renderer - return a React SVG element as tldraw expects */
   toSvg(shape: YogaPoseSvgShape, ctx: SvgExportContext) {
     const { svg, w, h, opacity, color } = shape.props;
     
-    // Extract dimensions from the original SVG
-    const viewBoxMatch = svg.match(/viewBox="([^"]+)"/);
-    const originalWidth = viewBoxMatch ? parseFloat(viewBoxMatch[1].split(' ')[2]) : 100;
-    const originalHeight = viewBoxMatch ? parseFloat(viewBoxMatch[1].split(' ')[3]) : 100;
+    // Remove any white background rects to avoid export backgrounds
+    const cleaned = svg.replace(/<rect[^>]*fill="white"[^>]*\/?>/g, '');
     
-    // Scale the SVG to fit the shape dimensions
-    const scaleX = w / originalWidth;
-    const scaleY = h / originalHeight;
-    const scale = Math.min(scaleX, scaleY);
-    
-    // Create a scaled version of the SVG
-    const scaledSvg = svg.replace(
+    // Inject width/height and simple styling
+    const scaledSvg = cleaned.replace(
       /<svg([^>]*)>/,
       `<svg$1 width="${w}" height="${h}" style="color: ${color}; opacity: ${opacity};">`
     );
     
-    return scaledSvg;
+    // Return a React element with the inner markup
+    const inner = scaledSvg.replace(/^[\s\S]*?<svg[^>]*>|<\/svg>[\s\S]*$/g, '');
+    return React.createElement('svg', {
+      width: w,
+      height: h,
+      dangerouslySetInnerHTML: { __html: inner },
+    });
   }
 } 

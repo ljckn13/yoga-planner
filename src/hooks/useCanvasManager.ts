@@ -629,14 +629,16 @@ export function useCanvasManager(
   }, [currentCanvasId]); // Removed currentCanvasId from dependencies to prevent infinite loop
 
   // Load canvas state from Supabase or localStorage
-  const loadCanvasState = useCallback(async (canvasId: string, retryCount = 0): Promise<boolean> => {
+  const loadCanvasState = useCallback(async (canvasId: string, retryCount = 0, manageLoading = true): Promise<boolean> => {
     if (!canvasId || !editor) {
       console.log('❌ Cannot load canvas state: missing canvasId or editor');
       return false;
     }
 
-    isLoadingRef.current = true;
-    setIsLoading(true);
+    if (manageLoading) {
+      isLoadingRef.current = true;
+      setIsLoading(true);
+    }
     setError(null);
 
     try {
@@ -657,7 +659,7 @@ export function useCanvasManager(
             // Robust retry logic for 406/0 rows
             if (!canvasState && retryCount < 5) {
               await new Promise(res => setTimeout(res, 500));
-              return loadCanvasState(canvasId, retryCount + 1);
+              return loadCanvasState(canvasId, retryCount + 1, manageLoading);
             }
           }
         } catch { /* intentionally empty */ }
@@ -696,8 +698,10 @@ export function useCanvasManager(
       setError(errorMessage);
       return false;
     } finally {
-      setIsLoading(false);
-      isLoadingRef.current = false;
+      if (manageLoading) {
+        setIsLoading(false);
+        isLoadingRef.current = false;
+      }
     }
   }, [editor, effectiveUserId, enableSupabase, createBlankCanvasState, currentCanvasId]);
 
@@ -772,6 +776,8 @@ export function useCanvasManager(
   const createCanvas = useCallback(async (title?: string, folderId?: string | null, insertAtBeginning: boolean = false): Promise<string> => {
     console.log('[createCanvas] called with', { title, folderId, insertAtBeginning, effectiveUserId, enableSupabase });
     setIsLoading(true);
+    // Block autosave during create-and-switch to avoid saving a cleared editor
+    isLoadingRef.current = true;
     setError(null);
 
     try {
@@ -779,6 +785,13 @@ export function useCanvasManager(
       
       let id: string;
       let newCanvas: CanvasListItem;
+
+      // Proactively save the current canvas before creating a new one
+      if (editor && currentCanvasId) {
+        try {
+          await saveCurrentCanvas();
+        } catch { /* intentionally empty */ }
+      }
 
       if (isProduction) {
         // Production: Supabase only - no localStorage fallback for data consistency
@@ -794,13 +807,13 @@ export function useCanvasManager(
         
         while (retryCount < maxRetries) {
           try {
-            const blankState = createBlankCanvasState();
+            // Do not mutate the current editor when creating a new canvas
             supabaseCanvas = await CanvasService.createCanvas({
               user_id: effectiveUserId,
               folder_id: folderId, // Pass folderId as is (null for top-level)
               title: title || defaultCanvasTitle,
               description: '',
-              data: blankState || {},
+              data: {},
               thumbnail: await generateThumbnail() || null,
               is_public: false,
               shape_count: 0, // New canvases start with 0 shapes
@@ -849,14 +862,13 @@ export function useCanvasManager(
         // Development: Try Supabase first, fall back to localStorage
         if (effectiveUserId && enableSupabase) {
           try {
-            // Create canvas in Supabase
-            const blankState = createBlankCanvasState();
+            // Create canvas in Supabase (without mutating current editor state)
             const supabaseCanvas = await CanvasService.createCanvas({
               user_id: effectiveUserId,
               folder_id: folderId, // Pass folderId as is (null for top-level)
               title: title || defaultCanvasTitle,
               description: '',
-              data: blankState || {},
+              data: {},
               thumbnail: await generateThumbnail() || null,
               is_public: false,
               shape_count: 0, // New canvases start with 0 shapes
@@ -901,10 +913,9 @@ export function useCanvasManager(
               isLoaded: false,
             };
             
-            // Save to localStorage
-            const blankState = createBlankCanvasState();
+            // Save blank data to localStorage without touching current editor
             const storageKey = `${STORAGE_KEY_PREFIX}${id}`;
-            localStorage.setItem(storageKey, JSON.stringify(blankState));
+            localStorage.setItem(storageKey, JSON.stringify({}));
           }
         } else {
           // LocalStorage only
@@ -925,10 +936,9 @@ export function useCanvasManager(
             isLoaded: false,
           };
           
-          // Save to localStorage
-          const blankState = createBlankCanvasState();
+          // Save blank data to localStorage without touching current editor
           const storageKey = `${STORAGE_KEY_PREFIX}${id}`;
-          localStorage.setItem(storageKey, JSON.stringify(blankState));
+          localStorage.setItem(storageKey, JSON.stringify({}));
         }
       }
 
@@ -951,11 +961,13 @@ export function useCanvasManager(
         return newList;
       });
 
-      // Set as current canvas
+      // Set as current canvas and load it while managing loading to block autosave
       setCurrentCanvasId(id);
-      
-      // Load the new canvas state
-      await loadCanvasState(id);
+      await loadCanvasState(id, 0, false);
+      setTimeout(() => {
+        console.log('[CreateCanvas] Clearing loading guard');
+        isLoadingRef.current = false;
+      }, 2500);
 
       return id;
     } catch (err) {
@@ -966,7 +978,7 @@ export function useCanvasManager(
     } finally {
       setIsLoading(false);
     }
-  }, [effectiveUserId, enableSupabase, isProduction, createBlankCanvasState, generateThumbnail, loadCanvasState, version, defaultCanvasTitle]);
+  }, [effectiveUserId, enableSupabase, isProduction, generateThumbnail, loadCanvasState, version, defaultCanvasTitle]);
 
   // Duplicate a canvas
   const duplicateCanvas = useCallback(async (id: string): Promise<string> => {
@@ -1234,55 +1246,67 @@ export function useCanvasManager(
       return true;
     }
 
-    // Save current canvas state before switching (if editor exists and current canvas is set)
-    if (editor && currentCanvasId) {
-      try {
-        const currentSnapshot = getSnapshot(editor.store);
-        
-        // Calculate shape count from current page
-        const shapeCount = editor.getCurrentPageShapeIds().size;
-        
-        const canvasState = {
-          snapshot: currentSnapshot,
-          timestamp: Date.now(),
-          version: version,
-        };
-        
-        // Save to both Supabase and localStorage for reliability
-        if (effectiveUserId && enableSupabase) {
-          try {
-            await CanvasService.updateCanvas(currentCanvasId, { 
-              data: canvasState,
-              shape_count: shapeCount
-            });
-          } catch (supabaseError: unknown) {
-            console.error('Failed to save to Supabase:', supabaseError);
+    // Set loading state for the entire switch process
+    isLoadingRef.current = true;
+    setIsLoading(true);
+
+    try {
+      // Save current canvas state before switching (if editor exists and current canvas is set)
+      if (editor && currentCanvasId) {
+        try {
+          const currentSnapshot = getSnapshot(editor.store);
+          
+          // Calculate shape count from current page
+          const shapeCount = editor.getCurrentPageShapeIds().size;
+          
+          const canvasState = {
+            snapshot: currentSnapshot,
+            timestamp: Date.now(),
+            version: version,
+          };
+          
+          // Save to both Supabase and localStorage for reliability
+          if (effectiveUserId && enableSupabase) {
+            try {
+              await CanvasService.updateCanvas(currentCanvasId, { 
+                data: canvasState,
+                shape_count: shapeCount
+              });
+            } catch (supabaseError: unknown) {
+              console.error('Failed to save to Supabase:', supabaseError);
+              // Fallback to localStorage
+              const storageKey = `${STORAGE_KEY_PREFIX}${currentCanvasId}`;
+              localStorage.setItem(storageKey, JSON.stringify(canvasState));
+            }
+          } else {
             // Fallback to localStorage
             const storageKey = `${STORAGE_KEY_PREFIX}${currentCanvasId}`;
             localStorage.setItem(storageKey, JSON.stringify(canvasState));
           }
-        } else {
-          // Fallback to localStorage
-          const storageKey = `${STORAGE_KEY_PREFIX}${currentCanvasId}`;
-          localStorage.setItem(storageKey, JSON.stringify(canvasState));
+        } catch (err) {
+          console.error('Failed to save current canvas before switch:', err);
+          // Continue with switch even if save failed
         }
-      } catch (err) {
-        console.error('Failed to save current canvas before switch:', err);
-        // Continue with switch even if save failed
       }
+      
+      // Switch the current canvas ID
+      setCurrentCanvasId(id);
+      
+      // Load the new canvas state (do not manage loading inside)
+      const success = await loadCanvasState(id, 0, false);
+      
+      if (!success) {
+        console.error('Failed to switch to canvas:', id);
+      }
+      
+      return success;
+    } finally {
+      // Clear loading state after a delay to allow editor to settle
+      setTimeout(() => {
+        isLoadingRef.current = false;
+      }, 1500);
+      setIsLoading(false);
     }
-    
-    // Switch the current canvas ID
-    setCurrentCanvasId(id);
-    
-    // Load the new canvas state
-    const success = await loadCanvasState(id);
-    
-    if (!success) {
-      console.error('Failed to switch to canvas:', id);
-    }
-    
-    return success;
   }, [currentCanvasId, loadCanvasState, editor, effectiveUserId, enableSupabase, version]);
 
   // NEW: Manual save function for current canvas

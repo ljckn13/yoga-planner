@@ -751,7 +751,7 @@ export const FlowSidebar: React.FC<FlowSidebarProps> = ({
       
       // Set editing state and switch to new canvas
       setEditingCanvasId(newCanvasId);
-      await onSwitchCanvas(newCanvasId);
+      // No explicit switch here: createCanvas already sets currentCanvasId and loads it.
     } catch (error) {
       console.error('Failed to create canvas in folder:', error);
     }
@@ -764,7 +764,7 @@ export const FlowSidebar: React.FC<FlowSidebarProps> = ({
       
       // Set editing state and switch to new canvas
       setEditingCanvasId(newCanvasId);
-      await onSwitchCanvas(newCanvasId);
+      // No explicit switch here: createCanvas already sets currentCanvasId and loads it.
     } catch (error) {
       console.error('Failed to create canvas at root:', error);
     }

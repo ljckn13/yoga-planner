@@ -10,8 +10,6 @@ import {
   DefaultFillStyle,
   type TLDefaultColorStyle,
   type TLDefaultFillStyle,
-  useDefaultColorTheme,
-  DefaultColorThemePalette,
 } from 'tldraw';
 
 /* Declare the record type */
@@ -80,42 +78,41 @@ export class YogaPoseSvgShapeUtil extends ShapeUtil<YogaPoseSvgShape> {
 
   /* React renderer – drop raw markup into the canvas */
   component({ props }: YogaPoseSvgShape) {
-    // eslint-disable-next-line react-hooks/rules-of-hooks
-    const theme = useDefaultColorTheme();
-    
-    // Get the actual color value from tldraw's theme
-    const colorValue = theme[props.color].solid;
-    const fillValue = props.fill === 'none' ? 'none' : theme[props.color].solid;
-    
-
-    
-    // Apply style properties to the SVG content
-    const styledSvg = props.svg
-      // First remove the white background rectangle
-      .replace(/<rect[^>]*fill="white"[^>]*\/?>/g, '')
-      // Replace any hardcoded stroke colors
-      .replace(/stroke="#[0-9A-Fa-f]{6}"/g, `stroke="${colorValue}"`)
-      .replace(/stroke="[^"]*"/g, `stroke="${colorValue}"`)
-      // Replace any hardcoded fill colors
-      .replace(/fill="#[0-9A-Fa-f]{6}"/g, `fill="${fillValue}"`)
-      .replace(/fill="[^"]*"/g, `fill="${fillValue}"`)
-      // Replace currentColor references
-      .replace(/stroke="currentColor"/g, `stroke="${colorValue}"`)
-      .replace(/fill="currentColor"/g, `fill="${colorValue}"`);
-
-
-
-    // Parse the SVG to get the viewBox
     const parser = new DOMParser();
-    const doc = parser.parseFromString(styledSvg, 'image/svg+xml');
-    const svgElement = doc.querySelector('svg');
-    
+    const doc = parser.parseFromString(props.svg, 'image/svg+xml');
+    const svgEl = doc.querySelector('svg');
+
     let viewBox = `0 0 ${props.w} ${props.h}`;
-    if (svgElement && svgElement.getAttribute('viewBox')) {
-      viewBox = svgElement.getAttribute('viewBox')!;
+    let vbW = props.w;
+    let vbH = props.h;
+    if (svgEl) {
+      const vb = svgEl.getAttribute('viewBox');
+      if (vb) {
+        viewBox = vb;
+        const parts = vb.split(/\s+/);
+        if (parts.length >= 4) {
+          vbW = parseFloat(parts[2]);
+          vbH = parseFloat(parts[3]);
+        }
+      }
+
+      // Remove only immediate root-level white rects matching the viewBox size
+      const toRemove: Element[] = [];
+      Array.from(svgEl.children).forEach((child) => {
+        if (child.tagName.toLowerCase() === 'rect') {
+          const fill = (child.getAttribute('fill') || '').toLowerCase();
+          const w = parseFloat(child.getAttribute('width') || '-1');
+          const h = parseFloat(child.getAttribute('height') || '-1');
+          if ((fill === 'white' || fill === '#fff' || fill === '#ffffff') && Math.abs(w - vbW) < 0.01 && Math.abs(h - vbH) < 0.01) {
+            toRemove.push(child);
+          }
+        }
+      });
+      toRemove.forEach((el) => el.remove());
     }
 
-    // Create the SVG element directly without div wrapper
+    const inner = svgEl ? svgEl.innerHTML : props.svg.replace(/^[\s\S]*?<svg[^>]*>/, '').replace(/<\/svg>[\s\S]*$/, '');
+
     return React.createElement(SVGContainer, {}, 
       React.createElement('svg', {
         width: props.w,
@@ -132,113 +129,56 @@ export class YogaPoseSvgShapeUtil extends ShapeUtil<YogaPoseSvgShape> {
           alignItems: 'center',
           justifyContent: 'center',
         },
-        dangerouslySetInnerHTML: { __html: styledSvg },
+        dangerouslySetInnerHTML: { __html: inner },
       })
     );
   }
 
-  /* Export renderer - parse SVG and return proper SVG elements */
+  /* Export renderer - return a React SVG element as tldraw expects */
   toSvg(shape: YogaPoseSvgShape) {
-    const { svg, w, h, color, fill, opacity } = shape.props;
-    
+    const { svg, w, h, opacity } = shape.props;
 
-    
-    // Use tldraw's actual color theme values instead of hardcoded hex values
-    const getColorValue = (colorName: string): string => {
-      // Try to get the color from tldraw's theme palette
-      const lightTheme = DefaultColorThemePalette.lightMode;
-      
-      // Check if the color exists in the theme
-      if (colorName in lightTheme) {
-        const colorObj = lightTheme[colorName as keyof typeof lightTheme];
-        return typeof colorObj === 'string' ? colorObj : colorObj.solid;
-      }
-      
-      // Fallback color mapping for any missing colors
-      const fallbackColors: Record<string, string> = {
-        black: '#1d1d1d',
-        blue: '#0000FF',
-        green: '#00FF00',
-        grey: '#808080',
-        lightblue: '#ADD8E6',
-        lightgreen: '#90EE90',
-        lightred: '#FFB6C1',
-        lightviolet: '#E6E6FA',
-        orange: '#FFA500',
-        red: '#FF0000',
-        violet: '#800080',
-        yellow: '#FFFF00',
-        'light-blue': '#ADD8E6',
-        'light-green': '#90EE90',
-        'light-red': '#FFB6C1',
-        'light-violet': '#E6E6FA',
-        'light-orange': '#FFD700',
-        'light-yellow': '#FFFFE0',
-        'light-grey': '#D3D3D3',
-        'light-black': '#696969',
-      };
-      
-      return fallbackColors[colorName] || '#1d1d1d';
-    };
-    
-    const colorValue = getColorValue(color);
-    const fillValue = fill === 'none' ? 'none' : colorValue;
-    
-
-    
-    // Apply style properties to the SVG content (same logic as component)
-    const styledSvg = svg
-      // First remove the white background rectangle
-      .replace(/<rect[^>]*fill="white"[^>]*\/?>/g, '')
-      // Replace any hardcoded stroke colors
-      .replace(/stroke="#[0-9A-Fa-f]{6}"/g, `stroke="${colorValue}"`)
-      .replace(/stroke="[^"]*"/g, `stroke="${colorValue}"`)
-      // Replace any hardcoded fill colors
-      .replace(/fill="#[0-9A-Fa-f]{6}"/g, `fill="${fillValue}"`)
-      .replace(/fill="[^"]*"/g, `fill="${fillValue}"`)
-      // Replace currentColor references
-      .replace(/stroke="currentColor"/g, `stroke="${colorValue}"`)
-      .replace(/fill="currentColor"/g, `fill="${fillValue}"`);
-    
-  
-    
-    // Parse the SVG to get the viewBox
     const parser = new DOMParser();
     const doc = parser.parseFromString(svg, 'image/svg+xml');
-    const originalSvg = doc.querySelector('svg');
-    
-    let viewBox = `0 0 ${w} ${h}`;
-    if (originalSvg && originalSvg.getAttribute('viewBox')) {
-      viewBox = originalSvg.getAttribute('viewBox')!;
-  
-    } else {
-  
-    }
-    
-    // Check for parsing errors
-    const parseError = doc.querySelector('parsererror');
-    if (parseError) {
-      console.error('❌ SVG parsing error:', parseError.textContent);
-    }
-    
-    // Log the SVG content structure
-    if (originalSvg) {
+    const svgEl = doc.querySelector('svg');
 
+    let viewBox = `0 0 ${w} ${h}`;
+    let vbW = w;
+    let vbH = h;
+    if (svgEl) {
+      const vb = svgEl.getAttribute('viewBox');
+      if (vb) {
+        viewBox = vb;
+        const parts = vb.split(/\s+/);
+        if (parts.length >= 4) {
+          vbW = parseFloat(parts[2]);
+          vbH = parseFloat(parts[3]);
+        }
+      }
+
+      // Remove only root-level white rect backgrounds
+      const toRemove: Element[] = [];
+      Array.from(svgEl.children).forEach((child) => {
+        if (child.tagName.toLowerCase() === 'rect') {
+          const fill = (child.getAttribute('fill') || '').toLowerCase();
+          const cw = parseFloat(child.getAttribute('width') || '-1');
+          const ch = parseFloat(child.getAttribute('height') || '-1');
+          if ((fill === 'white' || fill === '#fff' || fill === '#ffffff') && Math.abs(cw - vbW) < 0.01 && Math.abs(ch - vbH) < 0.01) {
+            toRemove.push(child);
+          }
+        }
+      });
+      toRemove.forEach((el) => el.remove());
     }
-    
-    // Create a wrapper SVG element that contains the pose SVG
-    const result = React.createElement('svg', {
+
+    const inner = svgEl ? svgEl.innerHTML : svg.replace(/^[\s\S]*?<svg[^>]*>/, '').replace(/<\/svg>[\s\S]*$/, '');
+
+    return React.createElement('svg', {
       width: w,
       height: h,
       viewBox: viewBox,
-      preserveAspectRatio: 'xMidYMid meet',
-      xmlns: 'http://www.w3.org/2000/svg',
       style: { opacity },
-      dangerouslySetInnerHTML: { __html: styledSvg },
+      dangerouslySetInnerHTML: { __html: inner },
     });
-    
-
-    
-    return result;
   }
 } 

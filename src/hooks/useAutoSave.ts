@@ -61,6 +61,10 @@ export function useAutoSave(
     if (!editor || !canvasId) {
       return;
     }
+    // Skip any pending saves while a load/switch is in progress
+    if (isLoadingRef?.current) {
+      return;
+    }
     if (isDeletionInProgress) {
       // Optionally log for debug: console.log('Skipping auto-save during deletion', canvasId);
       return;
@@ -130,15 +134,12 @@ export function useAutoSave(
       return;
     }
 
-    // Don't auto-save immediately on initial load - wait for user interaction
+    // On mount or canvasId change, do not trigger an immediate save.
+    // We rely on explicit saves in switch/create flows and store-change listener.
     if (isInitialLoadRef.current) {
       isInitialLoadRef.current = false;
-      setSaveStatus('saved');
-    } else {
-      // Only save immediately when switching canvases (not on initial load)
-      setSaveStatus('saving');
-      saveToStorage();
     }
+    setSaveStatus('saved');
 
     const handleStoreChange = () => {
       // Skip auto-save during initial load or when canvas is loading
@@ -155,6 +156,7 @@ export function useAutoSave(
       setSaveStatus('saving');
       setHasUnsavedChanges(true);
       autoSaveTimeoutRef.current = setTimeout(() => {
+        if (isLoadingRef?.current) return;
         saveToStorage();
       }, autoSaveDelay);
     };
